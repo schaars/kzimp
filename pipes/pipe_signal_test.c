@@ -41,12 +41,12 @@ void send_a_message(int fd, int v, char *prefix)
   int sum;
   int i;
 
-  for (i = 0; i < msg_size - 1; i++)
+  for (i = 0; i < msg_size; i++)
     msg[i] = (char) ((float) (i + 10 * v) * 1.5);
 
   sum = 0;
   //printf("%s Sending message: [ ", prefix);
-  for (i = 0; i < msg_size - 1; i++)
+  for (i = 0; i < msg_size; i++)
   {
     //printf("%i ", msg[i]);
     sum += msg[i];
@@ -80,7 +80,7 @@ void receive_a_message(int fd, char *prefix)
 
   sum = 0;
   //printf("%s Message is: [ ", prefix);
-  for (i = 0; i < MSG_SIZE - 1; i++)
+  for (i = 0; i < MSG_SIZE; i++)
   {
     //printf("%i ", msg[i]);
     sum += msg[i];
