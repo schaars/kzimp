@@ -13,16 +13,16 @@
 void send_a_message(int fd, int v, char *prefix)
 {
   int msg_size = MSG_SIZE;
-  char msg[MSG_SIZE];
+  char msg[msg_size];
   int sum;
   int i;
 
-  for (i = 0; i < MSG_SIZE - 1; i++)
+  for (i = 0; i < msg_size - 1; i++)
     msg[i] = (char) ((float) (i + 10 * v) * 1.5);
 
   sum = 0;
   //printf("%s Sending message: [ ", prefix);
-  for (i = 0; i < MSG_SIZE - 1; i++)
+  for (i = 0; i < msg_size - 1; i++)
   {
     //printf("%i ", msg[i]);
     sum += msg[i];
