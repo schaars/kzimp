@@ -6,7 +6,7 @@ CFLAGS:=-Wall -Werror -g
 %.o: %.c
 	$(C) $(CFLAGS) -o $@ -c $<
 
-inet_tcp_microbench:	microbench.o inet_tcp_socket.o
+inet_tcp_microbench: time.h tcp_net.o inet_tcp_socket.o microbench.o
 	$(C) $(CFLAGS) -o $@ $^
 
 clean:
