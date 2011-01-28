@@ -20,14 +20,18 @@ void IPC_initialize_consumer(int _core_id);
 void IPC_clean(void);
 
 // Clean ressources created for the producer.
-void IPC_clean_producer(void);
+// get the number of cycles spent in send() operation
+void IPC_clean_producer(uint64_t *_cycles_in_send);
 
 // Clean ressources created for the consumer.
-void IPC_clean_consumer(void);
+// get the number of cycles spent in recv() operation
+void IPC_clean_consumer(uint64_t *_cycles_in_recv);
 
 // Send a message to all the cores
-void IPC_sendToAll(int msg_size);
+// The message id will be msg_id
+void IPC_sendToAll(int msg_size, long msg_id);
 
 // Get a message for this core
-// return 1 if the received message is valid, 0 otherwise
-int IPC_receive(int msg_size);
+// return the size of the received message if it is valid, 0 otherwise
+// Place in *msg_id the id of this message
+int IPC_receive(int msg_size, long *msg_id);

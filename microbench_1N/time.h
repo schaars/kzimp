@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 static uint64_t clock_mhz; // clock frequency in MHz (number of instructions per microseconds)
 
@@ -27,7 +28,7 @@ static uint64_t clock_mhz; // clock frequency in MHz (number of instructions per
 #endif
 
 // initialize clock_mhz
-inline void init_clock_mhz()
+static inline void init_clock_mhz()
 {
   struct timeval t0, t1;
   uint64_t c0, c1;
@@ -44,13 +45,14 @@ inline void init_clock_mhz()
 }
 
 /****************** timer ******************/
-//TODO
-// start
-//stop
-//elapsed
 
-
-// Clock frequency in MHz
+// return the current time in usec
+static inline uint64_t get_current_time()
+{
+  struct timeval t;
+  gettimeofday(&t, 0);
+  return (t.tv_sec * 1000000 + t.tv_usec);
+}
 
 /*
  * return the difference between t1 and t2, in usec

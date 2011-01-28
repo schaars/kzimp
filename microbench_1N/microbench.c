@@ -25,39 +25,60 @@
 #include "list.h"
 
 // debug macro
-#define DEBUG 1
+//#define DEBUG
+#undef DEBUG
 
 // number of threads per core. Set it to 2 when having a hyperthreaded CPU
 #define NB_THREADS_PER_CORE 1
 
 // name of the file which will contain statistics
-#define STATISTICS_FILE_PREFIX "./statistics_consumer_"
+#define STATISTICS_FILE_PREFIX "./statistics_"
 #define STATISTICS_FILE_SUFFIX ".log"
 
 static int core_id; // 0 is the producer. The others are children
 static int nb_receivers;
-static long nb_requests; // do not forget the warmup phase which lasts nb_requests/2
-static int request_size; // requests size in bytes
+static long nb_messages_warmup;
+static long nb_messages_logging;
+static long nb_messages; // sum of the 2 previous values
+static int message_size; // messages size in bytes
 
-void do_producer(void)
+uint64_t do_producer(void)
 {
-  long nb_req;
+  long nb_msg;
+  uint64_t xp_start_time = 0;
 
 #ifdef DEBUG
   printf("[core %i] I am a producer and I am doing my job\n", core_id);
 #endif
 
-  for (nb_req = 0; nb_req < nb_requests; nb_req++)
+  for (nb_msg = 0; nb_msg < nb_messages; nb_msg++)
   {
-    printf("[core %i] Sending message %li\n", core_id, nb_req);
-    IPC_sendToAll(request_size);
+#ifdef DEBUG
+    printf("[core %i] Sending message %li\n", core_id, nb_msg);
+#endif
+
+    if (nb_msg == nb_messages_warmup)
+    {
+      // get current time, which is the start time of this experiment (we consider only the logging phase)
+      xp_start_time = get_current_time();
+    }
+
+    IPC_sendToAll(message_size, nb_msg);
   }
+
+  return xp_start_time;
 }
 
 void do_consumer(void)
 {
-  long nb_req;
+  long nb_msg;
+  long msg_id;
+
+  // for computing the throughput
+  uint64_t total_payload;
+
   uint64_t lat_start, lat_stop;
+
   double current_thr;
   double current_lat;
   struct my_list_node *list_of_thr;
@@ -70,35 +91,35 @@ void do_consumer(void)
   printf("[core %i] I am a consumer and I am doing my job\n", core_id);
 #endif
 
-  //TODO: compute throughput + latency
-
-  nb_req = 0;
-  while (nb_req < nb_requests)
+  nb_msg = 0;
+  while (nb_msg < nb_messages)
   {
     rdtsc(lat_start);
-    int ret = IPC_receive(request_size);
+    uint64_t ret = IPC_receive(message_size, &msg_id);
     rdtsc(lat_stop);
 
     if (ret)
     {
 #ifdef DEBUG
-      printf("[core %i] Receiving valid message %li\n", core_id, nb_req);
+      printf("[core %i] Receiving valid message %li\n", core_id, nb_msg);
 #endif
 
       // are we in the logging phase?
-      if (nb_req >= nb_requests / 2)
+      if (nb_msg >= nb_messages_warmup)
       {
+        total_payload += ret;
+
         // compute latency in usec
         current_lat = diffTime(lat_stop, lat_start);
         list_of_lat = list_add(list_of_lat, current_lat);
       }
 
-      nb_req++;
+      nb_msg++;
     }
     else
     {
 #ifdef DEBUG
-      printf("[core %i] Receiving unvalid message %li\n", core_id, nb_req);
+      printf("[core %i] Receiving unvalid message %li\n", core_id, nb_msg);
 #endif
     }
 
@@ -121,7 +142,7 @@ void do_consumer(void)
   double lat_stddev = list_compute_stddev(list_of_lat, avg_lat);
 
   //TODO: output statistics in the file
-  // STATISTICS_FILE_PREFIX + core_id + STATISTICS_FILE_SUFFIX
+  // STATISTICS_FILE_PREFIX + consumer_<core_id> + STATISTICS_FILE_SUFFIX
   printf("[consumer %i] thr = %f +/- %f, lat = %f +/- %f\n", core_id, avg_thr,
       thr_stddev, avg_lat, lat_stddev);
 }
@@ -141,7 +162,7 @@ void print_help_and_exit(char *program_name)
 {
   fprintf(
       stderr,
-      "Usage: %s -n nb_receivers -r nb_requests -m requests_size_in_B\nThere is a warmup phase which lasts nb_requests/2\n",
+      "Usage: %s -n nb_receivers -w nb_messages_warmup_phase -l nb_messages_logging_phase -m messages_size_in_B\n",
       program_name);
   exit(-1);
 }
@@ -149,12 +170,14 @@ void print_help_and_exit(char *program_name)
 int main(int argc, char **argv)
 {
   nb_receivers = -1;
-  nb_requests = -1;
-  request_size = -1;
+  nb_messages_warmup = -1;
+  nb_messages_logging = -1;
+  nb_messages = -1;
+  message_size = -1;
 
   // process command line options
   int opt;
-  while ((opt = getopt(argc, argv, "n:r:m:")) != EOF)
+  while ((opt = getopt(argc, argv, "n:w:l:m:")) != EOF)
   {
     switch (opt)
     {
@@ -162,12 +185,16 @@ int main(int argc, char **argv)
       nb_receivers = atoi(optarg);
       break;
 
-    case 'r':
-      nb_requests = atol(optarg);
+    case 'w':
+      nb_messages_warmup = atol(optarg);
+      break;
+
+    case 'l':
+      nb_messages_logging = atol(optarg);
       break;
 
     case 'm':
-      request_size = atoi(optarg);
+      message_size = atoi(optarg);
       break;
 
     default:
@@ -175,7 +202,8 @@ int main(int argc, char **argv)
     }
   }
 
-  if (nb_receivers <= 0 || nb_requests <= 0 || request_size <= 0)
+  nb_messages = nb_messages_warmup + nb_messages_logging;
+  if (nb_receivers <= 0 || nb_messages <= 0 || message_size <= 0)
   {
     print_help_and_exit(argv[0]);
   }
@@ -183,7 +211,7 @@ int main(int argc, char **argv)
   init_clock_mhz();
 
   // initialize the mechanism
-  IPC_initialize(nb_receivers, request_size);
+  IPC_initialize(nb_receivers, message_size);
 
   // fork in order to create the children
   core_id = 0;
@@ -214,20 +242,38 @@ int main(int argc, char **argv)
   if (core_id == 0)
   {
     IPC_initialize_producer(core_id);
-    do_producer();
+    uint64_t xp_start_time = do_producer();
 
     // wait for children to terminate
     wait_for_receivers();
 
+    uint64_t xp_end_time = get_current_time();
+
+    //TODO: output statistics in the file
+    // STATISTICS_FILE_PREFIX + producer + STATISTICS_FILE_SUFFIX
+    printf(
+        "[producer] start_time=%qu usec, end_time=%qu usec, elapsed_time=%qu usec\n",
+        (long long unsigned int) xp_start_time,
+        (long long unsigned int) xp_end_time,
+        (long long unsigned int) (xp_end_time - xp_start_time));
+
     // release mechanism resources
-    IPC_clean_producer();
+    uint64_t cycles_in_send;
+    IPC_clean_producer(&cycles_in_send);
+    printf("[producer] nb cycles in send = %qd\n",
+        (long long unsigned int) cycles_in_send);
+
     IPC_clean();
   }
   else
   {
     IPC_initialize_consumer(core_id);
     do_consumer();
-    IPC_clean_consumer();
+
+    uint64_t cycles_in_recv;
+    IPC_clean_consumer(&cycles_in_recv);
+    printf("[consumer %i] nb cycles in recv = %qd\n", core_id,
+        (long long unsigned int) cycles_in_recv);
   }
 
   return 0;

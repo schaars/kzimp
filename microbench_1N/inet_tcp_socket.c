@@ -15,15 +15,17 @@
 
 #include "ipc_interface.h"
 #include "tcp_net.h"
+#include "time.h"
 
 // debug macro
-#define DEBUG 1
+//#define DEBUG
+#undef DEBUG
 
 /********** All the variables needed by TCP sockets **********/
 
 #define BOOTSTRAP_PORT 6000
 
-#define MSG_HEADER_SIZE (sizeof(int))
+#define MIN_MSG_SIZE (sizeof(int) + sizeof(long))
 
 static int core_id; // 0 is the producer. The others are children
 static int nb_receivers;
@@ -31,12 +33,18 @@ static int request_size; // requests size in bytes
 
 static int *sockets; // sockets used to communicate
 
+
+// in order to measure the time spent in send() and recv() operations
+static uint64_t cycles_in_send, cycles_in_recv;
+
 // Initialize resources for both the producer and the consumers
 // First initialization function called
 void IPC_initialize(int _nb_receivers, int _request_size)
 {
   nb_receivers = _nb_receivers;
   request_size = _request_size;
+
+  cycles_in_send = cycles_in_recv = 0;
 }
 
 // Initialize resources for the producer
@@ -118,7 +126,7 @@ void IPC_initialize_producer(int _core_id)
 #ifdef DEBUG
     // print some information about the accepted connection
     printf("[producer] A connection has been accepted from %s:%i\n", inet_ntoa(
-        csin.sin_addr), ntohs(csin.sin_port));
+            csin.sin_addr), ntohs(csin.sin_port));
 #endif
   }
 
@@ -187,9 +195,12 @@ void IPC_clean(void)
 }
 
 // Clean ressources created for the producer.
-void IPC_clean_producer(void)
+// get the number of cycles spent in send() operation
+void IPC_clean_producer(uint64_t *_cycles_in_send)
 {
   int i;
+
+  *_cycles_in_send = cycles_in_send;
 
   for (i = 0; i < nb_receivers; i++)
   {
@@ -198,20 +209,24 @@ void IPC_clean_producer(void)
 }
 
 // Clean ressources created for the consumer.
-void IPC_clean_consumer(void)
+// get the number of cycles spent in recv() operation
+void IPC_clean_consumer(uint64_t *_cycles_in_recv)
 {
+  *_cycles_in_recv = cycles_in_recv;
+
   close(sockets[0]);
 }
 
 // Send a message to all the cores
-void IPC_sendToAll(int msg_size)
+// The message id will be msg_id
+void IPC_sendToAll(int msg_size, long msg_id)
 {
   int i;
   char *msg;
 
-  if (msg_size < MSG_HEADER_SIZE)
+  if (msg_size < MIN_MSG_SIZE)
   {
-    msg_size = MSG_HEADER_SIZE;
+    msg_size = MIN_MSG_SIZE;
   }
 
   msg = (char*) malloc(sizeof(char) * msg_size);
@@ -225,23 +240,39 @@ void IPC_sendToAll(int msg_size)
 
   int *msg_int = (int*) msg;
   msg_int[0] = msg_size;
+  long *msg_long = (long*) (msg_int + 1);
+  msg_long[0] = msg_id;
+
+#ifdef DEBUG
+  printf(
+      "[producer %i] going to send message %li of size %i to %i recipients\n",
+      core_id, msg_long[0], msg_size, nb_receivers);
+#endif
+
+  uint64_t cycle_start, cycle_stop;
+  rdtsc(cycle_start);
 
   for (i = 0; i < nb_receivers; i++)
   {
     sendMsg(sockets[i], msg, msg_size);
   }
 
+  rdtsc(cycle_stop);
+  cycles_in_send += (cycle_stop - cycle_start);
+
   free(msg);
 }
 
 // Get a message for this core
-int IPC_receive(int msg_size)
+// return the size of the message if it is valid, 0 otherwise
+// Place in *msg_id the id of this message
+int IPC_receive(int msg_size, long *msg_id)
 {
   char *msg;
 
-  if (msg_size < MSG_HEADER_SIZE)
+  if (msg_size < MIN_MSG_SIZE)
   {
-    msg_size = MSG_HEADER_SIZE;
+    msg_size = MIN_MSG_SIZE;
   }
 
   msg = (char*) malloc(sizeof(char) * msg_size);
@@ -255,8 +286,14 @@ int IPC_receive(int msg_size)
   printf("Waiting for a new message\n");
 #endif
 
+  uint64_t cycle_start, cycle_stop;
+  rdtsc(cycle_start);
+
   // get the size of the message
-  int header_size = recvMsg(sockets[0], (void*) msg, MSG_HEADER_SIZE);
+  int header_size = recvMsg(sockets[0], (void*) msg, MIN_MSG_SIZE);
+
+  rdtsc(cycle_stop);
+  cycles_in_recv += (cycle_stop - cycle_start);
 
 #ifdef DEBUG
   printf("Has received %i so far. Waiting for %i\n", header_size, msg_size);
@@ -267,19 +304,28 @@ int IPC_receive(int msg_size)
   int left = msg_size - header_size;
   if (left > 0)
   {
+    uint64_t cycle_start, cycle_stop;
+    rdtsc(cycle_start);
+
     s = recvMsg(sockets[0], (void*) (msg + header_size), left);
+
+    rdtsc(cycle_stop);
+    cycles_in_recv += (cycle_stop - cycle_start);
   }
 
+  // get the id of the message
+  *msg_id = *((long*) ((int*) msg + 1));
+
 #ifdef DEBUG
-  printf("[consumer %i] received message of size %i, should be %i\n", core_id,
-      s + header_size, msg_size);
+  printf("[consumer %i] received message %li of size %i, should be %i\n",
+      core_id, *msg_id, s + header_size, msg_size);
 #endif
 
   free(msg);
 
   if (s + header_size == msg_size)
   {
-    return 1;
+    return msg_size;
   }
   else
   {

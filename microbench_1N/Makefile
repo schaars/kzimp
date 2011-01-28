@@ -1,12 +1,12 @@
 all: inet_tcp_microbench
 
 C:=gcc
-CFLAGS:=-Wall -Werror -g
+CFLAGS:=-Wall -Werror -g -lm
 
 %.o: %.c
 	$(C) $(CFLAGS) -o $@ -c $<
 
-inet_tcp_microbench: time.h tcp_net.o inet_tcp_socket.o microbench.o
+inet_tcp_microbench: time.h list.o tcp_net.o inet_tcp_socket.o microbench.o
 	$(C) $(CFLAGS) -o $@ $^
 
 clean:

@@ -5,7 +5,7 @@
 #include "list.h"
 
 /* destroy the list */
-void list_del(my_list_node2 *L)
+void list_del(struct my_list_node *L)
 {
   if (L)
   {
@@ -15,9 +15,9 @@ void list_del(my_list_node2 *L)
 }
 
 /* Add a new element in the list */
-my_list_node2* list_add(my_list_node2 *L, double v)
+struct my_list_node* list_add(struct my_list_node *L, double v)
 {
-  my_list_node2 *nnew = (my_list_node2*) malloc(sizeof(my_list_node2));
+  struct my_list_node *nnew = (struct my_list_node*) malloc(sizeof(struct my_list_node));
 
   if (!nnew)
   {
@@ -33,11 +33,11 @@ my_list_node2* list_add(my_list_node2 *L, double v)
 }
 
 /* compute the average of the list values */
-double list_compute_avg(my_list_node2 *L)
+double list_compute_avg(struct my_list_node *L)
 {
   double avg;
   int nb_elem;
-  my_list_node2 *cur;
+  struct my_list_node *cur;
 
   avg = 0;
   nb_elem = 0;
@@ -55,11 +55,11 @@ double list_compute_avg(my_list_node2 *L)
 }
 
 /* compute the standard deviation of the list values */
-double list_compute_stddev(my_list_node2 *L, double avg)
+double list_compute_stddev(struct my_list_node *L, double avg)
 {
   double sum, tmp;
   int nb_elem;
-  my_list_node2 *cur;
+  struct my_list_node *cur;
 
   sum = 0;
   nb_elem = 0;
