@@ -60,42 +60,18 @@ void IPC_initialize(int _nb_receivers, int _request_size)
 // join the multicast group
 void join_mcast_group(void)
 {
-  int error;
-  u_char c;
+  // construct an IGMP join request structure
+  struct ip_mreq mc_req;
+  mc_req.imr_multiaddr.s_addr = inet_addr(MULTICAST_ADDR);
+  mc_req.imr_interface.s_addr = htonl(INADDR_ANY);
 
-  // Set TTL to 20
-  c = 20;
-  error
-  = setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, (char *) &c, sizeof(c));
-  if (error < 0)
+  // send an ADD MEMBERSHIP message via setsockopt
+  if ((setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+              (void*) &mc_req, sizeof(mc_req))) < 0)
   {
-    perror("unable to change TTL value");
+    perror("setsockopt() failed");
     exit(1);
   }
-
-  struct ip_mreq req;
-  req.imr_multiaddr.s_addr = multicast_addr.sin_addr.s_addr;
-  req.imr_interface.s_addr = htonl(INADDR_ANY);
-
-  error = setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *) &req,
-      sizeof(req));
-  if (error < 0)
-  {
-    printf("ERROR: unable to join IP multicast group\n");
-    exit(1);
-  }
-
-  // Disable loopback
-  error = setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, &c, sizeof(c));
-  if (error < 0)
-  {
-    perror("unable to disable loopback");
-    exit(1);
-  }
-
-  char *str = inet_ntoa(multicast_addr.sin_addr);
-  printf("Joined IP multicast group %s:%d\n", str, htons(
-          multicast_addr.sin_port));
 }
 
 // leave the multicast group
@@ -104,10 +80,6 @@ void leave_mcast_group(void)
   struct ip_mreq req;
   req.imr_multiaddr.s_addr = multicast_addr.sin_addr.s_addr;
   req.imr_interface.s_addr = htonl(INADDR_ANY);
-
-  char *str = inet_ntoa(multicast_addr.sin_addr);
-  printf("Leaved IP multicast group %s:%d\n", str, htons(
-          multicast_addr.sin_port));
 
   setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *) &req,
       sizeof(req));
@@ -132,11 +104,19 @@ void IPC_initialize_producer(int _core_id)
 
   // fill the addresses
 #ifdef IP_MULTICAST
-  multicast_addr.sin_addr.s_addr = inet_addr(MULTICAST_ADDR);
-  multicast_addr.sin_family = AF_INET;
-  multicast_addr.sin_port = htons(PRODUCER_PORT);
+  /* set the TTL (time to live/hop count) for the send */
+  int mc_ttl = 1;
+  if ((setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL,
+              (void*) &mc_ttl, sizeof(mc_ttl))) < 0)
+  {
+    perror("setsockopt() failed");
+    exit(1);
+  }
 
-  join_mcast_group();
+  /* construct a multicast address structure */
+  multicast_addr.sin_family = AF_INET;
+  multicast_addr.sin_addr.s_addr = inet_addr(MULTICAST_ADDR);
+  multicast_addr.sin_port = htons(PRODUCER_PORT);
 
 #else
   addresses = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in)
@@ -174,11 +154,30 @@ void IPC_initialize_consumer(int _core_id)
   }
 
 #ifdef IP_MULTICAST
-  multicast_addr.sin_addr.s_addr = inet_addr(MULTICAST_ADDR);
+  // set reuse port to on to allow multiple binds per host
+  int flag_on = 1;
+  if ((setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &flag_on,
+              sizeof(flag_on))) < 0)
+  {
+    perror("setsockopt() failed");
+    exit(1);
+  }
+
+  // construct a multicast address structure
   multicast_addr.sin_family = AF_INET;
+  multicast_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   multicast_addr.sin_port = htons(PRODUCER_PORT);
 
+  // bind to multicast address to socket
+  if ((bind(sock, (struct sockaddr *) &multicast_addr,
+              sizeof(multicast_addr))) < 0)
+  {
+    perror("bind() failed");
+    exit(1);
+  }
+
   join_mcast_group();
+
 #else
   addresses = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
   if (!addresses)
@@ -200,10 +199,6 @@ void IPC_initialize_consumer(int _core_id)
 // Called by the parent process, after the death of the children.
 void IPC_clean(void)
 {
-#ifdef IP_MULTICAST
-  leave_mcast_group();
-#endif
-
   // close socket
   close(sock);
 }
@@ -216,6 +211,9 @@ void IPC_clean_producer(void)
 // Clean ressources created for the consumer.
 void IPC_clean_consumer(void)
 {
+#ifdef IP_MULTICAST
+  leave_mcast_group();
+#endif
 }
 
 // Send a message to all the cores
