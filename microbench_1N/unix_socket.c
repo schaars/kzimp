@@ -23,6 +23,8 @@
 
 #define UDP_SEND_MAX_SIZE 65507
 
+#define UNIX_SOCKET_FILE_NAME "/tmp/multicore_replication_microbench_producer"
+
 #define MIN_MSG_SIZE (sizeof(int) + sizeof(long))
 
 static int core_id; // 0 is the producer. The others are children
@@ -65,8 +67,8 @@ void IPC_initialize_producer(int _core_id)
   {
     bzero((char *) &addresses[i], sizeof(addresses[i]));
     addresses[i].sun_family = AF_UNIX;
-    snprintf(addresses[i].sun_path, sizeof(char) * 108,
-        "/tmp/multicore_replication_microbench_producer_%i", i + 1); // core_id starts at 1 for the consumers
+    snprintf(addresses[i].sun_path, sizeof(char) * 108, "%s_%i",
+        UNIX_SOCKET_FILE_NAME, i + 1); // core_id starts at 1 for the consumers
   }
 
   // wait a few seconds for the consumers to be bound to their ports
@@ -91,8 +93,8 @@ void IPC_initialize_consumer(int _core_id)
 
   bzero((char *) &addresses[0], sizeof(addresses[0]));
   addresses[0].sun_family = AF_UNIX;
-  snprintf(addresses[0].sun_path, sizeof(char) * 108,
-      "/tmp/multicore_replication_microbench_producer_%i", core_id);
+  snprintf(addresses[0].sun_path, sizeof(char) * 108, "%s_%i",
+      UNIX_SOCKET_FILE_NAME, core_id);
   unlink(addresses[0].sun_path);
 
   // bind socket
