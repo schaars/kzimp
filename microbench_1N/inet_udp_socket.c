@@ -17,8 +17,8 @@
 #include "time.h"
 
 // debug macro
-#define DEBUG
-//#undef DEBUG
+//#define DEBUG
+#undef DEBUG
 
 /********** All the variables needed by TCP sockets **********/
 
