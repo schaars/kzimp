@@ -82,6 +82,7 @@ uint64_t do_producer(void)
     {
       // get current time, which is the start time of this experiment (we consider only the logging phase)
       xp_start_time = get_current_time();
+      thr_start_time = get_current_time();
     }
 
     if (nb_msg >= nb_messages_warmup)
