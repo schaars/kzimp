@@ -39,7 +39,6 @@ void IPC_initialize(int _nb_receivers, int _request_size)
 {
   nb_receivers = _nb_receivers;
   request_size = _request_size;
-
 }
 
 // Initialize resources for the producer
@@ -180,7 +179,6 @@ void IPC_initialize_consumer(int _core_id)
       break;
     }
   }
-
 }
 
 // Clean ressources created for both the producer and the consumer.
@@ -227,17 +225,19 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
     exit(errno);
   }
 
+  // malloc is lazy: the pages may not be yet really allocated.
+  // We force the allocation and the fetch of the pages with bzero
   bzero(msg, msg_size);
 
-  int *msg_int = (int*) msg;
-  msg_int[0] = msg_size;
-  long *msg_long = (long*) (msg_int + 1);
-  msg_long[0] = msg_id;
+  int *msg_as_int = (int*) msg;
+  msg_as_int[0] = msg_size;
+  long *msg_as_long = (long*) (msg_as_int + 1);
+  msg_as_long[0] = msg_id;
 
 #ifdef DEBUG
   printf(
       "[producer %i] going to send message %li of size %i to %i recipients\n",
-      core_id, msg_long[0], msg_size, nb_receivers);
+      core_id, msg_as_long[0], msg_size, nb_receivers);
 #endif
 
   for (i = 0; i < nb_receivers; i++)
@@ -274,18 +274,13 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
   printf("Waiting for a new message\n");
 #endif
 
-  // get the size of the message
-
   int header_size =
       recvMsg(sockets[0], (void*) msg, MIN_MSG_SIZE, spent_cycles);
 
-#ifdef DEBUG
-  printf("Has received %i so far. Waiting for %i\n", header_size, msg_size);
-#endif
-
   // get the message
   int s = 0;
-  int left = msg_size - header_size;
+  int msg_size_in_msg = *((int*) msg);
+  int left = msg_size_in_msg - header_size;
   if (left > 0)
   {
     s = recvMsg(sockets[0], (void*) (msg + header_size), left, spent_cycles);
@@ -295,13 +290,13 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
   *msg_id = *((long*) ((int*) msg + 1));
 
 #ifdef DEBUG
-  printf("[consumer %i] received message %li of size %i, should be %i\n",
-      core_id, *msg_id, s + header_size, msg_size);
+  printf("[consumer %i] received message %li of size %i, should be %i (%i in the message)\n",
+      core_id, *msg_id, s + header_size, msg_size, msg_size_in_msg);
 #endif
 
   free(msg);
 
-  if (s + header_size == msg_size)
+  if (s + header_size == msg_size && msg_size == msg_size_in_msg)
   {
     return msg_size;
   }
