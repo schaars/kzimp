@@ -51,7 +51,7 @@ sleep 10
 
 
 # save files
-OUTPUT_DIR="inet_tcp_${NB_CONSUMERS}comsumers_${MSG_SIZE}B"
+OUTPUT_DIR="inet_tcp_${NB_CONSUMERS}consumers_${MSG_SIZE}B"
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/

@@ -29,7 +29,7 @@
 #undef DEBUG
 
 // number of threads per core. Set it to 2 when having a hyperthreaded CPU
-#define NB_THREADS_PER_CORE 1
+#define NB_THREADS_PER_CORE 2
 
 // period at which we compute the current throughput, in sec
 #define PERIODIC_THROUGHPUT_COMPUTATION_SEC 10
@@ -70,6 +70,7 @@ uint64_t do_producer(void)
   printf("[core %i] I am a producer and I am doing my job\n", core_id);
 #endif
 
+  total_payload = 0;
   thr_start_time = 0;
   list_of_thr = NULL;
   for (nb_msg = 0; nb_msg < nb_messages; nb_msg++)
@@ -363,9 +364,10 @@ int main(int argc, char **argv)
     // output time_for_latency
     long m;
     fprintf(F, "message_id\ttime_for_latency\n");
+    uint64_t base_time = time_for_latency[0];
     for (m = 0; m < nb_messages_logging; m++)
     {
-      fprintf(F, "%li\t%qd\n", m, (unsigned long long) time_for_latency[m]);
+      fprintf(F, "%li\t%qd\n", m, (unsigned long long) (time_for_latency[m]-base_time));
     }
 
     fprintf(F, "[producer] thr= %f +/- %f\n", avg_thr, thr_stddev);
@@ -398,9 +400,10 @@ int main(int argc, char **argv)
     // output time_for_latency
     long m;
     fprintf(F, "message_id\ttime_for_latency\n");
+    uint64_t base_time = time_for_latency[0];
     for (m = 0; m < nb_messages_logging; m++)
     {
-      fprintf(F, "%li\t%qd\n", m, (unsigned long long) time_for_latency[m]);
+      fprintf(F, "%li\t%qd\n", m, (unsigned long long) (time_for_latency[m]-base_time));
     }
 
     fprintf(F, "[consumer %i] thr= %f +/- %f\n", core_id, avg_thr, thr_stddev);
