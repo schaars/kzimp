@@ -364,10 +364,9 @@ int main(int argc, char **argv)
     // output time_for_latency
     long m;
     fprintf(F, "message_id\ttime_for_latency\n");
-    uint64_t base_time = time_for_latency[0];
     for (m = 0; m < nb_messages_logging; m++)
     {
-      fprintf(F, "%li\t%qd\n", m, (unsigned long long) (time_for_latency[m]-base_time));
+      fprintf(F, "%li\t%qd\n", m, (unsigned long long) time_for_latency[m]);
     }
 
     fprintf(F, "[producer] thr= %f +/- %f\n", avg_thr, thr_stddev);
@@ -400,10 +399,9 @@ int main(int argc, char **argv)
     // output time_for_latency
     long m;
     fprintf(F, "message_id\ttime_for_latency\n");
-    uint64_t base_time = time_for_latency[0];
     for (m = 0; m < nb_messages_logging; m++)
     {
-      fprintf(F, "%li\t%qd\n", m, (unsigned long long) (time_for_latency[m]-base_time));
+      fprintf(F, "%li\t%qd\n", m, (unsigned long long) time_for_latency[m]);
     }
 
     fprintf(F, "[consumer %i] thr= %f +/- %f\n", core_id, avg_thr, thr_stddev);
