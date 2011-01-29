@@ -33,10 +33,6 @@ static int request_size; // requests size in bytes
 
 static int *sockets; // sockets used to communicate
 
-
-// in order to measure the time spent in send() and recv() operations
-static uint64_t cycles_in_send, cycles_in_recv;
-
 // Initialize resources for both the producer and the consumers
 // First initialization function called
 void IPC_initialize(int _nb_receivers, int _request_size)
@@ -44,7 +40,6 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   nb_receivers = _nb_receivers;
   request_size = _request_size;
 
-  cycles_in_send = cycles_in_recv = 0;
 }
 
 // Initialize resources for the producer
@@ -195,12 +190,9 @@ void IPC_clean(void)
 }
 
 // Clean ressources created for the producer.
-// get the number of cycles spent in send() operation
-void IPC_clean_producer(uint64_t *_cycles_in_send)
+void IPC_clean_producer(void)
 {
   int i;
-
-  *_cycles_in_send = cycles_in_send;
 
   for (i = 0; i < nb_receivers; i++)
   {
@@ -209,17 +201,16 @@ void IPC_clean_producer(uint64_t *_cycles_in_send)
 }
 
 // Clean ressources created for the consumer.
-// get the number of cycles spent in recv() operation
-void IPC_clean_consumer(uint64_t *_cycles_in_recv)
+void IPC_clean_consumer(void)
 {
-  *_cycles_in_recv = cycles_in_recv;
-
   close(sockets[0]);
 }
 
 // Send a message to all the cores
 // The message id will be msg_id
-void IPC_sendToAll(int msg_size, long msg_id)
+// Return the total sent payload (i.e. size of the messages times number of consumers)
+// if spent_cycles is not NULL, then add the number of spent cycles in *spent_cycles
+int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
 {
   int i;
   char *msg;
@@ -249,24 +240,21 @@ void IPC_sendToAll(int msg_size, long msg_id)
       core_id, msg_long[0], msg_size, nb_receivers);
 #endif
 
-  uint64_t cycle_start, cycle_stop;
-  rdtsc(cycle_start);
-
   for (i = 0; i < nb_receivers; i++)
   {
-    sendMsg(sockets[i], msg, msg_size);
+    sendMsg(sockets[i], msg, msg_size, spent_cycles);
   }
 
-  rdtsc(cycle_stop);
-  cycles_in_send += (cycle_stop - cycle_start);
-
   free(msg);
+
+  return msg_size * nb_receivers;
 }
 
 // Get a message for this core
 // return the size of the message if it is valid, 0 otherwise
 // Place in *msg_id the id of this message
-int IPC_receive(int msg_size, long *msg_id)
+// if spent_cycles is not NULL, then add the number of spent cycles in *spent_cycles
+int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
 {
   char *msg;
 
@@ -286,14 +274,10 @@ int IPC_receive(int msg_size, long *msg_id)
   printf("Waiting for a new message\n");
 #endif
 
-  uint64_t cycle_start, cycle_stop;
-  rdtsc(cycle_start);
-
   // get the size of the message
-  int header_size = recvMsg(sockets[0], (void*) msg, MIN_MSG_SIZE);
 
-  rdtsc(cycle_stop);
-  cycles_in_recv += (cycle_stop - cycle_start);
+  int header_size =
+      recvMsg(sockets[0], (void*) msg, MIN_MSG_SIZE, spent_cycles);
 
 #ifdef DEBUG
   printf("Has received %i so far. Waiting for %i\n", header_size, msg_size);
@@ -304,13 +288,7 @@ int IPC_receive(int msg_size, long *msg_id)
   int left = msg_size - header_size;
   if (left > 0)
   {
-    uint64_t cycle_start, cycle_stop;
-    rdtsc(cycle_start);
-
-    s = recvMsg(sockets[0], (void*) (msg + header_size), left);
-
-    rdtsc(cycle_stop);
-    cycles_in_recv += (cycle_stop - cycle_start);
+    s = recvMsg(sockets[0], (void*) (msg + header_size), left, spent_cycles);
   }
 
   // get the id of the message

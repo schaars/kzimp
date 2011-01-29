@@ -31,8 +31,14 @@
 // number of threads per core. Set it to 2 when having a hyperthreaded CPU
 #define NB_THREADS_PER_CORE 1
 
+// period at which we compute the current throughput, in sec
+#define PERIODIC_THROUGHPUT_COMPUTATION_SEC 10
+
+// period at which we compute the current throughput, in usec
+#define PERIODIC_THROUGHPUT_COMPUTATION (PERIODIC_THROUGHPUT_COMPUTATION_SEC*1000*1000)
+
 // name of the file which will contain statistics
-#define STATISTICS_FILE_PREFIX "./statistics_"
+#define STATISTICS_FILE_PREFIX "./statistics"
 #define STATISTICS_FILE_SUFFIX ".log"
 
 static int core_id; // 0 is the producer. The others are children
@@ -41,16 +47,31 @@ static long nb_messages_warmup;
 static long nb_messages_logging;
 static long nb_messages; // sum of the 2 previous values
 static int message_size; // messages size in bytes
+static uint64_t *time_for_latency;
+
+// in order to measure the time spent in send() and recv() operations
+static uint64_t cycles_in_send, cycles_in_recv;
+
+// for the throughput
+double avg_thr, thr_stddev;
 
 uint64_t do_producer(void)
 {
   long nb_msg;
   uint64_t xp_start_time = 0;
 
+  // for computing the throughput
+  uint64_t thr_start_time, thr_current_time, thr_elapsed_time;
+  uint64_t total_payload;
+  double current_thr; // in MB/s
+  struct my_list_node* list_of_thr;
+
 #ifdef DEBUG
   printf("[core %i] I am a producer and I am doing my job\n", core_id);
 #endif
 
+  thr_start_time = 0;
+  list_of_thr = NULL;
   for (nb_msg = 0; nb_msg < nb_messages; nb_msg++)
   {
 #ifdef DEBUG
@@ -63,8 +84,53 @@ uint64_t do_producer(void)
       xp_start_time = get_current_time();
     }
 
-    IPC_sendToAll(message_size, nb_msg);
+    if (nb_msg >= nb_messages_warmup)
+    {
+      // get current time for latency
+      time_for_latency[nb_msg - nb_messages_warmup] = get_current_time();
+      total_payload += IPC_sendToAll(message_size, nb_msg, &cycles_in_send);
+
+      // compute the current throughput
+      thr_current_time = get_current_time();
+      thr_elapsed_time = thr_current_time - thr_start_time;
+
+      // periodically, compute and add thr to the list of throughputs
+      if (thr_elapsed_time >= PERIODIC_THROUGHPUT_COMPUTATION)
+      {
+        // total_payload is in bytes
+        // xp_elapsed_time is in usec
+        current_thr = ((double) total_payload / 1000000.0)
+            / ((double) thr_elapsed_time / 1000000.0);
+
+        printf(
+            "[producer] Current throughput = %f MB/s, nb_msg in logging = %ld\n",
+            current_thr, nb_msg - nb_messages_warmup + 1);
+
+        list_of_thr = list_add(list_of_thr, current_thr);
+        thr_start_time = thr_current_time;
+        total_payload = 0;
+      }
+    }
+    else
+    {
+      IPC_sendToAll(message_size, nb_msg, NULL);
+    }
   }
+
+  // compute throughput one last time
+  thr_current_time = get_current_time();
+  thr_elapsed_time = thr_current_time - thr_start_time;
+
+  // total_payload is in bytes
+  // xp_elapsed_time is in usec
+  current_thr = ((double) total_payload / 1000000.0)
+      / ((double) thr_elapsed_time / 1000000.0);
+
+  list_of_thr = list_add(list_of_thr, current_thr);
+
+  // compute mean and stddev for throughput and latency
+  avg_thr = list_compute_avg(list_of_thr);
+  thr_stddev = list_compute_stddev(list_of_thr, avg_thr);
 
   return xp_start_time;
 }
@@ -75,28 +141,33 @@ void do_consumer(void)
   long msg_id;
 
   // for computing the throughput
+  uint64_t thr_start_time, thr_current_time, thr_elapsed_time;
   uint64_t total_payload;
-
-  uint64_t lat_start, lat_stop;
-
-  double current_thr;
-  double current_lat;
-  struct my_list_node *list_of_thr;
-  struct my_list_node *list_of_lat;
-
-  list_of_thr = NULL;
-  list_of_lat = NULL;
+  double current_thr; // in MB/s
+  struct my_list_node* list_of_thr;
 
 #ifdef DEBUG
   printf("[core %i] I am a consumer and I am doing my job\n", core_id);
 #endif
 
   nb_msg = 0;
+  total_payload = 0;
+  list_of_thr = NULL;
+  thr_start_time = 0;
   while (nb_msg < nb_messages)
   {
-    rdtsc(lat_start);
-    uint64_t ret = IPC_receive(message_size, &msg_id);
-    rdtsc(lat_stop);
+    uint64_t ret = 0;
+    if (nb_msg >= nb_messages_warmup)
+    {
+      ret = IPC_receive(message_size, &msg_id, &cycles_in_recv);
+
+      // get current time for latency
+      time_for_latency[nb_msg - nb_messages_warmup] = get_current_time();
+    }
+    else
+    {
+      ret = IPC_receive(message_size, &msg_id, NULL);
+    }
 
     if (ret)
     {
@@ -104,14 +175,36 @@ void do_consumer(void)
       printf("[core %i] Receiving valid message %li\n", core_id, nb_msg);
 #endif
 
+      if (nb_msg == nb_messages_warmup)
+      {
+        thr_start_time = get_current_time();
+      }
+
       // are we in the logging phase?
       if (nb_msg >= nb_messages_warmup)
       {
+        // compute the current throughput
+        thr_current_time = get_current_time();
+        thr_elapsed_time = thr_current_time - thr_start_time;
         total_payload += ret;
 
-        // compute latency in usec
-        current_lat = diffTime(lat_stop, lat_start);
-        list_of_lat = list_add(list_of_lat, current_lat);
+        // periodically, compute and add thr to the list of throughputs
+        if (thr_elapsed_time >= PERIODIC_THROUGHPUT_COMPUTATION)
+        {
+          // total_payload is in bytes
+          // xp_elapsed_time is in usec
+          current_thr = ((double) total_payload / 1000000.0)
+              / ((double) thr_elapsed_time / 1000000.0);
+
+          printf(
+              "[consumer %i] Current throughput = %f MB/s, nb_msg in logging = %ld\n",
+              core_id, current_thr, nb_msg - nb_messages_warmup + 1);
+
+          list_of_thr = list_add(list_of_thr, current_thr);
+          thr_start_time = thr_current_time;
+          total_payload = 0;
+        }
+
       }
 
       nb_msg++;
@@ -123,28 +216,22 @@ void do_consumer(void)
 #endif
     }
 
-    // compute the throughput periodically
-    //TODO
-    //current_thr = 0.0;
-    //list_of_thr = list_add(list_of_thr, current_thr);
-
   }
 
   // compute throughput one last time
-  //TODO
-  current_thr = 0.0;
+  thr_current_time = get_current_time();
+  thr_elapsed_time = thr_current_time - thr_start_time;
+
+  // total_payload is in bytes
+  // xp_elapsed_time is in usec
+  current_thr = ((double) total_payload / 1000000.0)
+      / ((double) thr_elapsed_time / 1000000.0);
+
   list_of_thr = list_add(list_of_thr, current_thr);
 
   // compute mean and stddev for throughput and latency
-  double avg_thr = list_compute_avg(list_of_thr);
-  double thr_stddev = list_compute_stddev(list_of_thr, avg_thr);
-  double avg_lat = list_compute_avg(list_of_lat);
-  double lat_stddev = list_compute_stddev(list_of_lat, avg_lat);
-
-  //TODO: output statistics in the file
-  // STATISTICS_FILE_PREFIX + consumer_<core_id> + STATISTICS_FILE_SUFFIX
-  printf("[consumer %i] thr = %f +/- %f, lat = %f +/- %f\n", core_id, avg_thr,
-      thr_stddev, avg_lat, lat_stddev);
+  avg_thr = list_compute_avg(list_of_thr);
+  thr_stddev = list_compute_stddev(list_of_thr, avg_thr);
 }
 
 void wait_for_receivers(void)
@@ -174,6 +261,7 @@ int main(int argc, char **argv)
   nb_messages_logging = -1;
   nb_messages = -1;
   message_size = -1;
+  cycles_in_send = cycles_in_recv = 0;
 
   // process command line options
   int opt;
@@ -206,6 +294,14 @@ int main(int argc, char **argv)
   if (nb_receivers <= 0 || nb_messages <= 0 || message_size <= 0)
   {
     print_help_and_exit(argv[0]);
+  }
+
+  // create the structure for latency
+  time_for_latency = (uint64_t*) malloc(sizeof(uint64_t) * nb_messages_logging);
+  if (!time_for_latency)
+  {
+    perror("Allocation error of time_for_latency");
+    exit(-1);
   }
 
   init_clock_mhz();
@@ -249,32 +345,69 @@ int main(int argc, char **argv)
 
     uint64_t xp_end_time = get_current_time();
 
-    //TODO: output statistics in the file
-    // STATISTICS_FILE_PREFIX + producer + STATISTICS_FILE_SUFFIX
-    printf(
-        "[producer] start_time=%qu usec, end_time=%qu usec, elapsed_time=%qu usec\n",
+    // release mechanism resources
+    IPC_clean_producer();
+    IPC_clean();
+
+    FILE *F;
+    char filename[256];
+    sprintf(filename, "%s_producer%s", STATISTICS_FILE_PREFIX,
+        STATISTICS_FILE_SUFFIX);
+    F = fopen(filename, "w");
+    if (!F)
+    {
+      perror("Error while creating the file for the producer");
+    }
+
+    // output time_for_latency
+    long m;
+    fprintf(F, "message_id\ttime_for_latency\n");
+    for (m = 0; m < nb_messages_logging; m++)
+    {
+      fprintf(F, "%li\t%qd\n", m, (unsigned long long) time_for_latency[m]);
+    }
+
+    fprintf(F, "[producer] thr= %f +/- %f\n", avg_thr, thr_stddev);
+    fprintf(
+        F,
+        "[producer] start_time= %qu usec, end_time= %qu usec, elapsed_time= %qu usec\n",
         (long long unsigned int) xp_start_time,
         (long long unsigned int) xp_end_time,
         (long long unsigned int) (xp_end_time - xp_start_time));
-
-    // release mechanism resources
-    uint64_t cycles_in_send;
-    IPC_clean_producer(&cycles_in_send);
-    printf("[producer] nb cycles in send = %qd\n",
+    fprintf(F, "[producer] nb_cycles_in_send= %qd\n",
         (long long unsigned int) cycles_in_send);
 
-    IPC_clean();
   }
   else
   {
     IPC_initialize_consumer(core_id);
     do_consumer();
+    IPC_clean_consumer();
 
-    uint64_t cycles_in_recv;
-    IPC_clean_consumer(&cycles_in_recv);
-    printf("[consumer %i] nb cycles in recv = %qd\n", core_id,
+    FILE *F;
+    char filename[256];
+    sprintf(filename, "%s_consumer_%i%s", STATISTICS_FILE_PREFIX, core_id,
+        STATISTICS_FILE_SUFFIX);
+    F = fopen(filename, "w");
+    if (!F)
+    {
+      perror("Error while creating the file for the producer");
+    }
+
+    // output time_for_latency
+    long m;
+    fprintf(F, "message_id\ttime_for_latency\n");
+    for (m = 0; m < nb_messages_logging; m++)
+    {
+      fprintf(F, "%li\t%qd\n", m, (unsigned long long) time_for_latency[m]);
+    }
+
+    fprintf(F, "[consumer %i] thr= %f +/- %f\n", core_id, avg_thr, thr_stddev);
+    fprintf(F, "[consumer %i] nb_cycles_in_recv = %qd\n", core_id,
         (long long unsigned int) cycles_in_recv);
   }
+
+  free(time_for_latency);
 
   return 0;
 }
