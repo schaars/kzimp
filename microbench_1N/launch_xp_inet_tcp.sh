@@ -27,13 +27,13 @@ mkdir $MEMORY_DIR
 
 
 # wait for TIME_WAIT connections
-#nbc=$(netstat -tn | grep TIME_WAIT | grep -v ":22 " | wc -l)
-#while [ $nbc != 0 ]; do
-#   ./stop_all.sh
-#   echo "Waiting for the end of TIME_WAIT connections"
-#   sleep 20
-#   nbc=$(netstat -tn | grep TIME_WAIT | grep -v ":22 " | wc -l)
-#done
+nbc=$(netstat -tn | grep TIME_WAIT | grep -v ":22 " | wc -l)
+while [ $nbc != 0 ]; do
+   ./stop_all.sh
+   echo "Waiting for the end of TIME_WAIT connections"
+   sleep 20
+   nbc=$(netstat -tn | grep TIME_WAIT | grep -v ":22 " | wc -l)
+done
 
 
 # memory for 10 seconds
