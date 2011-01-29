@@ -60,15 +60,36 @@ void IPC_initialize(int _nb_receivers, int _request_size)
 // join the multicast group
 void join_mcast_group(void)
 {
+  int error;
+  u_char c;
+
+  // Set TTL to 20
+  c = 20;
+  error
+  = setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, (char *) &c, sizeof(c));
+  if (error < 0)
+  {
+    perror("unable to change TTL value");
+    exit(1);
+  }
+
   struct ip_mreq req;
   req.imr_multiaddr.s_addr = multicast_addr.sin_addr.s_addr;
   req.imr_interface.s_addr = htonl(INADDR_ANY);
 
-  int error = setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *) &req,
+  error = setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *) &req,
       sizeof(req));
   if (error < 0)
   {
     printf("ERROR: unable to join IP multicast group\n");
+    exit(1);
+  }
+
+  // Disable loopback
+  error = setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, &c, sizeof(c));
+  if (error < 0)
+  {
+    perror("unable to disable loopback");
     exit(1);
   }
 
