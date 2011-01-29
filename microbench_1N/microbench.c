@@ -164,7 +164,7 @@ void do_consumer(void)
       ret = IPC_receive(message_size, &msg_id, &cycles_in_recv);
 
       // get current time for latency
-      time_for_latency[nb_msg - nb_messages_warmup] = get_current_time();
+      time_for_latency[msg_id - nb_messages_warmup] = get_current_time();
     }
     else
     {
@@ -174,7 +174,7 @@ void do_consumer(void)
     if (ret)
     {
 #ifdef DEBUG
-      printf("[core %i] Receiving valid message %li\n", core_id, nb_msg);
+      printf("[core %i] Receiving valid message %li\n", core_id, msg_id);
 #endif
 
       if (nb_msg == nb_messages_warmup)

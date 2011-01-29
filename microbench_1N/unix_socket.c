@@ -1,6 +1,6 @@
 /* This file is part of multicore_replication_microbench.
  *
- * Communication mechanism: Inet sockets using UDP
+ * Communication mechanism: Unix domain sockets
  */
 
 #include <stdio.h>
@@ -10,7 +10,7 @@
 #include <errno.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
+#include <sys/un.h>
 
 #include "ipc_interface.h"
 #include "time.h"
@@ -19,17 +19,9 @@
 #define DEBUG
 #undef DEBUG
 
-/********** All the variables needed by UDP sockets **********/
-
-// port used by the producer
-// the ports used by the consumers are PRODUCER_PORT + core_id
-#define PRODUCER_PORT 6000
+/********** All the variables needed by TCP sockets **********/
 
 #define UDP_SEND_MAX_SIZE 65507
-
-#ifdef IP_MULTICAST
-#define MULTICAST_ADDR "228.5.6.7"
-#endif
 
 #define MIN_MSG_SIZE (sizeof(int) + sizeof(long))
 
@@ -38,12 +30,7 @@ static int nb_receivers;
 static int request_size; // requests size in bytes
 static int sock; // the socket
 
-
-#ifdef IP_MULTICAST
-struct sockaddr_in multicast_addr;
-#else
-struct sockaddr_in *addresses; // for each consumer, its address
-#endif
+struct sockaddr_un *addresses; // for each consumer, its address
 
 #define MIN(a, b) ((a < b) ? a : b)
 
@@ -55,70 +42,18 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   request_size = _request_size;
 }
 
-#ifdef IP_MULTICAST
-// join the multicast group
-void join_mcast_group(void)
-{
-  // construct an IGMP join request structure
-  struct ip_mreq mc_req;
-  mc_req.imr_multiaddr.s_addr = inet_addr(MULTICAST_ADDR);
-  mc_req.imr_interface.s_addr = htonl(INADDR_ANY);
-
-  // send an ADD MEMBERSHIP message via setsockopt
-  if ((setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
-              (void*) &mc_req, sizeof(mc_req))) < 0)
-  {
-    perror("setsockopt() failed");
-    exit(1);
-  }
-}
-
-// leave the multicast group
-void leave_mcast_group(void)
-{
-  struct ip_mreq req;
-  req.imr_multiaddr.s_addr = multicast_addr.sin_addr.s_addr;
-  req.imr_interface.s_addr = htonl(INADDR_ANY);
-
-  setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *) &req,
-      sizeof(req));
-  // we do not care if it fails :)
-}
-#endif
-
 // Initialize resources for the producer
 void IPC_initialize_producer(int _core_id)
 {
+  int i;
+
   core_id = _core_id;
 
   // create socket
-  sock = socket(AF_INET, SOCK_DGRAM, 0);
-  if (sock == -1)
-  {
-    perror("[IPC_initialize_producer] Error while creating the socket! ");
-    exit(errno);
-  }
-
-  // the producer does not need to call bind
+  sock = socket(AF_UNIX, SOCK_DGRAM, 0);
 
   // fill the addresses
-#ifdef IP_MULTICAST
-  /* set the TTL (time to live/hop count) for the send */
-  int mc_ttl = 1;
-  if ((setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL,
-              (void*) &mc_ttl, sizeof(mc_ttl))) < 0)
-  {
-    perror("setsockopt() failed");
-    exit(1);
-  }
-
-  /* construct a multicast address structure */
-  multicast_addr.sin_family = AF_INET;
-  multicast_addr.sin_addr.s_addr = inet_addr(MULTICAST_ADDR);
-  multicast_addr.sin_port = htons(PRODUCER_PORT);
-
-#else
-  addresses = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in)
+  addresses = (struct sockaddr_un*) malloc(sizeof(struct sockaddr_un)
       * nb_receivers);
   if (!addresses)
   {
@@ -126,14 +61,13 @@ void IPC_initialize_producer(int _core_id)
     exit(-1);
   }
 
-  int i;
   for (i = 0; i < nb_receivers; i++)
   {
-    addresses[i].sin_addr.s_addr = inet_addr("127.0.0.1");
-    addresses[i].sin_family = AF_INET;
-    addresses[i].sin_port = htons(PRODUCER_PORT + i + 1); // i starts at 0, the port starts at PRODUCER_PORT+1
+    bzero((char *) &addresses[i], sizeof(addresses[i]));
+    addresses[i].sun_family = AF_UNIX;
+    snprintf(addresses[i].sun_path, sizeof(char) * 108,
+        "/tmp/multicore_replication_microbench_producer_%i", i + 1); // core_id starts at 1 for the consumers
   }
-#endif
 
   // wait a few seconds for the consumers to be bound to their ports
   sleep(1);
@@ -145,53 +79,24 @@ void IPC_initialize_consumer(int _core_id)
   core_id = _core_id;
 
   // create socket
-  sock = socket(AF_INET, SOCK_DGRAM, 0);
-  if (sock == -1)
-  {
-    perror("[IPC_initialize_producer] Error while creating the socket! ");
-    exit(errno);
-  }
+  sock = socket(AF_UNIX, SOCK_DGRAM, 0);
 
-#ifdef IP_MULTICAST
-  // set reuse port to on to allow multiple binds per host
-  int flag_on = 1;
-  if ((setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &flag_on,
-              sizeof(flag_on))) < 0)
-  {
-    perror("setsockopt() failed");
-    exit(1);
-  }
-
-  // construct a multicast address structure
-  multicast_addr.sin_family = AF_INET;
-  multicast_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  multicast_addr.sin_port = htons(PRODUCER_PORT);
-
-  // bind to multicast address to socket
-  if ((bind(sock, (struct sockaddr *) &multicast_addr,
-              sizeof(multicast_addr))) < 0)
-  {
-    perror("bind() failed");
-    exit(1);
-  }
-
-  join_mcast_group();
-
-#else
-  addresses = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
+  // fill the addresses
+  addresses = (struct sockaddr_un*) malloc(sizeof(struct sockaddr_un) * 1);
   if (!addresses)
   {
     perror("IPC_initialize_producer malloc error ");
     exit(-1);
   }
 
-  addresses[0].sin_addr.s_addr = inet_addr("127.0.0.1");
-  addresses[0].sin_family = AF_INET;
-  addresses[0].sin_port = htons(PRODUCER_PORT + core_id);
+  bzero((char *) &addresses[0], sizeof(addresses[0]));
+  addresses[0].sun_family = AF_UNIX;
+  snprintf(addresses[0].sun_path, sizeof(char) * 108,
+      "/tmp/multicore_replication_microbench_producer_%i", core_id);
+  unlink(addresses[0].sun_path);
 
   // bind socket
   bind(sock, (struct sockaddr *) &addresses[0], sizeof(addresses[0]));
-#endif
 }
 
 // Clean ressources created for both the producer and the consumer.
@@ -206,24 +111,16 @@ void IPC_clean_producer(void)
   // close socket
   close(sock);
 
-#ifndef IP_MULTICAST
   free(addresses);
-#endif
 }
 
 // Clean ressources created for the consumer.
 void IPC_clean_consumer(void)
 {
-#ifdef IP_MULTICAST
-  leave_mcast_group();
-#endif
-
   // close socket
   close(sock);
 
-#ifndef IP_MULTICAST
   free(addresses);
-#endif
 }
 
 // Send a message to all the cores
@@ -273,13 +170,8 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
     {
       to_send = MIN(msg_size - sent, UDP_SEND_MAX_SIZE);
       rdtsc(cycle_start);
-#ifdef IP_MULTICAST
-      sent += sendto(sock, msg + sent, to_send, 0,
-          (struct sockaddr*) &multicast_addr, sizeof(multicast_addr));
-#else
       sent += sendto(sock, msg + sent, to_send, 0,
           (struct sockaddr*) &addresses[i], sizeof(addresses[i]));
-#endif
       rdtsc(cycle_stop);
 
       if (spent_cycles != NULL)
@@ -287,20 +179,11 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
         *spent_cycles += (cycle_stop - cycle_start);
       }
     }
-
-#ifdef IP_MULTICAST
-    // Using IP multicast the message is sent once
-    break;
-#endif
   }
 
   free(msg);
 
-#ifdef IP_MULTICAST
-  return msg_size;
-#else
   return msg_size * nb_receivers;
-#endif
 }
 
 // Get a message for this core
@@ -328,7 +211,6 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
 #endif
 
   // let's say that the first packet contains the header
-  // we assume messages are not delivered out of order
 
   uint64_t cycle_start, cycle_stop;
 

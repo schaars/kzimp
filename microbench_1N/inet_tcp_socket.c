@@ -18,7 +18,7 @@
 #include "time.h"
 
 // debug macro
-//#define DEBUG
+#define DEBUG
 #undef DEBUG
 
 /********** All the variables needed by TCP sockets **********/
@@ -196,12 +196,16 @@ void IPC_clean_producer(void)
   {
     close(sockets[i]);
   }
+
+  free(sockets);
 }
 
 // Clean ressources created for the consumer.
 void IPC_clean_consumer(void)
 {
   close(sockets[0]);
+
+  free(sockets);
 }
 
 // Send a message to all the cores
