@@ -2,7 +2,7 @@ toplevel:
 	-mkdir -p bin
 	-$(MAKE) $(MLAGS) all
 
-all: inet_tcp_microbench inet_udp_microbench inet_udp_multicast_microbench unix_microbench
+all: inet_tcp_microbench inet_udp_microbench inet_udp_multicast_microbench unix_microbench pipe_microbench pipe_vmsplice_microbench
 
 C:=gcc
 CFLAGS:=-Wall -Werror -g -lm
@@ -20,6 +20,12 @@ inet_udp_multicast_microbench: $(DEPS) src/inet_udp_socket.c
 unix_microbench: $(DEPS) src/unix_socket.c
 	$(C) $(CFLAGS) -o bin/$@ $^
 
+pipe_microbench: $(DEPS) src/pipe.c
+	$(C) $(CFLAGS) -o bin/$@ $^
+
+pipe_vmsplice_microbench: $(DEPS) src/pipe.c
+	$(C) $(CFLAGS) -DVMSPLICE -o bin/$@ $^
+
 clean:
 	-rm *.o
 	-rm *~
@@ -31,3 +37,5 @@ clobber:
 	-rm bin/inet_udp_microbench
 	-rm bin/inet_udp_multicast_microbench
 	-rm bin/unix_microbench
+	-rm bin/pipe_microbench
+	-rm bin/pipe_vmsplice_microbench
