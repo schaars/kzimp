@@ -39,6 +39,7 @@
 #define PERIODIC_THROUGHPUT_COMPUTATION (PERIODIC_THROUGHPUT_COMPUTATION_SEC*1000*1000)
 
 // name of the file which will contain statistics
+#define LATENCIES_FILE_PREFIX "./latencies"
 #define STATISTICS_FILE_PREFIX "./statistics"
 #define STATISTICS_FILE_SUFFIX ".log"
 
@@ -144,14 +145,13 @@ uint64_t do_producer(void)
   }
 
   // send a last message to signal to the client that the experiment has finished
+  // this message is not taken into account when computing the throughput, but is taken into account
+  // for computing the latency
   time_for_latency_add(nb_msg - nb_messages_warmup, get_current_time());
   total_payload += IPC_sendToAll(message_size, -2, &cycles_in_send);
   nb_msg++;
 
   /*
-   * If the logging phase duration is a multiple of the periodic throughput computation,
-   * then this last throughput can be very low and will tamper the real throughput
-
    // compute throughput one last time
    thr_current_time = get_current_time();
    thr_elapsed_time = thr_current_time - thr_start_time;
@@ -224,7 +224,7 @@ void do_consumer(void)
         cycles_in_recv += cycles_tmp;
 
         // get current time for latency
-        time_for_latency_add(((msg_id != -2) ? msg_id : nb_msg + 1)
+        time_for_latency_add(((msg_id != -2) ? msg_id : nb_msg)
             - nb_messages_warmup, get_current_time());
 
         // compute the current throughput
@@ -261,21 +261,23 @@ void do_consumer(void)
     }
   }
 
-  // compute throughput one last time
-  thr_current_time = get_current_time();
-  thr_elapsed_time = thr_current_time - thr_start_time;
+  /*
+   // compute throughput one last time
+   thr_current_time = get_current_time();
+   thr_elapsed_time = thr_current_time - thr_start_time;
 
-  // total_payload is in bytes
-  // xp_elapsed_time is in usec
-  current_thr = ((double) total_payload / 1000000.0)
-      / ((double) thr_elapsed_time / 1000000.0);
+   // total_payload is in bytes
+   // xp_elapsed_time is in usec
+   current_thr = ((double) total_payload / 1000000.0)
+   / ((double) thr_elapsed_time / 1000000.0);
 
-#ifdef DEBUG
-  printf("[consumer %i] Final throughput = %f MB/s, nb_msg in logging = %ld\n",
-      core_id, current_thr, nb_msg - nb_messages_warmup + 1);
-#endif
+   #ifdef DEBUG
+   printf("[consumer %i] Final throughput = %f MB/s, nb_msg in logging = %ld\n",
+   core_id, current_thr, nb_msg - nb_messages_warmup + 1);
+   #endif
 
-  list_of_thr = list_add(list_of_thr, current_thr);
+   list_of_thr = list_add(list_of_thr, current_thr);
+   */
 
   // compute mean and stddev for throughput and latency
   avg_thr = list_compute_avg(list_of_thr);
@@ -343,6 +345,15 @@ int main(int argc, char **argv)
     print_help_and_exit(argv[0]);
   }
 
+  /*
+   * the duration of the logging phase must be a multiple of the PERIODIC_THROUGHPUT_COMPUTATION
+   */
+  if (logging_phase_duration % PERIODIC_THROUGHPUT_COMPUTATION_SEC != 0)
+  {
+    logging_phase_duration += PERIODIC_THROUGHPUT_COMPUTATION_SEC
+        - logging_phase_duration % PERIODIC_THROUGHPUT_COMPUTATION_SEC;
+  }
+
   init_clock_mhz();
 
   time_for_latency_init(get_current_time());
@@ -390,18 +401,17 @@ int main(int argc, char **argv)
     IPC_clean_producer();
     IPC_clean();
 
-    FILE *F;
     char filename[256];
+
     sprintf(filename, "%s_producer%s", STATISTICS_FILE_PREFIX,
         STATISTICS_FILE_SUFFIX);
+
+    FILE *F;
     F = fopen(filename, "w");
     if (!F)
     {
       perror("Error while creating the file for the producer");
     }
-
-    // output time_for_latency
-    time_for_latency_output(F);
 
     fprintf(F, "[producer] thr= %f +/- %f\n", avg_thr, thr_stddev);
     fprintf(
@@ -415,6 +425,12 @@ int main(int argc, char **argv)
     fprintf(F, "[producer] nb_messages_logging_phase= %li\n",
         nb_messages_logging_phase);
 
+    fclose(F);
+
+    // output time_for_latency
+    sprintf(filename, "%s_producer%s", LATENCIES_FILE_PREFIX,
+        STATISTICS_FILE_SUFFIX);
+    time_for_latency_output(filename);
   }
   else
   {
@@ -422,8 +438,9 @@ int main(int argc, char **argv)
     do_consumer();
     IPC_clean_consumer();
 
-    FILE *F;
     char filename[256];
+
+    FILE *F;
     sprintf(filename, "%s_consumer_%i%s", STATISTICS_FILE_PREFIX, core_id,
         STATISTICS_FILE_SUFFIX);
     F = fopen(filename, "w");
@@ -432,14 +449,18 @@ int main(int argc, char **argv)
       perror("Error while creating the file for the producer");
     }
 
-    // output time_for_latency
-    time_for_latency_output(F);
-
     fprintf(F, "[consumer %i] thr= %f +/- %f\n", core_id, avg_thr, thr_stddev);
     fprintf(F, "[consumer %i] nb_cycles_in_recv = %qd\n", core_id,
         (long long unsigned int) cycles_in_recv);
     fprintf(F, "[consumer %i] nb_messages_logging_phase= %li\n", core_id,
         nb_messages_logging_phase);
+
+    fclose(F);
+
+    // output time_for_latency
+    sprintf(filename, "./%s_consumer_%i%s", LATENCIES_FILE_PREFIX,
+        core_id, STATISTICS_FILE_SUFFIX);
+    time_for_latency_output(filename);
   }
 
   time_for_latency_destroy();

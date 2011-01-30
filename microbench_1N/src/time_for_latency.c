@@ -3,47 +3,83 @@
 
 #include "time_for_latency.h"
 
+struct element
+{
+  long n;
+  uint64_t time;
+
+  struct element *next;
+};
+
+static struct element *head;
 static uint64_t basetime;
-static uint64_t *time_for_latency;
-static int nb_messages_logging = 100000;
 
 // initialize everything for logging latencies
 void time_for_latency_init(uint64_t _basetime)
 {
   basetime = _basetime;
 
-  // create the structure for latency
-  time_for_latency = (uint64_t*) malloc(sizeof(uint64_t) * nb_messages_logging);
-  if (!time_for_latency)
-  {
-    perror("Allocation error of time_for_latency");
-    exit(-1);
-  }
+  head = NULL;
 }
 
 // add a new tuple
 void time_for_latency_add(long n, uint64_t time)
 {
-  if (n >= 0 && n < nb_messages_logging)
+  struct element *elt = (struct element*) malloc(sizeof(struct element));
+  if (!elt)
   {
-    time_for_latency[n] = time;
+    perror("Allocation error of a new element");
+    exit(-1);
   }
+
+  elt->n = n;
+  elt->time = time;
+
+  elt->next = head;
+  head = elt;
 }
 
 // output the tuple we have in the FILE *F
-void time_for_latency_output(FILE *F)
+void time_for_latency_output(char *filename)
 {
-  long m;
-  fprintf(F, "message_id\ttime_for_latency\n");
-  for (m = 0; m < nb_messages_logging; m++)
+  FILE *F;
+
+  F = fopen(filename, "w");
+  if (!F)
   {
-    fprintf(F, "%li\t%qd\n", m, (unsigned long long) (time_for_latency[m]
-        - basetime));
+    perror("Error while creating the file for latencies");
+  }
+
+  struct element *e = head;
+  while (e)
+  {
+    // message_id   time_for_latency_in_usec
+    fprintf(F, "%li\t%qd\n", e->n, (unsigned long long) (e->time - basetime));
+    e = e->next;
+  }
+
+  fclose(F);
+}
+
+void time_for_latency_recursive_destroy(struct element *e)
+{
+  if (e)
+  {
+    time_for_latency_recursive_destroy(e->next);
+    free(e);
   }
 }
 
 // destroy the allocated structures
 void time_for_latency_destroy(void)
 {
-  free(time_for_latency);
+  //time_for_latency_recursive_destroy(head);
+
+  struct element *e;
+  while (head != NULL)
+  {
+    e = head;
+    head = head->next;
+    free(e);
+  }
 }
