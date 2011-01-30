@@ -25,11 +25,11 @@
 #include "list.h"
 
 // debug macro
-//#define DEBUG
-#undef DEBUG
+#define DEBUG
+//#undef DEBUG
 
 // number of threads per core. Set it to 2 when having a hyperthreaded CPU
-#define NB_THREADS_PER_CORE 2
+#define NB_THREADS_PER_CORE 1
 
 // period at which we compute the current throughput, in sec
 #define PERIODIC_THROUGHPUT_COMPUTATION_SEC 10
@@ -164,7 +164,7 @@ void do_consumer(void)
       ret = IPC_receive(message_size, &msg_id, &cycles_in_recv);
 
       // get current time for latency
-      time_for_latency[nb_msg - nb_messages_warmup] = get_current_time();
+      time_for_latency[msg_id - nb_messages_warmup] = get_current_time();
     }
     else
     {
@@ -174,7 +174,7 @@ void do_consumer(void)
     if (ret)
     {
 #ifdef DEBUG
-      printf("[core %i] Receiving valid message %li\n", core_id, nb_msg);
+      printf("[core %i] Receiving valid message %li\n", core_id, msg_id);
 #endif
 
       if (nb_msg == nb_messages_warmup)
@@ -318,7 +318,7 @@ int main(int argc, char **argv)
   {
     if (!fork())
     {
-      core_id = i * NB_THREADS_PER_CORE;
+      core_id = i;
       break; // i'm a child, so I exit the loop
     }
   }
@@ -327,7 +327,7 @@ int main(int argc, char **argv)
   cpu_set_t mask;
 
   CPU_ZERO(&mask);
-  CPU_SET(core_id, &mask);
+  CPU_SET(core_id * NB_THREADS_PER_CORE, &mask);
 
   if (sched_setaffinity(0, sizeof(mask), &mask) == -1)
   {
