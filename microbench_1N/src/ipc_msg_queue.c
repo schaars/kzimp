@@ -1,17 +1,14 @@
 /* This file is part of multicore_replication_microbench.
  *
- * Communication mechanism: pipes
+ * Communication mechanism: IPC message queue
  */
 
-#define _GNU_SOURCE         /* vmsplice, See feature_test_macros(7) */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <strings.h>
 #include <unistd.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <sys/uio.h>
 
 #include "ipc_interface.h"
 #include "time.h"
@@ -20,17 +17,23 @@
 #define DEBUG
 #undef DEBUG
 
-/********** All the variables needed by pipes **********/
+/********** All the variables needed by IPC message queues **********/
 
 #define MIN_MSG_SIZE (sizeof(int) + sizeof(long))
+
+/* a message for IPC message queue */
+struct ipc_message
+{
+  long mtype;
+  char mtext[MESSAGE_MAX_SIZE]; // MESSAGE_MAX_SIZE is defined at compile time, when calling gcc
+};
 
 static int core_id; // 0 is the producer. The others are children
 static int nb_receivers;
 static int request_size; // requests size in bytes
 
-// pipes[i] = the pipe[2] between the producer and the consumer i+1
-static int **pipes;
-static int consumer_reading_pipe; // fd used by the consumer for reading messages coming from the producer
+static int *consumers;
+static int consumer_queue; // pointer to this consumer's queue for reading
 
 // Initialize resources for both the producer and the consumers
 // First initialization function called
@@ -39,19 +42,29 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   nb_receivers = _nb_receivers;
   request_size = _request_size;
 
-  // create the pipes
-  pipes = (int**) malloc(sizeof(int*) * nb_receivers);
-  if (!pipes)
+  key_t key;
+  int i;
+
+  consumers = (int*) malloc(sizeof(int) * nb_receivers);
+  if (!consumers)
   {
-    perror("[IPC_clean] Allocation error! ");
+    perror("Allocation error");
     exit(errno);
   }
 
-  int i;
   for (i = 0; i < nb_receivers; i++)
   {
-    pipes[i] = (int*) malloc(sizeof(int) * 2);
-    pipe(pipes[i]);
+    if ((key = ftok("../src/ipc_msg_queue.c", 'A' + i)) == -1)
+    {
+      perror("ftok");
+      exit(1);
+    }
+
+    if ((consumers[i] = msgget(key, 0600 | IPC_CREAT)) == -1)
+    {
+      perror("msgget");
+      exit(1);
+    }
   }
 }
 
@@ -60,12 +73,7 @@ void IPC_initialize_producer(int _core_id)
 {
   core_id = _core_id;
 
-  int i;
-  for (i = 0; i < nb_receivers; i++)
-  {
-    // the producer never reads from the pipe
-    close(pipes[i][0]);
-  }
+  //TODO
 }
 
 // Initialize resources for the consumers
@@ -73,48 +81,27 @@ void IPC_initialize_consumer(int _core_id)
 {
   core_id = _core_id;
 
-  consumer_reading_pipe = pipes[core_id - 1][0];
-
-  int i;
-  for (i = 0; i < nb_receivers; i++)
-  {
-    if (i + 1 != core_id)
-    {
-      close(pipes[i][0]);
-    }
-
-    // the consumers never write to the pipe
-    close(pipes[i][1]);
-  }
+  consumer_queue =
+  //TODO
 }
 
 // Clean ressources created for both the producer and the consumer.
 // Called by the parent process, after the death of the children.
 void IPC_clean(void)
 {
-  int i;
-  for (i = 0; i < nb_receivers; i++)
-  {
-    free(pipes[i]);
-  }
-
-  free(pipes);
+  //TODO
 }
 
 // Clean ressources created for the producer.
 void IPC_clean_producer(void)
 {
-  int i;
-  for (i = 0; i < nb_receivers; i++)
-  {
-    close(pipes[i][1]);
-  }
+  //TODO
 }
 
 // Clean ressources created for the consumer.
 void IPC_clean_consumer(void)
 {
-  close(consumer_reading_pipe);
+  //TODO
 }
 
 // Send a message to all the cores
@@ -159,15 +146,8 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
   {
     // writing the content
     rdtsc(cycle_start);
-#ifdef VMSPLICE
-    struct iovec iov;
-
-    iov.iov_base = &msg;
-    iov.iov_len = msg_size;
-    vmsplice(pipes[i][1], &iov, 1, 0);
-#else
+    //TODO
     write(pipes[i][1], msg, msg_size);
-#endif
     rdtsc(cycle_stop);
 
     if (spent_cycles != NULL)
@@ -208,6 +188,7 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
   uint64_t cycle_start, cycle_stop;
 
   rdtsc(cycle_start);
+  //TODO
   int header_size = read(consumer_reading_pipe, msg, MIN_MSG_SIZE);
   rdtsc(cycle_stop);
 
@@ -223,6 +204,7 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
   if (left > 0)
   {
     rdtsc(cycle_start);
+    //TODO
     s = read(consumer_reading_pipe, (void*) (msg + header_size), left);
     rdtsc(cycle_stop);
 

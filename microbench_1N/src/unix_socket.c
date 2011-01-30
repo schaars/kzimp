@@ -19,7 +19,7 @@
 #define DEBUG
 #undef DEBUG
 
-/********** All the variables needed by TCP sockets **********/
+/********** All the variables needed by Unix domain sockets **********/
 
 #define UDP_SEND_MAX_SIZE 65507
 
