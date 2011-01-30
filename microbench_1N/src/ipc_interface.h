@@ -3,8 +3,6 @@
  * Communication mechanism: interface
  */
 
-#include <stdbool.h>
-
 // Initialize resources for both the producer and the consumers
 // First initialization function called
 void IPC_initialize(int _nb_receivers, int _request_size);

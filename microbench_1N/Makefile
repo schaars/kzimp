@@ -1,19 +1,24 @@
+toplevel:
+	-mkdir -p bin
+	-$(MAKE) $(MLAGS) all
+
 all: inet_tcp_microbench inet_udp_microbench inet_udp_multicast_microbench unix_microbench
 
 C:=gcc
 CFLAGS:=-Wall -Werror -g -lm
+DEPS:=src/time_for_latency.c src/list_of_double.c src/microbench.c
 
-inet_tcp_microbench: list.c tcp_net.c inet_tcp_socket.c microbench.c
-	$(C) $(CFLAGS) -o $@ $^
+inet_tcp_microbench: $(DEPS) src/tcp_net.c src/inet_tcp_socket.c 
+	$(C) $(CFLAGS) -o bin/$@ $^
 
-inet_udp_microbench: list.c inet_udp_socket.c microbench.c
-	$(C) $(CFLAGS) -o $@ $^
+inet_udp_microbench: $(DEPS) src/inet_udp_socket.c
+	$(C) $(CFLAGS) -o bin/$@ $^
 
-inet_udp_multicast_microbench: list.c inet_udp_socket.c microbench.c
-	$(C) $(CFLAGS) -DIP_MULTICAST -o $@ $^
+inet_udp_multicast_microbench: $(DEPS) src/inet_udp_socket.c
+	$(C) $(CFLAGS) -DIP_MULTICAST -o bin/$@ $^
 
-unix_microbench: list.c unix_socket.c microbench.c
-	$(C) $(CFLAGS) -o $@ $^
+unix_microbench: $(DEPS) src/unix_socket.c
+	$(C) $(CFLAGS) -o bin/$@ $^
 
 clean:
 	-rm *.o
@@ -22,7 +27,7 @@ clean:
 clobber:
 	-rm *.o
 	-rm *~
-	-rm inet_tcp_microbench
-	-rm inet_udp_microbench
-	-rm inet_udp_multicast_microbench
-	-rm unix_microbench
+	-rm bin/inet_tcp_microbench
+	-rm bin/inet_udp_microbench
+	-rm bin/inet_udp_multicast_microbench
+	-rm bin/unix_microbench

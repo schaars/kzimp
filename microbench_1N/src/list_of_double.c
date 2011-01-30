@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "list.h"
+#include "list_of_double.h"
 
 /* destroy the list */
 void list_del(struct my_list_node *L)

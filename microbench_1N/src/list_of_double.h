@@ -1,5 +1,5 @@
-#ifndef _LIST_
-#define _LIST_
+#ifndef _LIST_OF_DOUBLE
+#define _LIST_OF_DOUBLE
 
 struct my_list_node
 {

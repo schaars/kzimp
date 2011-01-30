@@ -22,7 +22,8 @@
 
 #include "ipc_interface.h"
 #include "time.h"
-#include "list.h"
+#include "list_of_double.h"
+#include "time_for_latency.h"
 
 // debug macro
 #define DEBUG
@@ -43,11 +44,11 @@
 
 static int core_id; // 0 is the producer. The others are children
 static int nb_receivers;
-static long nb_messages_warmup;
-static long nb_messages_logging;
-static long nb_messages; // sum of the 2 previous values
+
+static long warmup_phase_duration; // duration of the warmup phase, in seconds
+static long logging_phase_duration; // duration of the warmup phase, in seconds
 static int message_size; // messages size in bytes
-static uint64_t *time_for_latency;
+static long nb_messages_logging_phase; // number of messages in the logging phase
 
 // in order to measure the time spent in send() and recv() operations
 static uint64_t cycles_in_send, cycles_in_recv;
@@ -57,8 +58,11 @@ double avg_thr, thr_stddev;
 
 uint64_t do_producer(void)
 {
-  long nb_msg;
-  uint64_t xp_start_time = 0;
+  long nb_msg, nb_messages_warmup;
+  uint64_t logging_phase_start_time;
+
+  // for the duration of the warmup and logging phases
+  uint64_t xp_start_time, xp_elapsed_time;
 
   // for computing the throughput
   uint64_t thr_start_time, thr_current_time, thr_elapsed_time;
@@ -70,26 +74,43 @@ uint64_t do_producer(void)
   printf("[core %i] I am a producer and I am doing my job\n", core_id);
 #endif
 
+  logging_phase_start_time = 0;
   total_payload = 0;
   thr_start_time = 0;
   list_of_thr = NULL;
-  for (nb_msg = 0; nb_msg < nb_messages; nb_msg++)
-  {
-#ifdef DEBUG
-    printf("[core %i] Sending message %li\n", core_id, nb_msg);
-#endif
+  nb_msg = 0;
+  nb_messages_warmup = -1;
+  xp_start_time = get_current_time();
+  xp_elapsed_time = 0;
 
-    if (nb_msg == nb_messages_warmup)
+  while (xp_elapsed_time < (warmup_phase_duration + logging_phase_duration)
+      * 1000000)
+  {
+    xp_elapsed_time = get_current_time() - xp_start_time;
+
+    // this test is true only once during the experiment
+    if (nb_messages_warmup == -1 && xp_elapsed_time >= warmup_phase_duration
+        * 1000000)
     {
-      // get current time, which is the start time of this experiment (we consider only the logging phase)
-      xp_start_time = get_current_time();
+      logging_phase_start_time = get_current_time();
       thr_start_time = get_current_time();
+      nb_messages_warmup = nb_msg;
+
+#ifdef DEBUG
+      printf("[Producer] Starting the logging phase after %f sec\n",
+          (double) xp_elapsed_time / 1000000.0);
+#endif
     }
 
-    if (nb_msg >= nb_messages_warmup)
+#ifdef DEBUG
+    //printf("[core %i] Sending message %li\n", core_id, nb_msg);
+#endif
+
+    if (nb_messages_warmup != -1)
     {
       // get current time for latency
-      time_for_latency[nb_msg - nb_messages_warmup] = get_current_time();
+      time_for_latency_add(nb_msg - nb_messages_warmup, get_current_time());
+
       total_payload += IPC_sendToAll(message_size, nb_msg, &cycles_in_send);
 
       // compute the current throughput
@@ -115,31 +136,51 @@ uint64_t do_producer(void)
     }
     else
     {
-      IPC_sendToAll(message_size, nb_msg, NULL);
+      // during the warmup phase msg_id is negative
+      IPC_sendToAll(message_size, -1, NULL);
     }
+
+    nb_msg++;
   }
 
-  // compute throughput one last time
-  thr_current_time = get_current_time();
-  thr_elapsed_time = thr_current_time - thr_start_time;
+  // send a last message to signal to the client that the experiment has finished
+  time_for_latency_add(nb_msg - nb_messages_warmup, get_current_time());
+  total_payload += IPC_sendToAll(message_size, -2, &cycles_in_send);
+  nb_msg++;
 
-  // total_payload is in bytes
-  // xp_elapsed_time is in usec
-  current_thr = ((double) total_payload / 1000000.0)
-      / ((double) thr_elapsed_time / 1000000.0);
+  /*
+   * If the logging phase duration is a multiple of the periodic throughput computation,
+   * then this last throughput can be very low and will tamper the real throughput
 
-  list_of_thr = list_add(list_of_thr, current_thr);
+   // compute throughput one last time
+   thr_current_time = get_current_time();
+   thr_elapsed_time = thr_current_time - thr_start_time;
+
+   // total_payload is in bytes
+   // xp_elapsed_time is in usec
+   current_thr = ((double) total_payload / 1000000.0)
+   / ((double) thr_elapsed_time / 1000000.0);
+
+   #ifdef DEBUG
+   printf("[producer] Final throughput = %f MB/s, nb_msg in logging = %ld\n",
+   current_thr, nb_msg - nb_messages_warmup + 1);
+   #endif
+
+   list_of_thr = list_add(list_of_thr, current_thr);
+   */
 
   // compute mean and stddev for throughput and latency
   avg_thr = list_compute_avg(list_of_thr);
   thr_stddev = list_compute_stddev(list_of_thr, avg_thr);
 
-  return xp_start_time;
+  nb_messages_logging_phase = nb_msg - nb_messages_warmup;
+
+  return logging_phase_start_time;
 }
 
 void do_consumer(void)
 {
-  long nb_msg;
+  long nb_msg, nb_messages_warmup;
   long msg_id;
 
   // for computing the throughput
@@ -152,39 +193,40 @@ void do_consumer(void)
   printf("[core %i] I am a consumer and I am doing my job\n", core_id);
 #endif
 
+  msg_id = 0;
   nb_msg = 0;
+  nb_messages_warmup = -1;
   total_payload = 0;
   list_of_thr = NULL;
   thr_start_time = 0;
-  while (nb_msg < nb_messages)
+
+  while (msg_id != -2)
   {
     uint64_t ret = 0;
-    if (nb_msg >= nb_messages_warmup)
-    {
-      ret = IPC_receive(message_size, &msg_id, &cycles_in_recv);
+    uint64_t cycles_tmp = 0;
 
-      // get current time for latency
-      time_for_latency[msg_id - nb_messages_warmup] = get_current_time();
-    }
-    else
-    {
-      ret = IPC_receive(message_size, &msg_id, NULL);
-    }
+    ret = IPC_receive(message_size, &msg_id, &cycles_tmp);
 
     if (ret)
     {
-#ifdef DEBUG
-      printf("[core %i] Receiving valid message %li\n", core_id, msg_id);
-#endif
+      // msg_id == -1    ==>    warmup phase
+      // msg_id >= 0     ==>    logging phase
+      // msg_id == -2    ==>    end of experiment
 
-      if (nb_msg == nb_messages_warmup)
+      if (nb_messages_warmup == -1 && msg_id >= 0)
       {
+        nb_messages_warmup = nb_msg;
         thr_start_time = get_current_time();
       }
 
-      // are we in the logging phase?
-      if (nb_msg >= nb_messages_warmup)
+      if (msg_id >= 0 || msg_id == -2)
       {
+        cycles_in_recv += cycles_tmp;
+
+        // get current time for latency
+        time_for_latency_add(((msg_id != -2) ? msg_id : nb_msg + 1)
+            - nb_messages_warmup, get_current_time());
+
         // compute the current throughput
         thr_current_time = get_current_time();
         thr_elapsed_time = thr_current_time - thr_start_time;
@@ -217,7 +259,6 @@ void do_consumer(void)
       printf("[core %i] Receiving unvalid message %li\n", core_id, nb_msg);
 #endif
     }
-
   }
 
   // compute throughput one last time
@@ -229,11 +270,18 @@ void do_consumer(void)
   current_thr = ((double) total_payload / 1000000.0)
       / ((double) thr_elapsed_time / 1000000.0);
 
+#ifdef DEBUG
+  printf("[consumer %i] Final throughput = %f MB/s, nb_msg in logging = %ld\n",
+      core_id, current_thr, nb_msg - nb_messages_warmup + 1);
+#endif
+
   list_of_thr = list_add(list_of_thr, current_thr);
 
   // compute mean and stddev for throughput and latency
   avg_thr = list_compute_avg(list_of_thr);
   thr_stddev = list_compute_stddev(list_of_thr, avg_thr);
+
+  nb_messages_logging_phase = nb_msg - nb_messages_warmup;
 }
 
 void wait_for_receivers(void)
@@ -251,7 +299,7 @@ void print_help_and_exit(char *program_name)
 {
   fprintf(
       stderr,
-      "Usage: %s -n nb_receivers -w nb_messages_warmup_phase -l nb_messages_logging_phase -m messages_size_in_B\n",
+      "Usage: %s -n nb_receivers -w warmup_phase_duration_sec -l logging_phase_duration_sec -m messages_size_in_B\n",
       program_name);
   exit(-1);
 }
@@ -259,9 +307,6 @@ void print_help_and_exit(char *program_name)
 int main(int argc, char **argv)
 {
   nb_receivers = -1;
-  nb_messages_warmup = -1;
-  nb_messages_logging = -1;
-  nb_messages = -1;
   message_size = -1;
   cycles_in_send = cycles_in_recv = 0;
 
@@ -276,11 +321,11 @@ int main(int argc, char **argv)
       break;
 
     case 'w':
-      nb_messages_warmup = atol(optarg);
+      warmup_phase_duration = atol(optarg);
       break;
 
     case 'l':
-      nb_messages_logging = atol(optarg);
+      logging_phase_duration = atol(optarg);
       break;
 
     case 'm':
@@ -292,21 +337,15 @@ int main(int argc, char **argv)
     }
   }
 
-  nb_messages = nb_messages_warmup + nb_messages_logging;
-  if (nb_receivers <= 0 || nb_messages <= 0 || message_size <= 0)
+  if (nb_receivers <= 0 || (warmup_phase_duration + logging_phase_duration)
+      <= 0 || message_size <= 0)
   {
     print_help_and_exit(argv[0]);
   }
 
-  // create the structure for latency
-  time_for_latency = (uint64_t*) malloc(sizeof(uint64_t) * nb_messages_logging);
-  if (!time_for_latency)
-  {
-    perror("Allocation error of time_for_latency");
-    exit(-1);
-  }
-
   init_clock_mhz();
+
+  time_for_latency_init(get_current_time());
 
   // initialize the mechanism
   IPC_initialize(nb_receivers, message_size);
@@ -362,12 +401,7 @@ int main(int argc, char **argv)
     }
 
     // output time_for_latency
-    long m;
-    fprintf(F, "message_id\ttime_for_latency\n");
-    for (m = 0; m < nb_messages_logging; m++)
-    {
-      fprintf(F, "%li\t%qd\n", m, (unsigned long long) time_for_latency[m]);
-    }
+    time_for_latency_output(F);
 
     fprintf(F, "[producer] thr= %f +/- %f\n", avg_thr, thr_stddev);
     fprintf(
@@ -378,6 +412,8 @@ int main(int argc, char **argv)
         (long long unsigned int) (xp_end_time - xp_start_time));
     fprintf(F, "[producer] nb_cycles_in_send= %qd\n",
         (long long unsigned int) cycles_in_send);
+    fprintf(F, "[producer] nb_messages_logging_phase= %li\n",
+        nb_messages_logging_phase);
 
   }
   else
@@ -397,19 +433,16 @@ int main(int argc, char **argv)
     }
 
     // output time_for_latency
-    long m;
-    fprintf(F, "message_id\ttime_for_latency\n");
-    for (m = 0; m < nb_messages_logging; m++)
-    {
-      fprintf(F, "%li\t%qd\n", m, (unsigned long long) time_for_latency[m]);
-    }
+    time_for_latency_output(F);
 
     fprintf(F, "[consumer %i] thr= %f +/- %f\n", core_id, avg_thr, thr_stddev);
     fprintf(F, "[consumer %i] nb_cycles_in_recv = %qd\n", core_id,
         (long long unsigned int) cycles_in_recv);
+    fprintf(F, "[consumer %i] nb_messages_logging_phase= %li\n", core_id,
+        nb_messages_logging_phase);
   }
 
-  free(time_for_latency);
+  time_for_latency_destroy();
 
   return 0;
 }

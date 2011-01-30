@@ -163,7 +163,7 @@ void IPC_initialize_consumer(int _core_id)
   addr.sin_family = AF_INET;
   addr.sin_port = htons(BOOTSTRAP_PORT);
 
-  while (true)
+  while (1)
   {
     if (connect(sockets[0], (struct sockaddr *) &(addr), sizeof(addr)) < 0)
     {

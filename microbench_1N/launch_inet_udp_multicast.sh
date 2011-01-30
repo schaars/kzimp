@@ -17,7 +17,7 @@ if [ $# -eq 4 ]; then
    NB_MSG_WARMUP=$3
    NB_MSG_LOGGING=$4
 else
-   echo "Usage: ./$(basename $0) <nb_consumers> <message_size_in_B> <nb_messages_warmup_phase> <nb_message_logging_phase>"
+   echo "Usage: ./$(basename $0) <nb_consumers> <message_size_in_B> <warmup_phase_duration_sec> <logging_phase_duration_sec>"
    exit 0
 fi
 
@@ -32,7 +32,7 @@ sleep 10
 
 
 # launch XP
-./inet_udp_multicast_microbench  -n $NB_CONSUMERS -m $MSG_SIZE -w $NB_MSG_WARMUP -l $NB_MSG_LOGGING
+./bin/inet_udp_multicast_microbench  -n $NB_CONSUMERS -m $MSG_SIZE -w $NB_MSG_WARMUP -l $NB_MSG_LOGGING
 
 
 # memory for 10 seconds
