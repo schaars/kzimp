@@ -1,6 +1,6 @@
 /* This file is part of multicore_replication_microbench.
  *
- * Communication mechanism: IPC message queue
+ * Communication mechanism: POSIX message queue
  */
 
 #include <stdio.h>
@@ -22,7 +22,7 @@
 #define DEBUG
 //#undef DEBUG
 
-/********** All the variables needed by IPC message queues **********/
+/********** All the variables needed by POSIX message queues **********/
 
 #define MIN_MSG_SIZE (sizeof(int) + sizeof(long))
 
@@ -151,7 +151,7 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
     exit(errno);
   }
 
-  // malloc is lazy: the pages may not be yet really allocated.
+  // malloc is lazy: the pages may not be really allocated yet.
   // We force the allocation and the fetch of the pages with bzero
   bzero(msg, msg_size);
 

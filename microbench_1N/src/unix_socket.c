@@ -105,6 +105,15 @@ void IPC_initialize_consumer(int _core_id)
 // Called by the parent process, after the death of the children.
 void IPC_clean(void)
 {
+  char filename[108];
+  int i;
+
+  for (i = 0; i < nb_receivers; i++)
+  {
+    snprintf(filename, sizeof(char) * 108, "%s_%i", UNIX_SOCKET_FILE_NAME, i
+        + 1); // core_id starts at 1 for the consumers
+    unlink(filename);
+  }
 }
 
 // Clean ressources created for the producer.
@@ -146,7 +155,7 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
     exit(errno);
   }
 
-  // malloc is lazy: the pages may not be yet really allocated.
+  // malloc is lazy: the pages may not be really allocated yet.
   // We force the allocation and the fetch of the pages with bzero
   bzero(msg, msg_size);
 

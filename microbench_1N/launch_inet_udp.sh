@@ -36,6 +36,9 @@ fi
 mkdir $MEMORY_DIR
 
 
+sudo sysctl -p inet_sysctl.conf
+
+
 # memory for 10 seconds
 ./get_memory_usage.sh  $MEMORY_DIR &
 sleep 10

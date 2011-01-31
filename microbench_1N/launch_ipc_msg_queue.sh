@@ -35,6 +35,9 @@ fi
 mkdir $MEMORY_DIR
 
 
+# used by ftok
+touch /tmp/ipc_msg_queue_microbench
+
 # make with the new parameters
 echo "$ONE_QUEUE -DMESSAGE_MAX_SIZE=$MESSAGE_MAX_SIZE" > IPC_MSG_QUEUE_PROPERTIES
 make ipc_msg_queue_microbench

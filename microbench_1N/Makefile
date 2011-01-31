@@ -3,7 +3,8 @@ toplevel:
 	-$(MAKE) $(MLAGS) all
 
 all: inet_tcp_microbench inet_udp_microbench inet_udp_multicast_microbench unix_microbench \
-	 pipe_microbench pipe_vmsplice_microbench ipc_msg_queue_microbench posix_msg_queue_microbench
+	 pipe_microbench pipe_vmsplice_microbench ipc_msg_queue_microbench posix_msg_queue_microbench \
+	 barrelfish_message_passing
 
 C:=gcc
 CFLAGS:=-Wall -Werror -g -lm
@@ -34,6 +35,10 @@ ipc_msg_queue_microbench: $(DEPS) src/ipc_msg_queue.c
 posix_msg_queue_microbench: $(DEPS) src/posix_msg_queue.c
 	$(C) $(CFLAGS) -lrt -o bin/$@ $^
 
+barrelfish_message_passing: $(DEPS) src/urpc.h src/urpc_transport.c src/barrelfish.c
+	$(shell if [ ! -e BARRELFISH_MESSAGE_PASSING_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DURPC_MSG_WORDS=8" > BARRELFISH_MESSAGE_PASSING_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell grep -v '#' BARRELFISH_MESSAGE_PASSING_PROPERTIES 2>/dev/null) -o bin/$@ $^
+
 clean:
 	-rm *.o
 	-rm *~
@@ -48,3 +53,4 @@ clobber:
 	-rm bin/pipe_microbench
 	-rm bin/pipe_vmsplice_microbench
 	-rm bin/ipc_msg_queue_microbench
+	-rm bin/barrelfish_message_passing

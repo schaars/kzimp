@@ -26,6 +26,9 @@ fi
 mkdir $MEMORY_DIR
 
 
+sudo sysctl -p inet_sysctl.conf
+
+
 # wait for TIME_WAIT connections
 nbc=$(netstat -tn | grep TIME_WAIT | grep -v ":22 " | wc -l)
 while [ $nbc != 0 ]; do

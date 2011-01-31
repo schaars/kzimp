@@ -3,9 +3,11 @@
 # This script modifies a kernel parameter 
 # This script must be called by root
 # Args:
-#   $1: file in /proc (full path)
-#   $2: value
+#   $1: value
+#   $2: file in /proc (full path)
 
 if [ $# -eq 2 ]; then
-   echo "$2" > "$1"
+   echo "$1" > "$2"
+else
+   echo "Usage: ./$(basename $0) <value> </proc/file/to/modify>"
 fi

@@ -16,6 +16,7 @@ This ensures that 2 processes of the benchmark are never located on the same cor
 You need the Inet configuration present in the file inet_sysctl.conf.
 To take these parameters into account, run
   # sysctl -p inet_sysctl.conf
+Note that this is done in the script (using sudo)
 
 The benchmark is the following one:
   $ ./launch_inet_tcp.sh 
@@ -28,6 +29,7 @@ The benchmark is the following one:
 You need the Inet configuration present in the file inet_sysctl.conf.
 To take these parameters into account, run
   # sysctl -p inet_sysctl.conf
+Note that this is done in the script (using sudo)
 
 The benchmark is the following one:
   $ ./launch_inet_udp.sh 
@@ -39,12 +41,11 @@ Give a 5th argument if you want to enable multicast
 ++++++++++++++++++++++++++++++
 +++++ Unix domain socket +++++
 
-%TODO%
-%modify /proc/net/unix/dgram_* with a script which has ugo+s rights and is owned by root%
-
 The benchmark is the following one:
   $ ./launch_unix.sh 
-    Usage: ./launch_unix.sh <nb_consumers> <message_size_in_B> <duration_warmup_phase_sec> <duration_logging_phase_sec>
+    Usage: ./launch_unix.sh <nb_consumers> <message_size_in_B> <duration_warmup_phase_sec> <duration_logging_phase_sec> <nb_max_datagrams>
+
+The script sets /proc/sys/net/unix/max_dgram_qlen to <nb_max_datagrams>
 
 
 ++++++++++++++++
@@ -68,6 +69,8 @@ The benchmark is the following one:
 nb_queues: defines if there is 1 queue shared between the consumers or 1 queue per consumer (in this case set this value to N)
 message_max_size: defines the size of the mtext field in the IPC message structure
 
+%TODO modify files in /proc
+
 
 +++++++++++++++++++++++++++++
 +++++ POSIX message queue +++++
@@ -76,7 +79,7 @@ The benchmark is the following one:
   $ ./launch_posix_msg_queue.sh 
     Usage: ./launch_posix_msg_queue.sh <nb_consumers> <message_size_in_B> <nb_messages_warmup_phase> <nb_messages_logging_phase>
 
-
+%TODO modify files in /proc
 
 
 

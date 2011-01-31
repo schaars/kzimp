@@ -5,19 +5,20 @@
 #  $2: message size in B
 #  $3: nb messages warmup phase
 #  $4: nb messages logging phase
+#  $5: max nb datagrams
 
 
 MEMORY_DIR="memory_conso"
 
-
 # get arguments
-if [ $# -eq 4 ]; then
+if [ $# -eq 5 ]; then
    NB_CONSUMERS=$1
    MSG_SIZE=$2
    NB_MSG_WARMUP=$3
    NB_MSG_LOGGING=$4
+   NB_DATAGRAMS=$5
 else
-   echo "Usage: ./$(basename $0) <nb_consumers> <message_size_in_B> <nb_messages_warmup_phase> <nb_messages_logging_phase>"
+   echo "Usage: ./$(basename $0) <nb_consumers> <message_size_in_B> <nb_messages_warmup_phase> <nb_messages_logging_phase> <nb_datagrams>"
    exit 0
 fi
 
@@ -25,11 +26,10 @@ fi
 ./stop_all.sh
 mkdir $MEMORY_DIR
 
-# remove old unix domain socket files
-rm -f /tmp/multicore_replication_microbench_producer_*
 
-#TODO: modify the max number of datagrams
-# echo 10 > /proc/sys/net/unix/max_dgram_qlen
+# modify the max number of datagrams
+sudo ./root_set_value.sh /proc/sys/net/unix/max_dgram_qlen NB_DATAGRAMS
+
 
 # memory for 10 seconds
 ./get_memory_usage.sh  $MEMORY_DIR &
