@@ -2,7 +2,8 @@ toplevel:
 	-mkdir -p bin
 	-$(MAKE) $(MLAGS) all
 
-all: inet_tcp_microbench inet_udp_microbench inet_udp_multicast_microbench unix_microbench pipe_microbench pipe_vmsplice_microbench ipc_msg_queue_microbench
+all: inet_tcp_microbench inet_udp_microbench inet_udp_multicast_microbench unix_microbench \
+	 pipe_microbench pipe_vmsplice_microbench ipc_msg_queue_microbench posix_msg_queue_microbench
 
 C:=gcc
 CFLAGS:=-Wall -Werror -g -lm
@@ -29,6 +30,9 @@ pipe_vmsplice_microbench: $(DEPS) src/pipe.c
 ipc_msg_queue_microbench: $(DEPS) src/ipc_msg_queue.c
 	$(shell if [ ! -e IPC_MSG_QUEUE_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=1000000" > IPC_MSG_QUEUE_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell grep -v '#' IPC_MSG_QUEUE_PROPERTIES 2>/dev/null) -o bin/$@ $^
+
+posix_msg_queue_microbench: $(DEPS) src/posix_msg_queue.c
+	$(C) $(CFLAGS) -lrt -o bin/$@ $^
 
 clean:
 	-rm *.o

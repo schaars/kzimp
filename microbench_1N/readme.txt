@@ -63,17 +63,23 @@ The benchmark is the following one:
 
 The benchmark is the following one:
   $ ./launch_ipc_msg_queue.sh 
-    Usage: ./launch_pipe.sh <nb_consumers> <message_size_in_B> <nb_messages_warmup_phase> <nb_messages_logging_phase> <nb_queues> <message_max_size>
+    Usage: ./launch_ipc_msg_queue.sh <nb_consumers> <message_size_in_B> <nb_messages_warmup_phase> <nb_messages_logging_phase> <nb_queues> <message_max_size>
   
 nb_queues: defines if there is 1 queue shared between the consumers or 1 queue per consumer (in this case set this value to N)
 message_max_size: defines the size of the mtext field in the IPC message structure
 
 
++++++++++++++++++++++++++++++
++++++ POSIX message queue +++++
+
+The benchmark is the following one:
+  $ ./launch_posix_msg_queue.sh 
+    Usage: ./launch_posix_msg_queue.sh <nb_consumers> <message_size_in_B> <nb_messages_warmup_phase> <nb_messages_logging_phase> <message_max_size>
+  
+message_max_size: defines the maximal size of a message in the queue
 
 %TODO%
 %other communication mechanisms%
-
-%POSIX message queue
 
 %Barrelfish
 

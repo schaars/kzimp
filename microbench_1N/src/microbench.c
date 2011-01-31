@@ -327,6 +327,9 @@ int main(int argc, char **argv)
   // initialize the mechanism
   IPC_initialize(nb_receivers, message_size);
 
+  fflush(NULL);
+  sync();
+
   // fork in order to create the children
   core_id = 0;
   int i;
