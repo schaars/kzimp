@@ -72,7 +72,7 @@ message_max_size: defines the size of the mtext field in the IPC message structu
 %TODO modify files in /proc
 
 
-+++++++++++++++++++++++++++++
++++++++++++++++++++++++++++++++
 +++++ POSIX message queue +++++
 
 The benchmark is the following one:
@@ -83,10 +83,18 @@ The benchmark is the following one:
 
 
 
+
+++++++++++++++++++++++++++++++++++++++
++++++ Barrelfish message-passing +++++
+
+The benchmark is the following one:
+  $ ./launch_barrelfish.sh 
+    Usage: ./launch_barrelfish.sh <nb_consumers> <message_size_in_B> <nb_messages_warmup_phase> <nb_messages_logging_phase> <nb_msg_channel>
+
+
 %TODO%
 %other communication mechanisms%
 
-%Barrelfish
 
 %Local Multicast
 
