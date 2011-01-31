@@ -27,15 +27,9 @@ The benchmark is the following one:
 
 The benchmark is the following one:
   $ ./launch_inet_udp.sh 
-    Usage: ./launch_inet_udp.sh <nb_consumers> <message_size_in_B> <duration_warmup_phase_sec> <duration_logging_phase_sec>
+    Usage: ./launch_inet_udp.sh <nb_consumers> <message_size_in_B> <duration_warmup_phase_sec> <duration_logging_phase_sec> [multicast]
 
-
-+++++++++++++++++++++++++++++++++++
-+++++ Inet UDP with multicast +++++
-
-The benchmark is the following one:
-  $ ./launch_inet_udp_multicast.sh 
-    Usage: ./launch_inet_udp_multicast.sh <nb_consumers> <message_size_in_B> <duration_warmup_phase_sec> <duration_logging_phase_sec>
+Give a 5th argument if you want to enable multicast
 
 
 ++++++++++++++++++++++++++++++
@@ -49,10 +43,6 @@ The benchmark is the following one:
     Usage: ./launch_unix.sh <nb_consumers> <message_size_in_B> <duration_warmup_phase_sec> <duration_logging_phase_sec>
 
 
-%TODO%
-%other communication mechanisms%
-
-
 ++++++++++++++++
 +++++ Pipe +++++
 
@@ -61,10 +51,7 @@ The benchmark is the following one:
     Usage: ./launch_pipe.sh <nb_consumers> <message_size_in_B> <duration_warmup_phase_sec> <duration_logging_phase_sec>
 
 
-++++++++++++++++++++++++++++++
-+++++ Pipe with vmsplice +++++
-
-%TODO% there is a bug
+%TODO% pipe with vmsplice: there is a bug
 
 
 +++++++++++++++++++++++++++++
@@ -74,5 +61,18 @@ The benchmark is the following one:
   $ ./launch_ipc_msg_queue.sh 
     Usage: ./launch_pipe.sh <nb_consumers> <message_size_in_B> <nb_messages_warmup_phase> <nb_messages_logging_phase> <nb_queues> <message_max_size>
   
-nb_queues defines if there is 1 queue shared between the consumers or 1 queue per consumer (in this case set this value to N)
-message_max_size defines the size of the mtext field in the IPC message structure
+nb_queues: defines if there is 1 queue shared between the consumers or 1 queue per consumer (in this case set this value to N)
+message_max_size: defines the size of the mtext field in the IPC message structure
+
+
+
+%TODO%
+%other communication mechanisms%
+
+%POSIX message queue
+
+%Barrelfish
+
+%Local Multicast
+
+%User-level Local Multicast with 0-copy

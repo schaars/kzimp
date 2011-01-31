@@ -17,7 +17,7 @@ if [ $# -eq 4 ]; then
    NB_MSG_WARMUP=$3
    NB_MSG_LOGGING=$4
 else
-   echo "Usage: ./$(basename $0) <nb_consumers> <message_size_in_B> <warmup_phase_duration_sec> <logging_phase_duration_sec>"
+   echo "Usage: ./$(basename $0) <nb_consumers> <message_size_in_B> <nb_messages_warmup_phase> <nb_messages_logging_phase>"
    exit 0
 fi
 
