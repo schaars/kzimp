@@ -1,5 +1,9 @@
 #!/bin/bash
 
-pkill inet_tcp
-pkill inet_udp
-pkill get_memory
+pkill -f inet_tcp_microbench
+pkill -f inet_udp_microbench
+pkill -f inet_udp_multicast_microbench
+pkill -f ipc_msg_queue_microbench
+pkill -f pipe_microbench
+pkill -f pipe_vmsplice_microbench
+pkill -f unix_microbench
