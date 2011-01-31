@@ -139,6 +139,12 @@ uint64_t do_producer(void)
   current_thr = ((double) total_payload / 1000000.0)
       / ((double) thr_elapsed_time / 1000000.0);
 
+#ifdef DEBUG
+        printf(
+            "[producer] Final throughput = %f MB/s, nb_msg in logging = %ld\n",
+            current_thr, nb_msg - nb_messages_warmup);
+#endif
+
   list_of_thr = list_add(list_of_thr, current_thr);
 
   // compute mean and stddev for throughput and latency

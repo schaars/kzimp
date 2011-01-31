@@ -13,9 +13,9 @@ This ensures that 2 processes of the benchmark are never located on the same cor
 ++++++++++++++++++++
 +++++ Inet TCP +++++
 
-You need the TCP configuration present in the file tcp_sysctl.conf.
+You need the Inet configuration present in the file inet_sysctl.conf.
 To take these parameters into account, run
-  # sysctl -p tcp_sysctl.conf
+  # sysctl -p inet_sysctl.conf
 
 The benchmark is the following one:
   $ ./launch_inet_tcp.sh 
@@ -24,6 +24,10 @@ The benchmark is the following one:
 
 ++++++++++++++++++++
 +++++ Inet UDP +++++
+
+You need the Inet configuration present in the file inet_sysctl.conf.
+To take these parameters into account, run
+  # sysctl -p inet_sysctl.conf
 
 The benchmark is the following one:
   $ ./launch_inet_udp.sh 
