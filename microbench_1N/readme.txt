@@ -74,9 +74,11 @@ message_max_size: defines the size of the mtext field in the IPC message structu
 
 The benchmark is the following one:
   $ ./launch_posix_msg_queue.sh 
-    Usage: ./launch_posix_msg_queue.sh <nb_consumers> <message_size_in_B> <nb_messages_warmup_phase> <nb_messages_logging_phase> <message_max_size>
-  
-message_max_size: defines the maximal size of a message in the queue
+    Usage: ./launch_posix_msg_queue.sh <nb_consumers> <message_size_in_B> <nb_messages_warmup_phase> <nb_messages_logging_phase>
+
+
+
+
 
 %TODO%
 %other communication mechanisms%
