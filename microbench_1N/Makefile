@@ -27,7 +27,8 @@ pipe_vmsplice_microbench: $(DEPS) src/pipe.c
 	$(C) $(CFLAGS) -DVMSPLICE -o bin/$@ $^
 
 ipc_msg_queue_microbench: $(DEPS) src/ipc_msg_queue.c
-	$(C) $(CFLAGS) -DMESSAGE_MAX_SIZE=1000000 -o bin/$@ $^
+	$(shell if [ ! -e IPC_MSG_QUEUE_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=1000000" > IPC_MSG_QUEUE_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell grep -v '#' IPC_MSG_QUEUE_PROPERTIES 2>/dev/null) -o bin/$@ $^
 
 clean:
 	-rm *.o

@@ -7,7 +7,7 @@
 +++++ Machines with hyperthreading +++++
 
 Set the value of the macro NB_THREADS_PER_CORE (file microbench.c) to the number of cores per threads in your machine.
-This ensures that 2 processes of the benchmark are never located to the same core.
+This ensures that 2 processes of the benchmark are never located on the same core.
 
 
 ++++++++++++++++++++
@@ -51,3 +51,28 @@ The benchmark is the following one:
 
 %TODO%
 %other communication mechanisms%
+
+
+++++++++++++++++
++++++ Pipe +++++
+
+The benchmark is the following one:
+  $ ./launch_pipe.sh 
+    Usage: ./launch_pipe.sh <nb_consumers> <message_size_in_B> <duration_warmup_phase_sec> <duration_logging_phase_sec>
+
+
+++++++++++++++++++++++++++++++
++++++ Pipe with vmsplice +++++
+
+%TODO% there is a bug
+
+
++++++++++++++++++++++++++++++
++++++ IPC message queue +++++
+
+The benchmark is the following one:
+  $ ./launch_ipc_msg_queue.sh 
+    Usage: ./launch_pipe.sh <nb_consumers> <message_size_in_B> <nb_messages_warmup_phase> <nb_messages_logging_phase> <nb_queues> <message_max_size>
+  
+nb_queues defines if there is 1 queue shared between the consumers or 1 queue per consumer (in this case set this value to N)
+message_max_size defines the size of the mtext field in the IPC message structure

@@ -9,13 +9,16 @@
 #include <strings.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
 
 #include "ipc_interface.h"
 #include "time.h"
 
 // debug macro
 #define DEBUG
-#undef DEBUG
+//#undef DEBUG
 
 /********** All the variables needed by IPC message queues **********/
 
@@ -45,7 +48,11 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   key_t key;
   int i;
 
+#ifdef ONE_QUEUE
+  consumers = (int*) malloc(sizeof(int) * 1);
+#else
   consumers = (int*) malloc(sizeof(int) * nb_receivers);
+#endif
   if (!consumers)
   {
     perror("Allocation error");
@@ -54,7 +61,7 @@ void IPC_initialize(int _nb_receivers, int _request_size)
 
   for (i = 0; i < nb_receivers; i++)
   {
-    if ((key = ftok("../src/ipc_msg_queue.c", 'A' + i)) == -1)
+    if ((key = ftok("/tmp/ipc_msg_queue_microbench", 'A' + i)) == -1)
     {
       perror("ftok");
       exit(1);
@@ -65,15 +72,22 @@ void IPC_initialize(int _nb_receivers, int _request_size)
       perror("msgget");
       exit(1);
     }
+
+#ifdef DEBUG
+    printf("Core %i key is %x\n", i, key);
+#endif
+
+#ifdef ONE_QUEUE
+    break;
+#endif
   }
+
 }
 
 // Initialize resources for the producer
 void IPC_initialize_producer(int _core_id)
 {
   core_id = _core_id;
-
-  //TODO
 }
 
 // Initialize resources for the consumers
@@ -81,27 +95,39 @@ void IPC_initialize_consumer(int _core_id)
 {
   core_id = _core_id;
 
-  consumer_queue =
-  //TODO
+#ifdef ONE_QUEUE
+  consumer_queue = consumers[0];
+#else
+  consumer_queue = consumers[core_id - 1];
+#endif
 }
 
 // Clean ressources created for both the producer and the consumer.
 // Called by the parent process, after the death of the children.
 void IPC_clean(void)
 {
-  //TODO
+  int i;
+
+  sleep(1);
+
+  for (i = 0; i < nb_receivers; i++)
+  {
+    msgctl(consumers[i], IPC_RMID, NULL);
+
+#ifdef ONE_QUEUE
+    break;
+#endif
+  }
 }
 
 // Clean ressources created for the producer.
 void IPC_clean_producer(void)
 {
-  //TODO
 }
 
 // Clean ressources created for the consumer.
 void IPC_clean_consumer(void)
 {
-  //TODO
 }
 
 // Send a message to all the cores
@@ -110,26 +136,18 @@ void IPC_clean_consumer(void)
 // if spent_cycles is not NULL, then add the number of spent cycles in *spent_cycles
 int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
 {
+  struct ipc_message ipc_msg;
   int i;
-  char *msg;
 
   if (msg_size < MIN_MSG_SIZE)
   {
     msg_size = MIN_MSG_SIZE;
   }
 
-  msg = (char*) malloc(sizeof(char) * msg_size);
-  if (!msg)
-  {
-    perror("IPC_sendToAll allocation error! ");
-    exit(errno);
-  }
+  ipc_msg.mtype = 1;
+  bzero(ipc_msg.mtext, msg_size);
 
-  // malloc is lazy: the pages may not be yet really allocated.
-  // We force the allocation and the fetch of the pages with bzero
-  bzero(msg, msg_size);
-
-  int *msg_as_int = (int*) msg;
+  int *msg_as_int = (int*) ipc_msg.mtext;
   msg_as_int[0] = msg_size;
   long *msg_as_long = (long*) (msg_as_int + 1);
   msg_as_long[0] = msg_id;
@@ -146,8 +164,12 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
   {
     // writing the content
     rdtsc(cycle_start);
-    //TODO
-    write(pipes[i][1], msg, msg_size);
+#ifdef ONE_QUEUE
+    ipc_msg.mtype = i+1;
+    msgsnd(consumers[0], &ipc_msg, msg_size, 0);
+#else
+    msgsnd(consumers[i], &ipc_msg, msg_size, 0);
+#endif
     rdtsc(cycle_stop);
 
     if (spent_cycles != NULL)
@@ -155,8 +177,6 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
       *spent_cycles += (cycle_stop - cycle_start);
     }
   }
-
-  free(msg);
 
   return msg_size * nb_receivers;
 }
@@ -167,18 +187,11 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
 // if spent_cycles is not NULL, then add the number of spent cycles in *spent_cycles
 int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
 {
-  char *msg;
+  struct ipc_message ipc_msg;
 
   if (msg_size < MIN_MSG_SIZE)
   {
     msg_size = MIN_MSG_SIZE;
-  }
-
-  msg = (char*) malloc(sizeof(char) * msg_size);
-  if (!msg)
-  {
-    perror("IPC_receive allocation error! ");
-    exit(errno);
   }
 
 #ifdef DEBUG
@@ -188,8 +201,11 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
   uint64_t cycle_start, cycle_stop;
 
   rdtsc(cycle_start);
-  //TODO
-  int header_size = read(consumer_reading_pipe, msg, MIN_MSG_SIZE);
+#ifdef ONE_QUEUE
+    int recv_size = msgrcv(consumer_queue, &ipc_msg, sizeof(ipc_msg.mtext), core_id, 0);
+#else
+  int recv_size = msgrcv(consumer_queue, &ipc_msg, sizeof(ipc_msg.mtext), 0, 0);
+#endif
   rdtsc(cycle_stop);
 
   if (spent_cycles != NULL)
@@ -197,34 +213,24 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
     *spent_cycles += (cycle_stop - cycle_start);
   }
 
-  // get the message
-  int s = 0;
-  int msg_size_in_msg = *((int*) msg);
-  int left = msg_size_in_msg - header_size;
-  if (left > 0)
-  {
-    rdtsc(cycle_start);
-    //TODO
-    s = read(consumer_reading_pipe, (void*) (msg + header_size), left);
-    rdtsc(cycle_stop);
-
-    if (spent_cycles != NULL)
-    {
-      *spent_cycles += (cycle_stop - cycle_start);
+#ifdef ONE_QUEUE
+    if (ipc_msg.mtype != core_id) {
+      printf("[consumer %i] Ooops, wrong message: %li instead of %i\n", core_id, ipc_msg.mtype, core_id);
     }
-  }
-
-  // get the id of the message
-  *msg_id = *((long*) ((int*) msg + 1));
-
-#ifdef DEBUG
-  printf("[consumer %i] received message %li of size %i, should be %i (%i in the message)\n",
-      core_id, *msg_id, s + header_size, msg_size, msg_size_in_msg);
 #endif
 
-  free(msg);
+  int msg_size_in_msg = *((int*) ipc_msg.mtext);
 
-  if (s + header_size == msg_size && msg_size == msg_size_in_msg)
+  // get the id of the message
+  *msg_id = *((long*) ((int*) ipc_msg.mtext + 1));
+
+#ifdef DEBUG
+  printf(
+      "[consumer %i] received message %li of size %i, should be %i (%i in the message)\n",
+      core_id, *msg_id, recv_size, msg_size, msg_size_in_msg);
+#endif
+
+  if (recv_size == msg_size && msg_size == msg_size_in_msg)
   {
     return msg_size;
   }
