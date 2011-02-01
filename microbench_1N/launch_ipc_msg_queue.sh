@@ -38,6 +38,12 @@ mkdir $MEMORY_DIR
 # used by ftok
 touch /tmp/ipc_msg_queue_microbench
 
+
+# kenel parameters
+sudo ./root_set_value.sh $MESSAGE_MAX_SIZE /proc/sys/kernel/msgmax
+sudo ./root_set_value.sh 100000000 /proc/sys/kernel/msgmnb
+
+
 # make with the new parameters
 echo "$ONE_QUEUE -DMESSAGE_MAX_SIZE=$MESSAGE_MAX_SIZE" > IPC_MSG_QUEUE_PROPERTIES
 make ipc_msg_queue_microbench
@@ -58,8 +64,8 @@ sleep 10
 
 
 # pre-processing: extract latency of each message
-./extract_latencies.py $NB_CONSUMERS
-rm -f latencies_*.log
+#./extract_latencies.py $NB_CONSUMERS
+#rm -f latencies_*.log
 
 
 # save files
@@ -67,4 +73,5 @@ OUTPUT_DIR="ipc_msg_queue_${NB_CONSUMERS}consumers_${MSG_SIZE}B_${NB_QUEUES}queu
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
-mv messages_latencies.log $OUTPUT_DIR/
+mv latencies*.log $OUTPUT_DIR/
+#mv messages_latencies.log $OUTPUT_DIR/
