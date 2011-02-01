@@ -28,7 +28,7 @@ mkdir $MEMORY_DIR
 
 
 # modify the max number of datagrams
-sudo ./root_set_value.sh /proc/sys/net/unix/max_dgram_qlen NB_DATAGRAMS
+sudo ./root_set_value.sh $NB_DATAGRAMS /proc/sys/net/unix/max_dgram_qlen
 
 
 # memory for 10 seconds
@@ -46,13 +46,14 @@ sleep 10
 
 
 # pre-processing: extract latency of each message
-./extract_latencies.py $NB_CONSUMERS
-rm -f latencies_*.log
+#./extract_latencies.py $NB_CONSUMERS
+#rm -f latencies_*.log
 
 
 # save files
-OUTPUT_DIR="unix_${NB_CONSUMERS}consumers_${MSG_SIZE}B"
+OUTPUT_DIR="unix_${NB_CONSUMERS}consumers_${MSG_SIZE}B_${NB_DATAGRAMS}dgrams"
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
-mv messages_latencies.log $OUTPUT_DIR/
+mv latencies_*.log $OUTPUT_DIR/
+#mv messages_latencies.log $OUTPUT_DIR/
