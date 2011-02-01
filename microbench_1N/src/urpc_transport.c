@@ -27,7 +27,7 @@
 
 // Debug macro
 #define URPC_TRANSPORT_DEBUG
-#undef URPC_TRANSPORT_DEBUG
+//#undef URPC_TRANSPORT_DEBUG
 
 #define SEQ_ID_MASK ((1UL<<URPC_TYPE_SIZE)-1)
 
