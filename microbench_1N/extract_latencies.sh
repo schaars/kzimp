@@ -22,9 +22,10 @@ done
 
 
 # wait for the cores to finish
-nbc=$(pgrep extract_latency.pl | wc -l)
+nbc=0
 while [ $nbc -gt 0 ]; do
    sleep 10
+   nbc=$(pgrep extract_latency.pl | wc -l)
 done
 
 
