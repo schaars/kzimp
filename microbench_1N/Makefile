@@ -4,7 +4,7 @@ toplevel:
 
 all: inet_tcp_microbench inet_udp_microbench inet_udp_multicast_microbench unix_microbench \
 	 pipe_microbench pipe_vmsplice_microbench ipc_msg_queue_microbench posix_msg_queue_microbench \
-	 barrelfish_message_passing local_multicast_microbench
+	 barrelfish_message_passing local_multicast_microbench ul_lm_0copy_microbench
 
 C:=gcc
 CFLAGS:=-Wall -Werror -g -lm
@@ -42,6 +42,10 @@ barrelfish_message_passing: $(DEPS) src/urpc.h src/urpc_transport.c src/barrelfi
 local_multicast_microbench: $(DEPS) src/local_multicast.c
 	$(C) $(CFLAGS) -o bin/$@ $^
 	
+
+ul_lm_0copy_microbench: $(DEPS) src/mpsoc.c src/ul_lm_0copy.c
+	$(shell if [ ! -e UL_LM_0COPY_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DMESSAGE_MAX_SIZE=1000" > UL_LM_0COPY_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell grep -v '#' UL_LM_0COPY_PROPERTIES 2>/dev/null) -o bin/$@ $^
 clean:
 	-rm *.o
 	-rm *~
@@ -57,4 +61,5 @@ clobber:
 	-rm bin/pipe_vmsplice_microbench
 	-rm bin/ipc_msg_queue_microbench
 	-rm bin/barrelfish_message_passing
-	-rm local_multicast_microbench
+	-rm bin/local_multicast_microbench
+	-rm bin/ul_lm_0copy_microbench

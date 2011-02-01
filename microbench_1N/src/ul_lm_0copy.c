@@ -1,6 +1,6 @@
 /* This file is part of multicore_replication_microbench.
  *
- * Communication mechanism: Local Multicast
+ * Communication mechanism: User-level Local Multicast with 0-copy
  */
 
 #include <stdio.h>
@@ -14,26 +14,22 @@
 
 #include "ipc_interface.h"
 #include "time.h"
+#include "mpsoc.h"
 
 // debug macro
 #define DEBUG
-#undef DEBUG
+//#undef DEBUG
 
 /********** All the variables needed by UDP sockets **********/
 
 // port used by the producer
 // the ports used by the consumers are PRODUCER_PORT + core_id
-#define PRODUCER_PORT 6000
 
 #define MIN_MSG_SIZE (sizeof(int) + sizeof(long))
 
-static int core_id; // 0 is the producer. The others are children
+int core_id; // 0 is the producer. The others are children
 static int nb_receivers;
 static int request_size; // requests size in bytes
-static int sock; // the socket
-
-struct sockaddr_in addresses;
-struct sockaddr_in multicast_addr;
 
 #define MIN(a, b) ((a < b) ? a : b)
 
@@ -44,9 +40,7 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   nb_receivers = _nb_receivers;
   request_size = _request_size;
 
-  multicast_addr.sin_addr.s_addr = 0x7f7f7f7f;
-  multicast_addr.sin_family = AF_INET;
-  multicast_addr.sin_port = 0;
+  mpsoc_init("/tmp/ul_lm_0copy_microbenchmark", nb_receivers, NB_MESSAGES);
 }
 
 // Initialize resources for the producer
@@ -54,39 +48,15 @@ void IPC_initialize_producer(int _core_id)
 {
   core_id = _core_id;
 
-  // create socket
-  sock = socket(AF_INET, SOCK_DGRAM, 0);
-  if (sock == -1)
-  {
-    perror("[IPC_initialize_producer] Error while creating the socket! ");
-    exit(errno);
-  }
-
-  // the producer does not need to call bind
-
-  // wait a few seconds for the consumers to be bound to their ports
-  sleep(1);
+  // in order to ensure that the consumers are listening on the structure,
+  // otherwise a very fast producer can fill the buffer and this is bad at the beginning
+  //sleep(1);
 }
 
 // Initialize resources for the consumers
 void IPC_initialize_consumer(int _core_id)
 {
   core_id = _core_id;
-
-  // create socket
-  sock = socket(AF_INET, SOCK_DGRAM, 0);
-  if (sock == -1)
-  {
-    perror("[IPC_initialize_producer] Error while creating the socket! ");
-    exit(errno);
-  }
-
-  addresses.sin_addr.s_addr = 0x7f7f7f7f;
-  addresses.sin_family = AF_INET;
-  addresses.sin_port = htons(PRODUCER_PORT + core_id);
-
-  // bind socket
-  bind(sock, (struct sockaddr *) &addresses, sizeof(addresses));
 }
 
 // Clean ressources created for both the producer and the consumer.
@@ -98,15 +68,13 @@ void IPC_clean(void)
 // Clean ressources created for the producer.
 void IPC_clean_producer(void)
 {
-  // close socket
-  close(sock);
+  mpsoc_destroy();
 }
 
 // Clean ressources created for the consumer.
 void IPC_clean_consumer(void)
 {
-  // close socket
-  close(sock);
+  mpsoc_destroy();
 }
 
 // Send a message to all the cores
@@ -116,16 +84,17 @@ void IPC_clean_consumer(void)
 int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
 {
   char *msg;
+  int msg_pos_in_ring_buffer;
 
   if (msg_size < MIN_MSG_SIZE)
   {
     msg_size = MIN_MSG_SIZE;
   }
 
-  msg = (char*) malloc(sizeof(char) * msg_size);
+  msg = mpsoc_alloc(msg_size, &msg_pos_in_ring_buffer);
   if (!msg)
   {
-    perror("IPC_sendToAll allocation error! ");
+    perror("mpsoc_alloc error! ");
     exit(errno);
   }
 
@@ -146,22 +115,14 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
 
   uint64_t cycle_start, cycle_stop;
 
-  int sent = 0;
+  rdtsc(cycle_start);
+  mpsoc_sendto(msg, msg_size, msg_pos_in_ring_buffer, -1);
+  rdtsc(cycle_stop);
 
-  while (sent < msg_size)
+  if (spent_cycles != NULL)
   {
-    rdtsc(cycle_start);
-    sent += sendto(sock, msg, msg_size, 0, (struct sockaddr*) &multicast_addr,
-        sizeof(multicast_addr));
-    rdtsc(cycle_stop);
-
-    if (spent_cycles != NULL)
-    {
-      *spent_cycles += (cycle_stop - cycle_start);
-    }
+    *spent_cycles += (cycle_stop - cycle_start);
   }
-
-  free(msg);
 
   return msg_size;
 }
@@ -179,13 +140,6 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
     msg_size = MIN_MSG_SIZE;
   }
 
-  msg = (char*) malloc(sizeof(char) * msg_size);
-  if (!msg)
-  {
-    perror("IPC_receive allocation error! ");
-    exit(errno);
-  }
-
 #ifdef DEBUG
   printf("Waiting for a new message\n");
 #endif
@@ -195,18 +149,23 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
 
   uint64_t cycle_start, cycle_stop;
 
-  int recv_size = 0;
-  while (recv_size < msg_size)
+  int recv_size = -1;
+  while (recv_size == -1)
   {
     rdtsc(cycle_start);
-    recv_size += recvfrom(sock, msg + recv_size, msg_size - recv_size,
-        MSG_DONTWAIT, 0, 0);
+
+    printf("waiting - before\n");
+    recv_size = mpsoc_recvfrom((void**) &msg, msg_size);
+    printf("waiting - after\n");
     rdtsc(cycle_stop);
 
     if (spent_cycles != NULL)
     {
       *spent_cycles += (cycle_stop - cycle_start);
     }
+
+    usleep(1000);
+    printf("waiting - new loop\n");
   }
 
   int msg_size_in_msg = *((int*) msg);
@@ -219,8 +178,6 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
       "[consumer %i] received message %li of size %i, should be %i (%i in the message)\n",
       core_id, *msg_id, recv_size, msg_size, msg_size_in_msg);
 #endif
-
-  free(msg);
 
   if (recv_size == msg_size && msg_size == msg_size_in_msg)
   {
