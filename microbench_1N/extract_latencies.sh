@@ -16,15 +16,14 @@ done
 
 
 # launch the cores
-for core in $(seq 0 $nb_cores); do
+for core in $(seq 0 $(($nb_cores-1))); do
    ./extract_latencies.pl dir_list_core$core &
 done
 
 
 # wait for the cores to finish
-nbc=1
+nbc=$(pgrep extract_latency.pl | wc -l)
 while [ $nbc -gt 0 ]; do
-   nbc=$(pgrep extract_latency.pl | wc -l)
    sleep 10
 done
 
