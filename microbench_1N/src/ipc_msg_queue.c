@@ -14,7 +14,6 @@
 #include <sys/msg.h>
 
 #include "ipc_interface.h"
-#include "time.h"
 
 // debug macro
 #define DEBUG
@@ -133,8 +132,7 @@ void IPC_clean_consumer(void)
 // Send a message to all the cores
 // The message id will be msg_id
 // Return the total sent payload (i.e. size of the messages times number of consumers)
-// if spent_cycles is not NULL, then add the number of spent cycles in *spent_cycles
-int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
+int IPC_sendToAll(int msg_size, long msg_id)
 {
   struct ipc_message ipc_msg;
   int i;
@@ -158,24 +156,15 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
       core_id, msg_as_long[0], msg_size, nb_receivers);
 #endif
 
-  uint64_t cycle_start, cycle_stop;
-
   for (i = 0; i < nb_receivers; i++)
   {
     // writing the content
-    rdtsc(cycle_start);
 #ifdef ONE_QUEUE
     ipc_msg.mtype = i+1;
     msgsnd(consumers[0], &ipc_msg, msg_size, 0);
 #else
     msgsnd(consumers[i], &ipc_msg, msg_size, 0);
 #endif
-    rdtsc(cycle_stop);
-
-    if (spent_cycles != NULL)
-    {
-      *spent_cycles += (cycle_stop - cycle_start);
-    }
   }
 
   return msg_size * nb_receivers;
@@ -184,8 +173,7 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
 // Get a message for this core
 // return the size of the message if it is valid, 0 otherwise
 // Place in *msg_id the id of this message
-// if spent_cycles is not NULL, then add the number of spent cycles in *spent_cycles
-int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
+int IPC_receive(int msg_size, long *msg_id)
 {
   struct ipc_message ipc_msg;
 
@@ -198,25 +186,17 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
   printf("Waiting for a new message\n");
 #endif
 
-  uint64_t cycle_start, cycle_stop;
-
-  rdtsc(cycle_start);
 #ifdef ONE_QUEUE
-    int recv_size = msgrcv(consumer_queue, &ipc_msg, sizeof(ipc_msg.mtext), core_id, 0);
+  int recv_size = msgrcv(consumer_queue, &ipc_msg, sizeof(ipc_msg.mtext), core_id, 0);
 #else
   int recv_size = msgrcv(consumer_queue, &ipc_msg, sizeof(ipc_msg.mtext), 0, 0);
 #endif
-  rdtsc(cycle_stop);
-
-  if (spent_cycles != NULL)
-  {
-    *spent_cycles += (cycle_stop - cycle_start);
-  }
 
 #ifdef ONE_QUEUE
-    if (ipc_msg.mtype != core_id) {
-      printf("[consumer %i] Ooops, wrong message: %li instead of %i\n", core_id, ipc_msg.mtype, core_id);
-    }
+  if (ipc_msg.mtype != core_id)
+  {
+    printf("[consumer %i] Ooops, wrong message: %li instead of %i\n", core_id, ipc_msg.mtype, core_id);
+  }
 #endif
 
   int msg_size_in_msg = *((int*) ipc_msg.mtext);

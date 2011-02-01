@@ -15,7 +15,6 @@
 
 #include "ipc_interface.h"
 #include "tcp_net.h"
-#include "time.h"
 
 // debug macro
 #define DEBUG
@@ -211,8 +210,7 @@ void IPC_clean_consumer(void)
 // Send a message to all the cores
 // The message id will be msg_id
 // Return the total sent payload (i.e. size of the messages times number of consumers)
-// if spent_cycles is not NULL, then add the number of spent cycles in *spent_cycles
-int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
+int IPC_sendToAll(int msg_size, long msg_id)
 {
   int i;
   char *msg;
@@ -246,7 +244,7 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
 
   for (i = 0; i < nb_receivers; i++)
   {
-    sendMsg(sockets[i], msg, msg_size, spent_cycles);
+    sendMsg(sockets[i], msg, msg_size);
   }
 
   free(msg);
@@ -257,8 +255,7 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
 // Get a message for this core
 // return the size of the message if it is valid, 0 otherwise
 // Place in *msg_id the id of this message
-// if spent_cycles is not NULL, then add the number of spent cycles in *spent_cycles
-int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
+int IPC_receive(int msg_size, long *msg_id)
 {
   char *msg;
 
@@ -279,7 +276,7 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
 #endif
 
   int header_size =
-      recvMsg(sockets[0], (void*) msg, MIN_MSG_SIZE, spent_cycles);
+      recvMsg(sockets[0], (void*) msg, MIN_MSG_SIZE);
 
   // get the message
   int s = 0;
@@ -287,7 +284,7 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
   int left = msg_size_in_msg - header_size;
   if (left > 0)
   {
-    s = recvMsg(sockets[0], (void*) (msg + header_size), left, spent_cycles);
+    s = recvMsg(sockets[0], (void*) (msg + header_size), left);
   }
 
   // get the id of the message

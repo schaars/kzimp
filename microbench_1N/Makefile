@@ -8,7 +8,7 @@ all: inet_tcp_microbench inet_udp_microbench inet_udp_multicast_microbench unix_
 
 C:=gcc
 CFLAGS:=-Wall -Werror -g -lm
-DEPS:=src/time_for_latency.c src/list_of_double.c src/microbench.c
+DEPS:=src/microbench.c
 
 inet_tcp_microbench: $(DEPS) src/tcp_net.c src/inet_tcp_socket.c 
 	$(C) $(CFLAGS) -o bin/$@ $^

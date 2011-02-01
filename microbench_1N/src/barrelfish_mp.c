@@ -14,7 +14,6 @@
 #include <sys/shm.h>
 
 #include "ipc_interface.h"
-#include "time.h"
 #include "urpc.h"
 #include "urpc_transport.h"
 
@@ -209,8 +208,7 @@ void IPC_clean_consumer(void)
 // Send a message to all the cores
 // The message id will be msg_id
 // Return the total sent payload (i.e. size of the messages times number of consumers)
-// if spent_cycles is not NULL, then add the number of spent cycles in *spent_cycles
-int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
+int IPC_sendToAll(int msg_size, long msg_id)
 {
   int i;
   char *msg;
@@ -242,19 +240,10 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
       core_id, msg_as_long[0], msg_size, nb_receivers);
 #endif
 
-  uint64_t cycle_start, cycle_stop;
-
   for (i = 0; i < nb_receivers; i++)
   {
     // writing the content
-    rdtsc(cycle_start);
     urpc_transport_send(&conn[i], msg, URPC_MSG_WORDS);
-    rdtsc(cycle_stop);
-
-    if (spent_cycles != NULL)
-    {
-      *spent_cycles += (cycle_stop - cycle_start);
-    }
   }
 
   nb_messages_in_transit++;
@@ -276,8 +265,7 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
 // Get a message for this core
 // return the size of the message if it is valid, 0 otherwise
 // Place in *msg_id the id of this message
-// if spent_cycles is not NULL, then add the number of spent cycles in *spent_cycles
-int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
+int IPC_receive(int msg_size, long *msg_id)
 {
   char *msg;
 
@@ -297,17 +285,8 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
   printf("Waiting for a new message\n");
 #endif
 
-  uint64_t cycle_start, cycle_stop;
-
-  rdtsc(cycle_start);
   int recv_size = urpc_transport_recv(consumer_connection, (void*) msg,
       URPC_MSG_WORDS);
-  rdtsc(cycle_stop);
-
-  if (spent_cycles != NULL)
-  {
-    *spent_cycles += (cycle_stop - cycle_start);
-  }
 
   // urpc_transport_recv returns URPC_MSG_WORDS. We want the size of the message in bytes
   recv_size *= sizeof(uint64_t);

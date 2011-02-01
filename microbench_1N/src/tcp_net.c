@@ -11,28 +11,19 @@
 #include <errno.h>
 
 #include "tcp_net.h"
-#include "time.h"
 
-int recvMsg(int s, void *buf, size_t len, uint64_t *nb_cycles)
+int recvMsg(int s, void *buf, size_t len)
 {
   int len_tmp = 0;
   int n;
-  uint64_t cycle_start, cycle_stop;
 
   do
   {
-    rdtsc(cycle_start);
     n = recv(s, &(((char *) buf)[len_tmp]), len - len_tmp, 0);
-    rdtsc(cycle_stop);
     if (n == -1)
     {
       perror("tcp_net:recv():");
       exit(-1);
-    }
-
-    if (nb_cycles != NULL)
-    {
-      *nb_cycles += (cycle_stop - cycle_start);
     }
 
     len_tmp = len_tmp + n;
@@ -41,28 +32,20 @@ int recvMsg(int s, void *buf, size_t len, uint64_t *nb_cycles)
   return len_tmp;
 }
 
-void sendMsg(int s, void *msg, int size, uint64_t *nb_cycles)
+void sendMsg(int s, void *msg, int size)
 {
   int total = 0; // how many bytes we've sent
   int bytesleft = size; // how many we have left to send
   int n = -1;
-  uint64_t cycle_start, cycle_stop;
 
   while (total < size)
   {
-    rdtsc(cycle_start);
     n = send(s, (char*) msg + total, bytesleft, 0);
-    rdtsc(cycle_stop);
 
     if (n == -1)
     {
       perror("tcp_net:send():");
       exit(-1);
-    }
-
-    if (nb_cycles != NULL)
-    {
-      *nb_cycles += (cycle_stop - cycle_start);
     }
 
     total += n;

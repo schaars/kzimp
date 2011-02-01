@@ -3,8 +3,6 @@
  * Communication mechanism: interface
  */
 
-#include <stdint.h>
-
 // Initialize resources for both the producer and the consumers
 // First initialization function called
 void IPC_initialize(int _nb_receivers, int _request_size);
@@ -28,11 +26,9 @@ void IPC_clean_consumer(void);
 // Send a message to all the cores
 // The message id will be msg_id
 // Return the total sent payload (i.e. size of the messages times number of consumers)
-// if spent_cycles is not NULL, then add the number of spent cycles in *spent_cycles
-int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles);
+int IPC_sendToAll(int msg_size, long msg_id);
 
 // Get a message for this core
 // return the size of the received message if it is valid, 0 otherwise
 // Place in *msg_id the id of this message
-// if spent_cycles is not NULL, then add the number of spent cycles in *spent_cycles
-int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles);
+int IPC_receive(int msg_size, long *msg_id);
