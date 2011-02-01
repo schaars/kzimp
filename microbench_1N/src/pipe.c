@@ -18,7 +18,7 @@
 
 // debug macro
 #define DEBUG
-#undef DEBUG
+//#undef DEBUG
 
 /********** All the variables needed by pipes **********/
 
@@ -32,18 +32,27 @@ static int request_size; // requests size in bytes
 static int **pipes;
 static int consumer_reading_pipe; // fd used by the consumer for reading messages coming from the producer
 
+#ifdef VMSPLICE
+static char *vmsplice_msg; // buffer used to send a message with vmsplice
+#endif
+
 // Initialize resources for both the producer and the consumers
 // First initialization function called
 void IPC_initialize(int _nb_receivers, int _request_size)
 {
   nb_receivers = _nb_receivers;
+
   request_size = _request_size;
+  if (request_size < MIN_MSG_SIZE)
+  {
+    request_size = MIN_MSG_SIZE;
+  }
 
   // create the pipes
   pipes = (int**) malloc(sizeof(int*) * nb_receivers);
   if (!pipes)
   {
-    perror("[IPC_clean] Allocation error! ");
+    perror("[IPC_Initialize] Allocation error! ");
     exit(errno);
   }
 
@@ -53,6 +62,15 @@ void IPC_initialize(int _nb_receivers, int _request_size)
     pipes[i] = (int*) malloc(sizeof(int) * 2);
     pipe(pipes[i]);
   }
+
+#ifdef VMSPLICE
+  vmsplice_msg = (char*) malloc(sizeof(char) * request_size);
+  if (!vmsplice_msg)
+  {
+    perror("[IPC_Initialize_producer] Allocation error! ");
+    exit(errno);
+  }
+#endif
 }
 
 // Initialize resources for the producer
@@ -99,6 +117,10 @@ void IPC_clean(void)
   }
 
   free(pipes);
+
+#ifdef VMSPLICE
+  free(vmsplice_msg);
+#endif
 }
 
 // Clean ressources created for the producer.
@@ -131,16 +153,27 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
     msg_size = MIN_MSG_SIZE;
   }
 
+#ifdef VMSPLICE
+  if (msg_size > request_size)
+  {
+    msg_size = request_size;
+  }
+#endif
+
+#ifndef VMSPLICE
   msg = (char*) malloc(sizeof(char) * msg_size);
   if (!msg)
   {
     perror("IPC_sendToAll allocation error! ");
     exit(errno);
   }
+#else
+  msg = vmsplice_msg;
+#endif
 
   // malloc is lazy: the pages may not be really allocated yet.
   // We force the allocation and the fetch of the pages with bzero
-  bzero(msg, msg_size);
+  //bzero(msg, msg_size);
 
   int *msg_as_int = (int*) msg;
   msg_as_int[0] = msg_size;
@@ -159,17 +192,14 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
   {
     // writing the content
     rdtsc(cycle_start);
+
 #ifdef VMSPLICE
     struct iovec iov;
 
-    iov.iov_base = &msg;
+    iov.iov_base = msg;
     iov.iov_len = msg_size;
 
-    int size = 0;
-    while (size < msg_size)
-    {
-      size += vmsplice(pipes[i][1], &iov, 1, 0);
-    }
+    vmsplice(pipes[i][1], &iov, 1, 0);
 #else
     write(pipes[i][1], msg, msg_size);
 #endif
@@ -181,7 +211,9 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
     }
   }
 
+#ifndef VMSPLICE
   free(msg);
+#endif
 
   return msg_size * nb_receivers;
 }
@@ -241,7 +273,8 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
   *msg_id = *((long*) ((int*) msg + 1));
 
 #ifdef DEBUG
-  printf("[consumer %i] received message %li of size %i, should be %i (%i in the message)\n",
+  printf(
+      "[consumer %i] received message %li of size %i, should be %i (%i in the message)\n",
       core_id, *msg_id, s + header_size, msg_size, msg_size_in_msg);
 #endif
 
