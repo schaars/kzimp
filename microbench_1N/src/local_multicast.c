@@ -1,17 +1,16 @@
 /* This file is part of multicore_replication_microbench.
  *
- * Communication mechanism: pipes
+ * Communication mechanism: Inet sockets using UDP
  */
 
-#define _GNU_SOURCE         /* vmsplice, See feature_test_macros(7) */
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <strings.h>
 #include <unistd.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <sys/uio.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "ipc_interface.h"
 #include "time.h"
@@ -20,17 +19,23 @@
 #define DEBUG
 #undef DEBUG
 
-/********** All the variables needed by pipes **********/
+/********** All the variables needed by UDP sockets **********/
+
+// port used by the producer
+// the ports used by the consumers are PRODUCER_PORT + core_id
+#define PRODUCER_PORT 6000
 
 #define MIN_MSG_SIZE (sizeof(int) + sizeof(long))
 
 static int core_id; // 0 is the producer. The others are children
 static int nb_receivers;
 static int request_size; // requests size in bytes
+static int sock; // the socket
 
-// pipes[i] = the pipe[2] between the producer and the consumer i+1
-static int **pipes;
-static int consumer_reading_pipe; // fd used by the consumer for reading messages coming from the producer
+struct sockaddr_in addresses;
+struct sockaddr_in multicast_addr;
+
+#define MIN(a, b) ((a < b) ? a : b)
 
 // Initialize resources for both the producer and the consumers
 // First initialization function called
@@ -39,20 +44,9 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   nb_receivers = _nb_receivers;
   request_size = _request_size;
 
-  // create the pipes
-  pipes = (int**) malloc(sizeof(int*) * nb_receivers);
-  if (!pipes)
-  {
-    perror("[IPC_clean] Allocation error! ");
-    exit(errno);
-  }
-
-  int i;
-  for (i = 0; i < nb_receivers; i++)
-  {
-    pipes[i] = (int*) malloc(sizeof(int) * 2);
-    pipe(pipes[i]);
-  }
+  multicast_addr.sin_addr.s_addr = 0x7f7f7f7f;
+  multicast_addr.sin_family = AF_INET;
+  multicast_addr.sin_port = 0;
 }
 
 // Initialize resources for the producer
@@ -60,12 +54,18 @@ void IPC_initialize_producer(int _core_id)
 {
   core_id = _core_id;
 
-  int i;
-  for (i = 0; i < nb_receivers; i++)
+  // create socket
+  sock = socket(AF_INET, SOCK_DGRAM, 0);
+  if (sock == -1)
   {
-    // the producer never reads from the pipe
-    close(pipes[i][0]);
+    perror("[IPC_initialize_producer] Error while creating the socket! ");
+    exit(errno);
   }
+
+  // the producer does not need to call bind
+
+  // wait a few seconds for the consumers to be bound to their ports
+  sleep(1);
 }
 
 // Initialize resources for the consumers
@@ -73,48 +73,40 @@ void IPC_initialize_consumer(int _core_id)
 {
   core_id = _core_id;
 
-  consumer_reading_pipe = pipes[core_id - 1][0];
-
-  int i;
-  for (i = 0; i < nb_receivers; i++)
+  // create socket
+  sock = socket(AF_INET, SOCK_DGRAM, 0);
+  if (sock == -1)
   {
-    if (i + 1 != core_id)
-    {
-      close(pipes[i][0]);
-    }
-
-    // the consumers never write to the pipe
-    close(pipes[i][1]);
+    perror("[IPC_initialize_producer] Error while creating the socket! ");
+    exit(errno);
   }
+
+  addresses.sin_addr.s_addr = 0x7f7f7f7f;
+  addresses.sin_family = AF_INET;
+  addresses.sin_port = htons(PRODUCER_PORT + core_id);
+
+  // bind socket
+  bind(sock, (struct sockaddr *) &addresses, sizeof(addresses));
 }
 
 // Clean ressources created for both the producer and the consumer.
 // Called by the parent process, after the death of the children.
 void IPC_clean(void)
 {
-  int i;
-  for (i = 0; i < nb_receivers; i++)
-  {
-    free(pipes[i]);
-  }
-
-  free(pipes);
 }
 
 // Clean ressources created for the producer.
 void IPC_clean_producer(void)
 {
-  int i;
-  for (i = 0; i < nb_receivers; i++)
-  {
-    close(pipes[i][1]);
-  }
+  // close socket
+  close(sock);
 }
 
 // Clean ressources created for the consumer.
 void IPC_clean_consumer(void)
 {
-  close(consumer_reading_pipe);
+  // close socket
+  close(sock);
 }
 
 // Send a message to all the cores
@@ -123,7 +115,6 @@ void IPC_clean_consumer(void)
 // if spent_cycles is not NULL, then add the number of spent cycles in *spent_cycles
 int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
 {
-  int i;
   char *msg;
 
   if (msg_size < MIN_MSG_SIZE)
@@ -142,37 +133,26 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
   // We force the allocation and the fetch of the pages with bzero
   bzero(msg, msg_size);
 
-  int *msg_as_int = (int*) msg;
-  msg_as_int[0] = msg_size;
-  long *msg_as_long = (long*) (msg_as_int + 1);
-  msg_as_long[0] = msg_id;
+  int *msg_int = (int*) msg;
+  msg_int[0] = msg_size;
+  long *msg_long = (long*) (msg_int + 1);
+  msg_long[0] = msg_id;
 
 #ifdef DEBUG
   printf(
       "[producer %i] going to send message %li of size %i to %i recipients\n",
-      core_id, msg_as_long[0], msg_size, nb_receivers);
+      core_id, msg_long[0], msg_size, nb_receivers);
 #endif
 
   uint64_t cycle_start, cycle_stop;
 
-  for (i = 0; i < nb_receivers; i++)
+  int sent = 0;
+
+  while (sent < msg_size)
   {
-    // writing the content
     rdtsc(cycle_start);
-#ifdef VMSPLICE
-    struct iovec iov;
-
-    iov.iov_base = &msg;
-    iov.iov_len = msg_size;
-
-    int size = 0;
-    while (size < msg_size)
-    {
-      size += vmsplice(pipes[i][1], &iov, 1, 0);
-    }
-#else
-    write(pipes[i][1], msg, msg_size);
-#endif
+    sent += sendto(sock, msg, msg_size, 0, (struct sockaddr*) &multicast_addr,
+        sizeof(multicast_addr));
     rdtsc(cycle_stop);
 
     if (spent_cycles != NULL)
@@ -183,7 +163,7 @@ int IPC_sendToAll(int msg_size, long msg_id, uint64_t *spent_cycles)
 
   free(msg);
 
-  return msg_size * nb_receivers;
+  return msg_size;
 }
 
 // Get a message for this core
@@ -210,25 +190,17 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
   printf("Waiting for a new message\n");
 #endif
 
+  // let's say that the first packet contains the header
+  // we assume messages are not delivered out of order
+
   uint64_t cycle_start, cycle_stop;
 
-  rdtsc(cycle_start);
-  int header_size = read(consumer_reading_pipe, msg, MIN_MSG_SIZE);
-  rdtsc(cycle_stop);
-
-  if (spent_cycles != NULL)
-  {
-    *spent_cycles += (cycle_stop - cycle_start);
-  }
-
-  // get the message
-  int s = 0;
-  int msg_size_in_msg = *((int*) msg);
-  int left = msg_size_in_msg - header_size;
-  if (left > 0)
+  int recv_size = 0;
+  while (recv_size < msg_size)
   {
     rdtsc(cycle_start);
-    s = read(consumer_reading_pipe, (void*) (msg + header_size), left);
+    recv_size += recvfrom(sock, msg + recv_size, msg_size - recv_size,
+        MSG_DONTWAIT, 0, 0);
     rdtsc(cycle_stop);
 
     if (spent_cycles != NULL)
@@ -237,17 +209,20 @@ int IPC_receive(int msg_size, long *msg_id, uint64_t *spent_cycles)
     }
   }
 
+  int msg_size_in_msg = *((int*) msg);
+
   // get the id of the message
   *msg_id = *((long*) ((int*) msg + 1));
 
 #ifdef DEBUG
-  printf("[consumer %i] received message %li of size %i, should be %i (%i in the message)\n",
-      core_id, *msg_id, s + header_size, msg_size, msg_size_in_msg);
+  printf(
+      "[consumer %i] received message %li of size %i, should be %i (%i in the message)\n",
+      core_id, *msg_id, recv_size, msg_size, msg_size_in_msg);
 #endif
 
   free(msg);
 
-  if (s + header_size == msg_size && msg_size == msg_size_in_msg)
+  if (recv_size == msg_size && msg_size == msg_size_in_msg)
   {
     return msg_size;
   }

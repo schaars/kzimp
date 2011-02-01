@@ -24,7 +24,7 @@
 
 /********** All the variables needed by Barrelfish message-passing **********/
 
-#define NB_MESSAGES 10
+//#define NB_MESSAGES 10
 #define BUFFER_SIZE (URPC_MSG_WORDS*8*NB_MESSAGES)
 #define CONNECTION_SIZE (BUFFER_SIZE * 2 + 2 * URPC_CHANNEL_SIZE)
 

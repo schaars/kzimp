@@ -40,15 +40,9 @@ sleep 10
 ./stop_all.sh
 
 
-# pre-processing: extract latency of each message
-#./extract_latencies.py $NB_CONSUMERS
-#rm -f latencies_*.log
-
-
 # save files
 OUTPUT_DIR="pipe_${NB_CONSUMERS}consumers_${MSG_SIZE}B"
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
 mv latencies_*.log $OUTPUT_DIR/
-#mv messages_latencies.log $OUTPUT_DIR/

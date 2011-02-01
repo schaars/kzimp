@@ -36,6 +36,11 @@ fi
 mkdir $MEMORY_DIR
 
 
+# deactivate Local Multicast if present
+if [ -e /proc/local_multicast ]; then
+   sudo ./root_set_value.sh "0 0 0" /proc/local_multicast
+fi
+
 sudo sysctl -p inet_sysctl.conf
 
 
@@ -56,11 +61,6 @@ sleep 10
 ./stop_all.sh
 
 
-# pre-processing: extract latency of each message
-./extract_latencies.py $NB_CONSUMERS
-rm -f latencies_*.log
-
-
 # save files
 if [ -z $MULTICAST ]; then
    OUTPUT_DIR="inet_udp_${NB_CONSUMERS}consumers_${MSG_SIZE}B"
@@ -70,4 +70,4 @@ fi
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
-mv messages_latencies.log $OUTPUT_DIR/
+mv latencies_*.log $OUTPUT_DIR/

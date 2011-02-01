@@ -69,24 +69,35 @@ The benchmark is the following one:
 nb_queues: defines if there is 1 queue shared between the consumers or 1 queue per consumer (in this case set this value to N)
 message_max_size: defines the size of the mtext field in the IPC message structure
 
-%TODO modify files in /proc
+Files /proc/sys/kernel/msgmax and /proc/sys/kernel/msgmnb are modified by the script.
 
 
-+++++++++++++++++++++++++++++
++++++++++++++++++++++++++++++++
 +++++ POSIX message queue +++++
 
 The benchmark is the following one:
   $ ./launch_posix_msg_queue.sh 
     Usage: ./launch_posix_msg_queue.sh <nb_consumers> <message_size_in_B> <nb_messages_warmup_phase> <nb_messages_logging_phase>
 
-%TODO modify files in /proc
+/Files proc/sys/fs/mqueue/msg_max and /proc/sys/fs/mqueue/msgsize_max are modified by the script.
+
+
+++++++++++++++++++++++++++++++++++++++
++++++ Barrelfish message passing +++++
+
+The benchmark is the following one:
+  $ ./launch_barrelfish_mp.sh 
+    Usage: ./launch_posix_msg_queue.sh <nb_consumers> <message_size_in_B> <nb_messages_warmup_phase> <nb_messages_logging_phase> <nb_msg_channel>
+
+nb_msg_channel controls the size of the channel: its value is the maximal number of messages one can find in the channel
+
+Files /proc/sys/kernel/shmall and /proc/sys/kernel/shmmax are modified by the script.
+
 
 
 
 %TODO%
 %other communication mechanisms%
-
-%Barrelfish
 
 %Local Multicast
 

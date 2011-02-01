@@ -28,8 +28,8 @@ mkdir $MEMORY_DIR
 
 
 #set new parameters
-#TODO
-# use MSG_SIZE for the max message size in the queue
+sudo ./root_set_value.sh 1000000 /proc/sys/fs/mqueue/msg_max
+sudo ./root_set_value.sh $MSG_SIZE /proc/sys/fs/mqueue/msgsize_max
 
 
 # memory for 10 seconds
@@ -46,14 +46,9 @@ sleep 10
 ./stop_all.sh
 
 
-# pre-processing: extract latency of each message
-./extract_latencies.py $NB_CONSUMERS
-rm -f latencies_*.log
-
-
 # save files
 OUTPUT_DIR="posix_msg_queue_${NB_CONSUMERS}consumers_${MSG_SIZE}B"
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
-mv messages_latencies.log $OUTPUT_DIR/
+mv latencies_*.log $OUTPUT_DIR/

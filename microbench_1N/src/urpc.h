@@ -38,7 +38,7 @@ typedef uint16_t urpc_t;
 // sizeof(uint64_t) = 8.
 // Must be a multiple of the size of a cache line
 // This is the macro we need to modify for having bigger messages
-#define URPC_MSG_WORDS      8
+//#define URPC_MSG_WORDS      8
 #define URPC_PAYLOAD_WORDS  (URPC_MSG_WORDS - 1)
 
 /**
