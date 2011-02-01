@@ -27,7 +27,7 @@
 
 // debug macro
 #define DEBUG
-//#undef DEBUG
+#undef DEBUG
 
 // number of threads per core. Set it to 2 when having a hyperthreaded CPU
 #define NB_THREADS_PER_CORE 1

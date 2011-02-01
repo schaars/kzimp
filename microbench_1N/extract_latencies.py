@@ -9,7 +9,7 @@
 import sys
 
 
-nb_consumers = 1
+#nb_consumers = 1
 
 # main hashtable:
 #    message id -> (producer_time, consumer1_time, ..., consumerN_time)
@@ -75,6 +75,41 @@ def get_per_message_latency():
 ######################################
 
 
+# extract the latencies by reading in parallel the different files
+def extract_latencies_parallel(nb_consumers, nb_lines):
+   fd_producer = open("latencies_producer.log", 'r')
+
+   fd_consumers = []
+   for c in range(1, nb_consumers+1):
+      fd_consumers.append(open("latencies_consumer_" + str(c) + ".log", 'r'))
+
+   fd_latencies = open("messages_latencies.log", 'w')
+
+
+   for line_id in range(0, nb_lines):
+      line_of_producer = fd_producer.readline().split()
+
+      latency_of_consumers = []
+      lat_stop = 0
+      for c in range(0, nb_consumers):
+         lat_stop_cur = int(fd_consumers[c].readline().split()[1])
+         if lat_stop_cur > lat_stop:
+            lat_stop = lat_stop_cur
+
+      message_id = int(line_of_producer[0])
+      lat_start = int(line_of_producer[1])
+
+      latency = lat_stop - lat_start
+
+      fd_latencies.write(str(message_id) + "\t" + str(latency) + "\n")
+
+   fd_latencies.close()
+   fd_producer.close()
+   for c in range(0, nb_consumers):
+      fd_consumers[c].close()
+######################################
+
+
 # Display a helpful message
 def print_help():
    print("This script extract the latencies of each message")
@@ -85,14 +120,18 @@ def print_help():
 # ENTRY POINT
 if __name__ == "__main__":
    nb_args = len(sys.argv)
-   if nb_args == 2:
-      nb_consumers = int(sys.argv[1]) 
-      extract_latencies_producer()
+   if nb_args == 3:
+      nb_consumers = int(sys.argv[1])
+      nb_lines = int(sys.argv[2])
 
-      for i in range(0, nb_consumers):
-         extract_latencies_consumer(i+1)
+      extract_latencies_parallel(nb_consumers, nb_lines)
 
-      get_per_message_latency()
+#      extract_latencies_producer()
+#
+#      for i in range(0, nb_consumers):
+#         extract_latencies_consumer(i+1)
+#
+#      get_per_message_latency()
    else:
       print_help()
 ######################################

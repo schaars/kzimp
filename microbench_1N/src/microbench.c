@@ -27,14 +27,14 @@
 
 // debug macro
 #define DEBUG
-//#undef DEBUG
+#undef DEBUG
 
 // more verbose
 #define DEBUG2
-//#undef DEBUG2
+#undef DEBUG2
 
 // number of threads per core. Set it to 2 when having a hyperthreaded CPU
-#define NB_THREADS_PER_CORE 1
+#define NB_THREADS_PER_CORE 2
 
 // period at which we compute the current throughput, in sec
 #define PERIODIC_THROUGHPUT_COMPUTATION_SEC 10
