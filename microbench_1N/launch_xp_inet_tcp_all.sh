@@ -5,7 +5,7 @@ for consumers in 1 3 5 7; do
 
 
 warmup=100000
-logging=10000000
+logging=50000000
 reqsize=64
 
 echo "===== $consumers consumers, $reqsize B ====="
@@ -13,7 +13,7 @@ echo "===== $consumers consumers, $reqsize B ====="
 
 
 warmup=100000
-logging=10000000
+logging=25000000
 reqsize=1024
 
 echo "===== $consumers consumers, $reqsize B ====="
