@@ -130,7 +130,7 @@ void wait_for_receivers(void)
 void print_help_and_exit(char *program_name)
 {
   fprintf(stderr,
-      "Usage: %s -r nb_receivers -n nb_messages -s messages_size_in_B\n",
+      "Usage: %s -r nb_receivers -n amount_to_transfer_in_B -s messages_size_in_B\n",
       program_name);
   exit(-1);
 }
@@ -138,8 +138,8 @@ void print_help_and_exit(char *program_name)
 int main(int argc, char **argv)
 {
   nb_receivers = -1;
-  nb_messages = -1;
   message_size = -1;
+  long full_size = 0;
 
   // process command line options
   int opt;
@@ -152,7 +152,7 @@ int main(int argc, char **argv)
       break;
 
     case 'n':
-      nb_messages = atol(optarg);
+      full_size = atol(optarg);
       break;
 
     case 's':
@@ -164,6 +164,7 @@ int main(int argc, char **argv)
     }
   }
 
+  nb_messages = (full_size / message_size) + 1;
   if (nb_receivers <= 0 || nb_messages <= 0 || message_size <= 0)
   {
     print_help_and_exit(argv[0]);
