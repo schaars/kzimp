@@ -88,16 +88,12 @@ double do_consumer(void)
   uint64_t total_payload;
   double throughput;
 
-  thr_start_time = -1;
+  IPC_receive(message_size, &msg_id);
+  thr_start_time = get_current_time();
 
-  for (nb_msg = 0; nb_msg < nb_messages; nb_msg++)
+  for (nb_msg = 0; nb_msg < nb_messages - 1; nb_msg++)
   {
     total_payload += IPC_receive(message_size, &msg_id);
-
-    if (thr_start_time == -1)
-    {
-      thr_start_time = get_current_time();
-    }
 
 #ifdef DEBUG2
     printf("[consumer %i] Receiving message %li\n", core_id, nb_msg);
