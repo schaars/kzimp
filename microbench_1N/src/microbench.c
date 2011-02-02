@@ -89,6 +89,7 @@ double do_consumer(void)
   double throughput;
 
   IPC_receive(message_size, &msg_id);
+  total_payload = 0;
   thr_start_time = get_current_time();
 
   for (nb_msg = 0; nb_msg < nb_messages - 1; nb_msg++)
