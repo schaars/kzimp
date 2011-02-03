@@ -218,7 +218,12 @@ int main(int argc, char **argv)
   cpu_set_t mask;
 
   CPU_ZERO(&mask);
+
+#ifdef CORE_EXPERIMENT
+  CPU_SET(CORE_EXPERIMENT_CORE_ID, &mask);
+#else
   CPU_SET(core_id * NB_THREADS_PER_CORE, &mask);
+#endif
 
   if (sched_setaffinity(0, sizeof(mask), &mask) == -1)
   {
