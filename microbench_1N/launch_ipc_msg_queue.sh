@@ -16,7 +16,7 @@ if [ $# -eq 5 ]; then
    MSG_SIZE=$2
    transfert_SIZE=$3
    NB_QUEUES=$4
-   if [ $NB_QUEUES -eq 1 ]; then
+   if [ $NB_QUEUES == "1" ]; then
      ONE_QUEUE=-DONE_QUEUE
    else
      ONE_QUEUE=
