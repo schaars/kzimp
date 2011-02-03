@@ -224,6 +224,10 @@ int main(int argc, char **argv)
   {
     CPU_SET(CORE_EXPERIMENT_CORE_ID, &mask);
   }
+  else
+  {
+    CPU_SET(core_id, &mask);
+  }
 #else
   CPU_SET(core_id * NB_THREADS_PER_CORE, &mask);
 #endif
