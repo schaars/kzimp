@@ -14,6 +14,7 @@
 #include <sys/uio.h>
 
 #include "ipc_interface.h"
+#include "time.h"
 
 // debug macro
 #define DEBUG
@@ -26,6 +27,11 @@
 static int core_id; // 0 is the producer. The others are children
 static int nb_receivers;
 static int request_size; // requests size in bytes
+
+static uint64_t nb_cycles_send;
+static uint64_t nb_cycles_recv;
+static uint64_t nb_cycles_first_recv;
+static uint64_t nb_cycles_bzero;
 
 // pipes[i] = the pipe[2] between the producer and the consumer i+1
 static int **pipes;
@@ -46,6 +52,11 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   {
     request_size = MIN_MSG_SIZE;
   }
+
+  nb_cycles_send = 0;
+  nb_cycles_recv = 0;
+  nb_cycles_first_recv = 0;
+  nb_cycles_bzero = 0;
 
   // create the pipes
   pipes = (int**) malloc(sizeof(int*) * nb_receivers);
@@ -138,11 +149,30 @@ void IPC_clean_consumer(void)
   close(consumer_reading_pipe);
 }
 
+// Return the number of cycles spent in the send() operation
+uint64_t get_cycles_send()
+{
+  return nb_cycles_send;
+}
+
+// Return the number of cycles spent in the recv() operation
+uint64_t get_cycles_recv()
+{
+  return nb_cycles_recv - nb_cycles_first_recv;
+}
+
+// Return the number of cycles spent in the bzero() operation
+uint64_t get_cycles_bzero()
+{
+  return nb_cycles_bzero;
+}
+
 // Send a message to all the cores
 // The message id will be msg_id
 // Return the total sent payload (i.e. size of the messages times number of consumers)
 int IPC_sendToAll(int msg_size, long msg_id)
 {
+  uint64_t cycle_start, cycle_stop;
   int i;
   char *msg;
 
@@ -171,7 +201,11 @@ int IPC_sendToAll(int msg_size, long msg_id)
 
   // malloc is lazy: the pages may not be really allocated yet.
   // We force the allocation and the fetch of the pages with bzero
+  rdtsc(cycle_start);
   bzero(msg, msg_size);
+  rdtsc(cycle_stop);
+
+  nb_cycles_bzero += cycle_stop - cycle_start;
 
   int *msg_as_int = (int*) msg;
   msg_as_int[0] = msg_size;
@@ -194,10 +228,15 @@ int IPC_sendToAll(int msg_size, long msg_id)
     iov.iov_base = msg;
     iov.iov_len = msg_size;
 
+    rdtsc(cycle_start);
     vmsplice(pipes[i][1], &iov, 1, 0);
 #else
+    rdtsc(cycle_start);
     write(pipes[i][1], msg, msg_size);
 #endif
+    rdtsc(cycle_stop);
+
+    nb_cycles_send += cycle_stop - cycle_start;
 
   }
 
@@ -231,7 +270,13 @@ int IPC_receive(int msg_size, long *msg_id)
   printf("Waiting for a new message\n");
 #endif
 
+  uint64_t cycle_start, cycle_stop;
+
+  rdtsc(cycle_start);
   int header_size = read(consumer_reading_pipe, msg, MIN_MSG_SIZE);
+  rdtsc(cycle_stop);
+
+  nb_cycles_recv += cycle_stop - cycle_start;
 
   // get the message
   int s = 0;
@@ -239,7 +284,16 @@ int IPC_receive(int msg_size, long *msg_id)
   int left = msg_size_in_msg - header_size;
   if (left > 0)
   {
+    rdtsc(cycle_start);
     s = read(consumer_reading_pipe, (void*) (msg + header_size), left);
+    rdtsc(cycle_stop);
+
+    nb_cycles_recv += cycle_stop - cycle_start;
+  }
+
+  if (nb_cycles_first_recv == 0)
+  {
+    nb_cycles_first_recv = nb_cycles_recv;
   }
 
   // get the id of the message

@@ -13,6 +13,7 @@
 #include <arpa/inet.h>
 
 #include "ipc_interface.h"
+#include "time.h"
 
 // debug macro
 #define DEBUG
@@ -35,8 +36,13 @@
 static int core_id; // 0 is the producer. The others are children
 static int nb_receivers;
 static int request_size; // requests size in bytes
-static int sock; // the socket
 
+static uint64_t nb_cycles_send;
+static uint64_t nb_cycles_recv;
+static uint64_t nb_cycles_first_recv;
+static uint64_t nb_cycles_bzero;
+
+static int sock; // the socket
 
 #ifdef IP_MULTICAST
 struct sockaddr_in multicast_addr;
@@ -51,7 +57,17 @@ struct sockaddr_in *addresses; // for each consumer, its address
 void IPC_initialize(int _nb_receivers, int _request_size)
 {
   nb_receivers = _nb_receivers;
+
   request_size = _request_size;
+  if (request_size < MIN_MSG_SIZE)
+  {
+    request_size = MIN_MSG_SIZE;
+  }
+
+  nb_cycles_send = 0;
+  nb_cycles_recv = 0;
+  nb_cycles_first_recv = 0;
+  nb_cycles_bzero = 0;
 }
 
 #ifdef IP_MULTICAST
@@ -225,11 +241,30 @@ void IPC_clean_consumer(void)
 #endif
 }
 
+// Return the number of cycles spent in the send() operation
+uint64_t get_cycles_send()
+{
+  return nb_cycles_send;
+}
+
+// Return the number of cycles spent in the recv() operation
+uint64_t get_cycles_recv()
+{
+  return nb_cycles_recv - nb_cycles_first_recv;
+}
+
+// Return the number of cycles spent in the bzero() operation
+uint64_t get_cycles_bzero()
+{
+  return nb_cycles_bzero;
+}
+
 // Send a message to all the cores
 // The message id will be msg_id
 // Return the total sent payload (i.e. size of the messages times number of consumers)
 int IPC_sendToAll(int msg_size, long msg_id)
 {
+  uint64_t cycle_start, cycle_stop;
   int i;
   char *msg;
 
@@ -247,7 +282,11 @@ int IPC_sendToAll(int msg_size, long msg_id)
 
   // malloc is lazy: the pages may not be really allocated yet.
   // We force the allocation and the fetch of the pages with bzero
+  rdtsc(cycle_start);
   bzero(msg, msg_size);
+  rdtsc(cycle_stop);
+
+  nb_cycles_bzero += cycle_stop - cycle_start;
 
   int *msg_int = (int*) msg;
   msg_int[0] = msg_size;
@@ -268,6 +307,8 @@ int IPC_sendToAll(int msg_size, long msg_id)
     while (sent < msg_size)
     {
       to_send = MIN(msg_size - sent, UDP_SEND_MAX_SIZE);
+
+      rdtsc(cycle_start);
 #ifdef IP_MULTICAST
       sent += sendto(sock, msg + sent, to_send, 0,
           (struct sockaddr*) &multicast_addr, sizeof(multicast_addr));
@@ -275,6 +316,9 @@ int IPC_sendToAll(int msg_size, long msg_id)
       sent += sendto(sock, msg + sent, to_send, 0,
           (struct sockaddr*) &addresses[i], sizeof(addresses[i]));
 #endif
+      rdtsc(cycle_stop);
+
+      nb_cycles_send += cycle_stop - cycle_start;
     }
 
 #ifdef IP_MULTICAST
@@ -318,10 +362,21 @@ int IPC_receive(int msg_size, long *msg_id)
   // let's say that the first packet contains the header
   // we assume messages are not delivered out of order
 
+  uint64_t cycle_start, cycle_stop;
+
   int recv_size = 0;
   while (recv_size < msg_size)
   {
+    rdtsc(cycle_start);
     recv_size += recvfrom(sock, msg + recv_size, msg_size - recv_size, 0, 0, 0);
+    rdtsc(cycle_stop);
+
+    nb_cycles_recv += cycle_stop - cycle_start;
+  }
+
+  if (nb_cycles_first_recv == 0)
+  {
+    nb_cycles_first_recv = nb_cycles_recv;
   }
 
   int msg_size_in_msg = *((int*) msg);

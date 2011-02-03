@@ -10,8 +10,8 @@
 
 #include <stdint.h>
 
-int recvMsg(int s, void *buf, size_t len);
+int recvMsg(int s, void *buf, size_t len, uint64_t *nb_cycles);
 
-void sendMsg(int s, void *msg, int size);
+void sendMsg(int s, void *msg, int size, uint64_t *nb_cycles);
 
 #endif /* TCP_NET_H_ */

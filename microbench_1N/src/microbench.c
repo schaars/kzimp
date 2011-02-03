@@ -129,7 +129,8 @@ void wait_for_receivers(void)
 
 void print_help_and_exit(char *program_name)
 {
-  fprintf(stderr,
+  fprintf(
+      stderr,
       "Usage: %s -r nb_receivers -n amount_to_transfer_in_B -s messages_size_in_B\n",
       program_name);
   exit(-1);
@@ -226,10 +227,14 @@ int main(int argc, char **argv)
       perror("Error while creating the file for the producer");
     }
 
+    // When receiving we do not take into account the first message since the receive is blocking and does not start necesarily with
+    // a message in the mechanism buffer for reception
     fprintf(
         F,
-        "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\n",
-        core_id, nb_receivers, nb_messages, message_size, throughput);
+        "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\nnb_cycles_bzero= %f\n",
+        core_id, nb_receivers, nb_messages, message_size, throughput,
+        (float) get_cycles_send() / nb_messages, (float) get_cycles_recv()
+            / (nb_messages - 1), (float) get_cycles_bzero() / nb_messages);
 
     fclose(F);
   }
@@ -247,13 +252,17 @@ int main(int argc, char **argv)
     F = fopen(filename, "w");
     if (!F)
     {
-      perror("Error while creating the file for the producer");
+      perror("Error while creating the file for the consumer");
     }
 
+    // When receiving we do not take into account the first message since the receive is blocking and does not start necesarily with
+    // a message in the mechanism buffer for reception
     fprintf(
         F,
-        "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\n",
-        core_id, nb_receivers, nb_messages, message_size, throughput);
+        "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\nnb_cycles_bzero= %f\n",
+        core_id, nb_receivers, nb_messages, message_size, throughput,
+        (float) get_cycles_send() / nb_messages, (float) get_cycles_recv()
+            / (nb_messages - 1), (float) get_cycles_bzero() / nb_messages);
 
     fclose(F);
   }
