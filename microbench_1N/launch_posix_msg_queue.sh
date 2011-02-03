@@ -24,8 +24,14 @@ rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
 ./stop_all.sh
 
 #set new parameters
-sudo ./root_set_value.sh 1000000 /proc/sys/fs/mqueue/msg_max
-sudo ./root_set_value.sh $MSG_SIZE /proc/sys/fs/mqueue/msgsize_max
+sudo ./root_set_value.sh 32 /proc/sys/fs/mqueue/queues_max
+sudo ./root_set_value.sh 10 /proc/sys/fs/mqueue/msg_max
+
+if [ $MSG_SIZE -lt 128 ]; then
+   sudo ./root_set_value.sh 128 /proc/sys/fs/mqueue/msgsize_max
+else
+   sudo ./root_set_value.sh $MSG_SIZE /proc/sys/fs/mqueue/msgsize_max
+fi
 
 ./get_memory_usage.sh  $MEMORY_DIR &
 ./bin/posix_msg_queue_microbench -r $NB_CONSUMERS -s $MSG_SIZE -n $transfert_SIZE
