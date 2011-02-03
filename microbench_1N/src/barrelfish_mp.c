@@ -16,6 +16,7 @@
 #include "ipc_interface.h"
 #include "urpc.h"
 #include "urpc_transport.h"
+#include "time.h"
 
 // debug macro
 #define DEBUG
@@ -33,6 +34,11 @@ static int core_id; // 0 is the producer. The others are children
 static int nb_receivers;
 static int request_size; // requests size in bytes
 static int nb_messages_in_transit; // Barrelfish requires an acknowledgement of sent messages. We send one peridically
+
+static uint64_t nb_cycles_send;
+static uint64_t nb_cycles_recv;
+static uint64_t nb_cycles_first_recv;
+static uint64_t nb_cycles_bzero;
 
 static void* *shared_areas; // shared_areas[i] = (void*) shared are between producer and core i+1
 
@@ -108,7 +114,18 @@ void* init_shared_memory_segment(char *p, size_t s, int i)
 void IPC_initialize(int _nb_receivers, int _request_size)
 {
   nb_receivers = _nb_receivers;
+
   request_size = _request_size;
+  if (request_size < MIN_MSG_SIZE)
+  {
+    request_size = MIN_MSG_SIZE;
+  }
+
+  nb_cycles_send = 0;
+  nb_cycles_recv = 0;
+  nb_cycles_first_recv = 0;
+  nb_cycles_bzero = 0;
+
   nb_messages_in_transit = 0;
 
   shared_areas = (void**) malloc(sizeof(void*) * nb_receivers);
@@ -205,11 +222,30 @@ void IPC_clean_consumer(void)
   shmdt(shared_areas[core_id - 1]);
 }
 
+// Return the number of cycles spent in the send() operation
+uint64_t get_cycles_send()
+{
+  return nb_cycles_send;
+}
+
+// Return the number of cycles spent in the recv() operation
+uint64_t get_cycles_recv()
+{
+  return nb_cycles_recv - nb_cycles_first_recv;
+}
+
+// Return the number of cycles spent in the bzero() operation
+uint64_t get_cycles_bzero()
+{
+  return nb_cycles_bzero;
+}
+
 // Send a message to all the cores
 // The message id will be msg_id
 // Return the total sent payload (i.e. size of the messages times number of consumers)
 int IPC_sendToAll(int msg_size, long msg_id)
 {
+  uint64_t cycle_start, cycle_stop;
   int i;
   char *msg;
 
@@ -227,7 +263,11 @@ int IPC_sendToAll(int msg_size, long msg_id)
 
   // malloc is lazy: the pages may not be really allocated yet.
   // We force the allocation and the fetch of the pages with bzero
+  rdtsc(cycle_start);
   bzero(msg, msg_size);
+  rdtsc(cycle_stop);
+
+  nb_cycles_bzero += cycle_stop - cycle_start;
 
   int *msg_as_int = (int*) msg;
   msg_as_int[0] = msg_size;
@@ -243,7 +283,11 @@ int IPC_sendToAll(int msg_size, long msg_id)
   for (i = 0; i < nb_receivers; i++)
   {
     // writing the content
+    rdtsc(cycle_start);
     urpc_transport_send(&conn[i], msg, URPC_MSG_WORDS);
+    rdtsc(cycle_stop);
+
+    nb_cycles_send += cycle_stop - cycle_start;
   }
 
   nb_messages_in_transit++;
@@ -285,8 +329,14 @@ int IPC_receive(int msg_size, long *msg_id)
   printf("Waiting for a new message\n");
 #endif
 
+  uint64_t cycle_start, cycle_stop;
+
+  rdtsc(cycle_start);
   int recv_size = urpc_transport_recv(consumer_connection, (void*) msg,
       URPC_MSG_WORDS);
+  rdtsc(cycle_stop);
+
+  nb_cycles_recv += cycle_stop - cycle_start;
 
   // urpc_transport_recv returns URPC_MSG_WORDS. We want the size of the message in bytes
   recv_size *= sizeof(uint64_t);
