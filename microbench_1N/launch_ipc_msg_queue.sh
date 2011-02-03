@@ -9,7 +9,7 @@
 
 
 # get arguments
-if [ $# -eq 6 ]; then
+if [ $# -eq 5 ]; then
    NB_CONSUMERS=$1
    MSG_SIZE=$2
    transfert_SIZE=$3
