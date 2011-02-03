@@ -220,7 +220,10 @@ int main(int argc, char **argv)
   CPU_ZERO(&mask);
 
 #ifdef CORE_EXPERIMENT
-  CPU_SET(CORE_EXPERIMENT_CORE_ID, &mask);
+  if (core_id != 0)
+  {
+    CPU_SET(CORE_EXPERIMENT_CORE_ID, &mask);
+  }
 #else
   CPU_SET(core_id * NB_THREADS_PER_CORE, &mask);
 #endif
