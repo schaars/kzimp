@@ -38,7 +38,6 @@ static int nb_messages_in_transit; // Barrelfish requires an acknowledgement of 
 static uint64_t nb_cycles_send;
 static uint64_t nb_cycles_recv;
 static uint64_t nb_cycles_first_recv;
-static uint64_t nb_cycles_bzero;
 
 static void* *shared_areas; // shared_areas[i] = (void*) shared are between producer and core i+1
 
@@ -124,7 +123,6 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   nb_cycles_send = 0;
   nb_cycles_recv = 0;
   nb_cycles_first_recv = 0;
-  nb_cycles_bzero = 0;
 
   nb_messages_in_transit = 0;
 
@@ -234,12 +232,6 @@ uint64_t get_cycles_recv()
   return nb_cycles_recv - nb_cycles_first_recv;
 }
 
-// Return the number of cycles spent in the bzero() operation
-uint64_t get_cycles_bzero()
-{
-  return nb_cycles_bzero;
-}
-
 // Send a message to all the cores
 // The message id will be msg_id
 void IPC_sendToAll(int msg_size, long msg_id)
@@ -262,11 +254,7 @@ void IPC_sendToAll(int msg_size, long msg_id)
 
   // malloc is lazy: the pages may not be really allocated yet.
   // We force the allocation and the fetch of the pages with bzero
-  rdtsc(cycle_start);
   bzero(msg, msg_size);
-  rdtsc(cycle_stop);
-
-  nb_cycles_bzero += cycle_stop - cycle_start;
 
   int *msg_as_int = (int*) msg;
   msg_as_int[0] = msg_size;
@@ -334,6 +322,10 @@ int IPC_receive(int msg_size, long *msg_id)
   rdtsc(cycle_stop);
 
   nb_cycles_recv += cycle_stop - cycle_start;
+  if (nb_cycles_first_recv == 0)
+  {
+    nb_cycles_first_recv = nb_cycles_recv;
+  }
 
   // urpc_transport_recv returns URPC_MSG_WORDS. We want the size of the message in bytes
   recv_size *= sizeof(uint64_t);

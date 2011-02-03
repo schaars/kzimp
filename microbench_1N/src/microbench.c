@@ -43,21 +43,23 @@
 
 static int core_id; // 0 is the producer. The others are children
 static int nb_receivers;
-static long nb_messages;
+static long nb_messages; // total number of messages sent/received during this experiment
+static long xp_duration; // duration of the experiment, in seconds
 static int message_size; // messages size in bytes
 
 // return the throughput, in MB/s
 double do_producer(void)
 {
   long nb_msg;
-  uint64_t thr_start_time, thr_stop_time, thr_elapsed_time;
+  uint64_t thr_start_time, thr_stop_time, thr_elapsed_time, thr_current_time;
   uint64_t total_payload;
   double throughput;
 
   nb_msg = 0;
-  thr_start_time = get_current_time();
+  thr_elapsed_time = 0;
+  rdtsc(thr_start_time);
 
-  while (nb_msg < nb_messages)
+  while (thr_elapsed_time < xp_duration * 1000000)
   {
 #ifdef DEBUG2
     printf("[producer] Sending message %li\n", nb_msg);
@@ -66,12 +68,18 @@ double do_producer(void)
     IPC_sendToAll(message_size, nb_msg);
 
     nb_msg++;
+    rdtsc(thr_current_time);
+    thr_elapsed_time = diffTime(thr_current_time, thr_start_time);
   }
 
-  thr_stop_time = get_current_time();
-  thr_elapsed_time = thr_stop_time - thr_start_time;
+  IPC_sendToAll(message_size, -2);
+  nb_msg++;
+
+  rdtsc(thr_stop_time);
+  thr_elapsed_time = diffTime(thr_stop_time, thr_start_time);
 
   total_payload = nb_msg * message_size;
+  nb_messages = nb_msg;
 
   // total_payload is in bytes
   // thr_elapsed_time is in usec
@@ -96,10 +104,11 @@ double do_consumer(void)
   double throughput;
 
   IPC_receive(message_size, &msg_id);
-  thr_start_time = get_current_time();
 
+  thr_start_time = get_current_time();
   nb_msg = 0;
-  while (nb_msg < nb_messages - 1)
+
+  while (1)
   {
     IPC_receive(message_size, &msg_id);
 
@@ -108,12 +117,17 @@ double do_consumer(void)
 #endif
 
     nb_msg++;
+    if (msg_id == -2)
+    {
+      break;
+    }
   }
 
   thr_stop_time = get_current_time();
   thr_elapsed_time = thr_stop_time - thr_start_time;
 
   total_payload = nb_msg * message_size;
+  nb_messages = nb_msg;
 
   // total_payload is in bytes
   // thr_elapsed_time is in usec
@@ -121,7 +135,7 @@ double do_consumer(void)
       / ((double) thr_elapsed_time / 1000000.0);
 
 #ifdef DEBUG
-  printf("[consumer %i] Throughput = %f MB/s\n", throughput);
+  printf("[consumer %i] Throughput = %f MB/s\n", core_id, throughput);
 #endif
 
   return throughput;
@@ -142,7 +156,7 @@ void print_help_and_exit(char *program_name)
 {
   fprintf(
       stderr,
-      "Usage: %s -r nb_receivers -n amount_to_transfer_in_B -s messages_size_in_B\n",
+      "Usage: %s -r nb_receivers -t xp_duration_in_sec -s messages_size_in_B\n",
       program_name);
   exit(-1);
 }
@@ -151,11 +165,10 @@ int main(int argc, char **argv)
 {
   nb_receivers = -1;
   message_size = -1;
-  long full_size = 0;
 
   // process command line options
   int opt;
-  while ((opt = getopt(argc, argv, "n:r:s:")) != EOF)
+  while ((opt = getopt(argc, argv, "r:t:s:")) != EOF)
   {
     switch (opt)
     {
@@ -163,8 +176,8 @@ int main(int argc, char **argv)
       nb_receivers = atoi(optarg);
       break;
 
-    case 'n':
-      full_size = atol(optarg);
+    case 't':
+      xp_duration = atol(optarg);
       break;
 
     case 's':
@@ -176,11 +189,12 @@ int main(int argc, char **argv)
     }
   }
 
-  nb_messages = (full_size / message_size) + 1;
-  if (nb_receivers <= 0 || nb_messages <= 0 || message_size <= 0)
+  if (nb_receivers <= 0 || xp_duration <= 0 || message_size <= 0)
   {
     print_help_and_exit(argv[0]);
   }
+
+  init_clock_mhz();
 
   // initialize the mechanism
   IPC_initialize(nb_receivers, message_size);
@@ -242,10 +256,10 @@ int main(int argc, char **argv)
     // a message in the mechanism buffer for reception
     fprintf(
         F,
-        "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\nnb_cycles_bzero= %f\n",
+        "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\n",
         core_id, nb_receivers, nb_messages, message_size, throughput,
         (float) get_cycles_send() / nb_messages, (float) get_cycles_recv()
-            / (nb_messages - 1), (float) get_cycles_bzero() / nb_messages);
+            / (nb_messages - 1));
 
     fclose(F);
   }
@@ -270,10 +284,10 @@ int main(int argc, char **argv)
     // a message in the mechanism buffer for reception
     fprintf(
         F,
-        "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\nnb_cycles_bzero= %f\n",
+        "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\n",
         core_id, nb_receivers, nb_messages, message_size, throughput,
         (float) get_cycles_send() / nb_messages, (float) get_cycles_recv()
-            / (nb_messages - 1), (float) get_cycles_bzero() / nb_messages);
+            / (nb_messages - 1));
 
     fclose(F);
   }

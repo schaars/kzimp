@@ -32,9 +32,6 @@ uint64_t get_cycles_send();
 // Return the number of cycles spent in the recv() operation
 uint64_t get_cycles_recv();
 
-// Return the number of cycles spent in the bzero() operation
-uint64_t get_cycles_bzero();
-
 // Send a message to all the cores
 // The message id will be msg_id
 void IPC_sendToAll(int msg_size, long msg_id);

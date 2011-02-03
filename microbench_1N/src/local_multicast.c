@@ -34,7 +34,7 @@ static int request_size; // requests size in bytes
 static uint64_t nb_cycles_send;
 static uint64_t nb_cycles_recv;
 static uint64_t nb_cycles_first_recv;
-static uint64_t nb_cycles_bzero;
+
 
 static int sock; // the socket
 
@@ -58,7 +58,6 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   nb_cycles_send = 0;
   nb_cycles_recv = 0;
   nb_cycles_first_recv = 0;
-  nb_cycles_bzero = 0;
 
   multicast_addr.sin_addr.s_addr = 0x7f7f7f7f;
   multicast_addr.sin_family = AF_INET;
@@ -137,12 +136,6 @@ uint64_t get_cycles_recv()
   return nb_cycles_recv - nb_cycles_first_recv;
 }
 
-// Return the number of cycles spent in the bzero() operation
-uint64_t get_cycles_bzero()
-{
-  return nb_cycles_bzero;
-}
-
 // Send a message to all the cores
 // The message id will be msg_id
 void IPC_sendToAll(int msg_size, long msg_id)
@@ -164,11 +157,8 @@ void IPC_sendToAll(int msg_size, long msg_id)
 
   // malloc is lazy: the pages may not be really allocated yet.
   // We force the allocation and the fetch of the pages with bzero
-  rdtsc(cycle_start);
   bzero(msg, msg_size);
-  rdtsc(cycle_stop);
 
-  nb_cycles_bzero += cycle_stop - cycle_start;
 
   int *msg_int = (int*) msg;
   msg_int[0] = msg_size;

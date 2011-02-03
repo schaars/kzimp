@@ -3,7 +3,7 @@
 # Args:
 #  $1: nb consumers
 #  $2: message size in B
-#  $3: amount to transfert
+#  $3: duration of the experiment in seconds
 #  $4: max nb datagrams
 
 
@@ -13,10 +13,10 @@ MEMORY_DIR="memory_conso"
 if [ $# -eq 4 ]; then
    NB_CONSUMERS=$1
    MSG_SIZE=$2
-   transfert_SIZE=$3
+   DURATION_XP=$3
    NB_DATAGRAMS=$4
 else
-   echo "Usage: ./$(basename $0) <nb_consumers> <message_size_in_B> <amount_to_transfert_in_B> <nb_datagrams>"
+   echo "Usage: ./$(basename $0) <nb_consumers> <message_size_in_B> <xp_duration_in_sec> <nb_datagrams>"
    exit 0
 fi
 
@@ -29,12 +29,12 @@ rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
 sudo ./root_set_value.sh $NB_DATAGRAMS /proc/sys/net/unix/max_dgram_qlen
 
 ./get_memory_usage.sh  $MEMORY_DIR &
-./bin/unix_microbench -r $NB_CONSUMERS -s $MSG_SIZE -n $transfert_SIZE
+./bin/unix_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
 
 ./stop_all.sh
 
 # save files
-OUTPUT_DIR="microbench_unix_${NB_CONSUMERS}consumers_${transfert_SIZE}Btransferted_${MSG_SIZE}B_${NB_DATAGRAMS}dgrams"
+OUTPUT_DIR="microbench_unix_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B_${NB_DATAGRAMS}dgrams"
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/

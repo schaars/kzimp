@@ -38,7 +38,7 @@ static int request_size; // requests size in bytes
 static uint64_t nb_cycles_send;
 static uint64_t nb_cycles_recv;
 static uint64_t nb_cycles_first_recv;
-static uint64_t nb_cycles_bzero;
+
 
 static int *consumers;
 static int consumer_queue; // pointer to this consumer's queue for reading
@@ -58,7 +58,6 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   nb_cycles_send = 0;
   nb_cycles_recv = 0;
   nb_cycles_first_recv = 0;
-  nb_cycles_bzero = 0;
 
   key_t key;
   int i;
@@ -157,12 +156,6 @@ uint64_t get_cycles_recv()
   return nb_cycles_recv - nb_cycles_first_recv;
 }
 
-// Return the number of cycles spent in the bzero() operation
-uint64_t get_cycles_bzero()
-{
-  return nb_cycles_bzero;
-}
-
 // Send a message to all the cores
 // The message id will be msg_id
 void IPC_sendToAll(int msg_size, long msg_id)
@@ -178,11 +171,8 @@ void IPC_sendToAll(int msg_size, long msg_id)
 
   ipc_msg.mtype = 1;
 
-  rdtsc(cycle_start);
   bzero(ipc_msg.mtext, msg_size);
-  rdtsc(cycle_stop);
 
-  nb_cycles_bzero += cycle_stop - cycle_start;
 
   int *msg_as_int = (int*) ipc_msg.mtext;
   msg_as_int[0] = msg_size;
