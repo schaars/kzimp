@@ -39,6 +39,7 @@ static int request_size; // requests size in bytes
 
 static uint64_t nb_cycles_send;
 static uint64_t nb_cycles_recv;
+static uint64_t nb_cycles_first_recv;
 static uint64_t nb_cycles_bzero;
 
 static int sock; // the socket
@@ -65,6 +66,7 @@ void IPC_initialize(int _nb_receivers, int _request_size)
 
   nb_cycles_send = 0;
   nb_cycles_recv = 0;
+  nb_cycles_first_recv = 0;
   nb_cycles_bzero = 0;
 }
 
@@ -248,7 +250,7 @@ uint64_t get_cycles_send()
 // Return the number of cycles spent in the recv() operation
 uint64_t get_cycles_recv()
 {
-  return nb_cycles_recv;
+  return nb_cycles_recv - nb_cycles_first_recv;
 }
 
 // Return the number of cycles spent in the bzero() operation
@@ -370,6 +372,11 @@ int IPC_receive(int msg_size, long *msg_id)
     rdtsc(cycle_stop);
 
     nb_cycles_recv += cycle_stop - cycle_start;
+  }
+
+  if (nb_cycles_first_recv == 0)
+  {
+    nb_cycles_first_recv = nb_cycles_recv;
   }
 
   int msg_size_in_msg = *((int*) msg);
