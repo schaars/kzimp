@@ -7,6 +7,7 @@
 #  $4: max amount to transfert in Local Multicast ring buffer
 
 
+MEMORY_DIR="memory_conso"
 START_PORT=6001
 
 # get arguments
@@ -22,6 +23,8 @@ else
 fi
 
 
+rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
+
 ./stop_all.sh
 
 # activate Local Multicast
@@ -33,6 +36,7 @@ else
    exit 0
 fi
 
+./get_memory_usage.sh  $MEMORY_DIR &
 ./bin/local_multicast_microbench -r $NB_CONSUMERS -s $MSG_SIZE -n $transfert_SIZE
 
 ./stop_all.sh
@@ -40,4 +44,5 @@ fi
 # save files
 OUTPUT_DIR="microbench_local_multicast_${NB_CONSUMERS}consumers_${transfert_SIZE}Btransferted_${MSG_SIZE}B"
 mkdir $OUTPUT_DIR
+mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/

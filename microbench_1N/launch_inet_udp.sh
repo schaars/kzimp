@@ -7,6 +7,8 @@
 #  $4: optional. Set multicast if you want udp multicast
 
 
+MEMORY_DIR="memory_conso"
+
 # get arguments
 if [ $# -eq 3 ]; then
    NB_CONSUMERS=$1
@@ -26,6 +28,8 @@ else
 fi
 
 
+rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
+
 ./stop_all.sh
 
 # deactivate Local Multicast if present
@@ -36,6 +40,7 @@ fi
 sudo sysctl -p inet_sysctl.conf
 
 # launch XP
+./get_memory_usage.sh  $MEMORY_DIR &
 if [ -z $MULTICAST ]; then
    ./bin/inet_udp_microbench -r $NB_CONSUMERS -s $MSG_SIZE -n $transfert_SIZE
 else
@@ -52,4 +57,5 @@ else
 fi
 
 mkdir $OUTPUT_DIR
+mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/

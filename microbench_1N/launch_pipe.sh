@@ -6,6 +6,8 @@
 #  $3: amount to transfert
 
 
+MEMORY_DIR="memory_conso"
+
 # get arguments
 if [ $# -eq 3 ]; then
    NB_CONSUMERS=$1
@@ -17,8 +19,11 @@ else
 fi
 
 
+rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
+
 ./stop_all.sh
 
+./get_memory_usage.sh  $MEMORY_DIR &
 ./bin/pipe_microbench -r $NB_CONSUMERS -s $MSG_SIZE -n $transfert_SIZE
 
 ./stop_all.sh
@@ -26,4 +31,5 @@ fi
 # save files
 OUTPUT_DIR="microbench_pipe_${NB_CONSUMERS}consumers_${transfert_SIZE}Btransferted_${MSG_SIZE}B"
 mkdir $OUTPUT_DIR
+mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/

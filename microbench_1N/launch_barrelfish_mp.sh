@@ -7,6 +7,8 @@
 #  $4: max amount to transfert in the channel
 
 
+MEMORY_DIR="memory_conso"
+
 # get arguments
 if [ $# -eq 4 ]; then
    NB_CONSUMERS=$1
@@ -19,6 +21,8 @@ else
 fi
 
 
+rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
+
 ./stop_all.sh
 
 # modify shared mem parameters
@@ -30,6 +34,7 @@ echo "-DNB_MESSAGES=$transfert_SIZE_CHANNEL -DURPC_MSG_WORDS=$(($MSG_SIZE/8))" >
 make barrelfish_message_passing
 
 # launch XP
+./get_memory_usage.sh  $MEMORY_DIR &
 ./bin/barrelfish_message_passing_microbench -r $NB_CONSUMERS -s $MSG_SIZE -n $transfert_SIZE
 
 ./stop_all.sh
@@ -37,4 +42,5 @@ make barrelfish_message_passing
 # save files
 OUTPUT_DIR="microbench_barrelfish_message_passing_${NB_CONSUMERS}consumers_${transfert_SIZE}Btransferted_${MSG_SIZE}B"
 mkdir $OUTPUT_DIR
+mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/

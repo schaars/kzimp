@@ -8,6 +8,8 @@
 #  $5: message max size
 
 
+MEMORY_DIR="memory_conso"
+
 # get arguments
 if [ $# -eq 5 ]; then
    NB_CONSUMERS=$1
@@ -26,6 +28,8 @@ else
 fi
 
 
+rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
+
 ./stop_all.sh
 
 # used by ftok
@@ -39,6 +43,7 @@ sudo ./root_set_value.sh 100000000 /proc/sys/kernel/msgmnb
 echo "$ONE_QUEUE -DMESSAGE_MAX_SIZE=$MESSAGE_MAX_SIZE" > IPC_MSG_QUEUE_PROPERTIES
 make ipc_msg_queue_microbench
 
+./get_memory_usage.sh  $MEMORY_DIR &
 ./bin/ipc_msg_queue_microbench -r $NB_CONSUMERS -s $MSG_SIZE -n $transfert_SIZE
 
 ./stop_all.sh
@@ -46,4 +51,5 @@ make ipc_msg_queue_microbench
 # save files
 OUTPUT_DIR="microbench_ipc_msg_queue_${NB_CONSUMERS}consumers_${transfert_SIZE}Btransferted_${MSG_SIZE}B_${NB_QUEUES}queues_msg_max_size_${MESSAGE_MAX_SIZE}B"
 mkdir $OUTPUT_DIR
+mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
