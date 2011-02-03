@@ -34,6 +34,9 @@
 // number of threads per core. Set it to 2 when having a hyperthreaded CPU
 #define NB_THREADS_PER_CORE 2
 
+// stop the experiment after XP_MAX_DURATION seconds
+#define XP_MAX_DURATION (60*10)
+
 // name of the file which will contain statistics
 #define STATISTICS_FILE_PREFIX "./statistics"
 #define STATISTICS_FILE_SUFFIX ".log"
@@ -43,7 +46,6 @@ static int nb_receivers;
 static long nb_messages;
 static int message_size; // messages size in bytes
 
-
 // return the throughput, in MB/s
 double do_producer(void)
 {
@@ -52,19 +54,24 @@ double do_producer(void)
   uint64_t total_payload;
   double throughput;
 
+  nb_msg = 0;
   thr_start_time = get_current_time();
 
-  for (nb_msg = 0; nb_msg < nb_messages; nb_msg++)
+  while (nb_msg < nb_messages)
   {
 #ifdef DEBUG2
     printf("[producer] Sending message %li\n", nb_msg);
 #endif
 
-    total_payload += IPC_sendToAll(message_size, nb_msg);
+    IPC_sendToAll(message_size, nb_msg);
+
+    nb_msg++;
   }
 
   thr_stop_time = get_current_time();
   thr_elapsed_time = thr_stop_time - thr_start_time;
+
+  total_payload = nb_msg * message_size;
 
   // total_payload is in bytes
   // thr_elapsed_time is in usec
@@ -89,20 +96,24 @@ double do_consumer(void)
   double throughput;
 
   IPC_receive(message_size, &msg_id);
-  total_payload = 0;
   thr_start_time = get_current_time();
 
-  for (nb_msg = 0; nb_msg < nb_messages - 1; nb_msg++)
+  nb_msg = 0;
+  while (nb_msg < nb_messages - 1)
   {
-    total_payload += IPC_receive(message_size, &msg_id);
+    IPC_receive(message_size, &msg_id);
 
 #ifdef DEBUG2
     printf("[consumer %i] Receiving message %li\n", core_id, nb_msg);
 #endif
+
+    nb_msg++;
   }
 
   thr_stop_time = get_current_time();
   thr_elapsed_time = thr_stop_time - thr_start_time;
+
+  total_payload = nb_msg * message_size;
 
   // total_payload is in bytes
   // thr_elapsed_time is in usec

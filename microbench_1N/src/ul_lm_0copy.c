@@ -113,8 +113,7 @@ uint64_t get_cycles_bzero()
 
 // Send a message to all the cores
 // The message id will be msg_id
-// Return the total sent payload (i.e. size of the messages times number of consumers)
-int IPC_sendToAll(int msg_size, long msg_id)
+void IPC_sendToAll(int msg_size, long msg_id)
 {
   uint64_t cycle_start, cycle_stop;
   char *msg;
@@ -156,8 +155,6 @@ int IPC_sendToAll(int msg_size, long msg_id)
   rdtsc(cycle_stop);
 
   nb_cycles_send += cycle_stop - cycle_start;
-
-  return msg_size;
 }
 
 // Get a message for this core
