@@ -14,6 +14,7 @@
 #include <sys/msg.h>
 
 #include "ipc_interface.h"
+#include "time.h"
 
 // debug macro
 #define DEBUG
@@ -34,6 +35,10 @@ static int core_id; // 0 is the producer. The others are children
 static int nb_receivers;
 static int request_size; // requests size in bytes
 
+static uint64_t nb_cycles_send;
+static uint64_t nb_cycles_recv;
+static uint64_t nb_cycles_bzero;
+
 static int *consumers;
 static int consumer_queue; // pointer to this consumer's queue for reading
 
@@ -42,7 +47,16 @@ static int consumer_queue; // pointer to this consumer's queue for reading
 void IPC_initialize(int _nb_receivers, int _request_size)
 {
   nb_receivers = _nb_receivers;
+
   request_size = _request_size;
+  if (request_size < MIN_MSG_SIZE)
+  {
+    request_size = MIN_MSG_SIZE;
+  }
+
+  nb_cycles_send = 0;
+  nb_cycles_recv = 0;
+  nb_cycles_bzero = 0;
 
   key_t key;
   int i;
@@ -129,11 +143,30 @@ void IPC_clean_consumer(void)
 {
 }
 
+// Return the number of cycles spent in the send() operation
+uint64_t get_cycles_send()
+{
+  return nb_cycles_send;
+}
+
+// Return the number of cycles spent in the recv() operation
+uint64_t get_cycles_recv()
+{
+  return nb_cycles_recv;
+}
+
+// Return the number of cycles spent in the bzero() operation
+uint64_t get_cycles_bzero()
+{
+  return nb_cycles_bzero;
+}
+
 // Send a message to all the cores
 // The message id will be msg_id
 // Return the total sent payload (i.e. size of the messages times number of consumers)
 int IPC_sendToAll(int msg_size, long msg_id)
 {
+  uint64_t cycle_start, cycle_stop;
   struct ipc_message ipc_msg;
   int i;
 
@@ -143,7 +176,12 @@ int IPC_sendToAll(int msg_size, long msg_id)
   }
 
   ipc_msg.mtype = 1;
+
+  rdtsc(cycle_start);
   bzero(ipc_msg.mtext, msg_size);
+  rdtsc(cycle_stop);
+
+  nb_cycles_bzero += cycle_stop - cycle_start;
 
   int *msg_as_int = (int*) ipc_msg.mtext;
   msg_as_int[0] = msg_size;
@@ -156,15 +194,22 @@ int IPC_sendToAll(int msg_size, long msg_id)
       core_id, msg_as_long[0], msg_size, nb_receivers);
 #endif
 
+
   for (i = 0; i < nb_receivers; i++)
   {
     // writing the content
 #ifdef ONE_QUEUE
     ipc_msg.mtype = i+1;
+
+    rdtsc(cycle_start);
     msgsnd(consumers[0], &ipc_msg, msg_size, 0);
 #else
+    rdtsc(cycle_start);
     msgsnd(consumers[i], &ipc_msg, msg_size, 0);
 #endif
+    rdtsc(cycle_stop);
+
+    nb_cycles_send += cycle_stop - cycle_start;
   }
 
   return msg_size * nb_receivers;
@@ -175,6 +220,7 @@ int IPC_sendToAll(int msg_size, long msg_id)
 // Place in *msg_id the id of this message
 int IPC_receive(int msg_size, long *msg_id)
 {
+  uint64_t cycle_start, cycle_stop;
   struct ipc_message ipc_msg;
 
   if (msg_size < MIN_MSG_SIZE)
@@ -186,11 +232,15 @@ int IPC_receive(int msg_size, long *msg_id)
   printf("Waiting for a new message\n");
 #endif
 
+  rdtsc(cycle_start);
 #ifdef ONE_QUEUE
   int recv_size = msgrcv(consumer_queue, &ipc_msg, sizeof(ipc_msg.mtext), core_id, 0);
 #else
   int recv_size = msgrcv(consumer_queue, &ipc_msg, sizeof(ipc_msg.mtext), 0, 0);
 #endif
+  rdtsc(cycle_stop);
+
+  nb_cycles_recv += cycle_stop - cycle_start;
 
 #ifdef ONE_QUEUE
   if (ipc_msg.mtype != core_id)

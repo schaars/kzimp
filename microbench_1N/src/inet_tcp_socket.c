@@ -15,6 +15,7 @@
 
 #include "ipc_interface.h"
 #include "tcp_net.h"
+#include "time.h"
 
 // debug macro
 #define DEBUG
@@ -30,6 +31,10 @@ static int core_id; // 0 is the producer. The others are children
 static int nb_receivers;
 static int request_size; // requests size in bytes
 
+static uint64_t nb_cycles_send;
+static uint64_t nb_cycles_recv;
+static uint64_t nb_cycles_bzero;
+
 static int *sockets; // sockets used to communicate
 
 // Initialize resources for both the producer and the consumers
@@ -37,7 +42,16 @@ static int *sockets; // sockets used to communicate
 void IPC_initialize(int _nb_receivers, int _request_size)
 {
   nb_receivers = _nb_receivers;
+
   request_size = _request_size;
+  if (request_size < MIN_MSG_SIZE)
+  {
+    request_size = MIN_MSG_SIZE;
+  }
+
+  nb_cycles_send = 0;
+  nb_cycles_recv = 0;
+  nb_cycles_bzero = 0;
 }
 
 // Initialize resources for the producer
@@ -207,11 +221,30 @@ void IPC_clean_consumer(void)
   free(sockets);
 }
 
+// Return the number of cycles spent in the send() operation
+uint64_t get_cycles_send()
+{
+  return nb_cycles_send;
+}
+
+// Return the number of cycles spent in the recv() operation
+uint64_t get_cycles_recv()
+{
+  return nb_cycles_recv;
+}
+
+// Return the number of cycles spent in the bzero() operation
+uint64_t get_cycles_bzero()
+{
+  return nb_cycles_bzero;
+}
+
 // Send a message to all the cores
 // The message id will be msg_id
 // Return the total sent payload (i.e. size of the messages times number of consumers)
 int IPC_sendToAll(int msg_size, long msg_id)
 {
+  uint64_t cycle_start, cycle_stop;
   int i;
   char *msg;
 
@@ -229,7 +262,11 @@ int IPC_sendToAll(int msg_size, long msg_id)
 
   // malloc is lazy: the pages may not be really allocated yet.
   // We force the allocation and the fetch of the pages with bzero
+  rdtsc(cycle_start);
   bzero(msg, msg_size);
+  rdtsc(cycle_stop);
+
+  nb_cycles_bzero += cycle_stop - cycle_start;
 
   int *msg_as_int = (int*) msg;
   msg_as_int[0] = msg_size;
@@ -244,7 +281,7 @@ int IPC_sendToAll(int msg_size, long msg_id)
 
   for (i = 0; i < nb_receivers; i++)
   {
-    sendMsg(sockets[i], msg, msg_size);
+    sendMsg(sockets[i], msg, msg_size, &nb_cycles_send);
   }
 
   free(msg);
@@ -276,7 +313,7 @@ int IPC_receive(int msg_size, long *msg_id)
 #endif
 
   int header_size =
-      recvMsg(sockets[0], (void*) msg, MIN_MSG_SIZE);
+      recvMsg(sockets[0], (void*) msg, MIN_MSG_SIZE, &nb_cycles_recv);
 
   // get the message
   int s = 0;
@@ -284,7 +321,7 @@ int IPC_receive(int msg_size, long *msg_id)
   int left = msg_size_in_msg - header_size;
   if (left > 0)
   {
-    s = recvMsg(sockets[0], (void*) (msg + header_size), left);
+    s = recvMsg(sockets[0], (void*) (msg + header_size), left, &nb_cycles_recv);
   }
 
   // get the id of the message
