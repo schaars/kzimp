@@ -16,7 +16,7 @@ make inet_tcp_microbench
 
 for i in $(seq 0 $(( ${#MSG_SIZE_ARRAY[@]}-1 )) ); do
 
-	echo "===== $NUM_CONSUMERS consumers, ${XP_DURATION} secondes, msg size is ${MSG_SIZE_ARRAY[$i]}B ====="
+	echo "===== core $core_id, $NUM_CONSUMERS consumers, ${XP_DURATION} secondes, msg size is ${MSG_SIZE_ARRAY[$i]}B ====="
 	./launch_inet_tcp.sh $NUM_CONSUMERS ${MSG_SIZE_ARRAY[$i]} ${XP_DURATION}
 
 done
