@@ -6,7 +6,7 @@ MSG_SIZE_ARRAY=( 64 1024 10240 102400 1048576 )
 
 XP_DURATION=$((5*60))   # 5 minutes
 
-for core_id in 1 2 3 4 8 9; do
+for core_id in 2 4 8; do
 
 cat << EOF > PIPE_PROPERTIES
 -DCORE_EXPERIMENT -DCORE_EXPERIMENT_CORE_ID=${core_id}

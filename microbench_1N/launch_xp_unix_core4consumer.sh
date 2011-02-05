@@ -8,7 +8,7 @@ XP_DURATION=$((5*60))   # 5 minutes
 
 NB_DGRAMS=10
 
-for core_id in 1 2 3 4 8 9; do
+for core_id in 2 4 8; do
 
 cat << EOF > UNIX_SOCKETS_PROPERTIES
 -DCORE_EXPERIMENT -DCORE_EXPERIMENT_CORE_ID=${core_id}
