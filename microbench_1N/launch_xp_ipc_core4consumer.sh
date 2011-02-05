@@ -8,7 +8,7 @@ XP_DURATION=$((5*60))   # 5 minutes
 
 num_queues=1
 
-for core_id in 1 3 5 9; do
+for core_id in 1 2 3 4 8 9; do
 
 for i in $(seq 0 $(( ${#MSG_SIZE_ARRAY[@]}-1 )) ); do
 
