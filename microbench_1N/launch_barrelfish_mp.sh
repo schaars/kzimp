@@ -24,6 +24,7 @@ fi
 rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
 
 ./stop_all.sh
+./remove_shared_segment.pl
 
 # used by ftok
 touch /tmp/barrelfish_message_passing_microbench
