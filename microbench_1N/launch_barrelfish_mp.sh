@@ -38,9 +38,10 @@ make barrelfish_message_passing
 
 # launch XP
 ./get_memory_usage.sh  $MEMORY_DIR &
-./bin/barrelfish_message_passing_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
+./bin/barrelfish_message_passing -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
 
 ./stop_all.sh
+./remove_shared_segment.pl
 
 # save files
 OUTPUT_DIR="microbench_barrelfish_message_passing_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B_${MAX_MSG_CHANNEL}nb_messages_channel"
