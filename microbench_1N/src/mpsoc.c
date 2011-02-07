@@ -12,6 +12,7 @@
 #include <sys/shm.h>
 #include <sys/sem.h>
 #include <sys/mman.h>
+#include <semaphore.h>
 
 #include "mpsoc.h"
 #include "atomic.h"
@@ -45,14 +46,22 @@ struct mpsoc_reader_index
   int *array;
 };
 
-/* this replica's id */
-extern int core_id;
+/* structure which contains an int
+ * and a semaphore for blocking operations */
+struct mpsoc_block_ops
+{
+  volatile int value;
+  sem_t semaphore;
+};
 
 /* number of messages */
 static int nb_msg;
 
 /* number of replicas */
 static int nb_replicas;
+
+/* special netmask for multicast */
+static unsigned int multicast_bitmap_mask;
 
 /* pointer to the first message */
 static struct mpsoc_message* messages;
@@ -68,6 +77,9 @@ static struct mpsoc_reader_index *reader_indexes;
 
 /* nb of readers for each message; for reader/writer lock */
 static int *readcount;
+
+/* blocking operations */
+static struct mpsoc_block_ops *block_ops_send;
 
 /* reader/writer lock, writer locks.
  * pos is the message to lock
@@ -145,7 +157,7 @@ char* mpsoc_init_shm(char *p, size_t s, int i)
   key = ftok(p, i);
   if (key == -1)
   {
-    printf("In mpsoc_init_shm with p=%s, s=%i and i=%i\n", p, (int)s, i);
+    printf("In mpsoc_init_shm with p=%s, s=%i and i=%i\n", p, (int) s, i);
     perror("ftok error: ");
     return ret;
   }
@@ -155,7 +167,7 @@ char* mpsoc_init_shm(char *p, size_t s, int i)
   {
     int errsv = errno;
 
-    printf("In mpsoc_init_shm with p=%s, s=%i and i=%i\n", p, (int)s, i);
+    printf("In mpsoc_init_shm with p=%s, s=%i and i=%i\n", p, (int) s, i);
     perror("shmid error: ");
 
     switch (errsv)
@@ -190,35 +202,6 @@ char* mpsoc_init_shm(char *p, size_t s, int i)
   }
 
   ret = (char*) shmat(shmid, NULL, 0);
-
-  return ret;
-}
-
-/* initialize n semaphores using pathname p and project id i.
- * Return the set identifier or -1 in case of errors
- */
-int mpsoc_init_sem(char *p, int n, int i)
-{
-  key_t key;
-  int ret;
-
-  ret = -1;
-
-  key = ftok(p, i);
-  if (key == -1)
-  {
-    printf("In mpsoc_init_sem with p=%s, n=%i and i=%i\n", p, n, i);
-    perror("ftok error: ");
-    return ret;
-  }
-
-  ret = semget(key, n, IPC_CREAT | 0666);
-  if (ret == -1)
-  {
-    printf("In mpsoc_init_sem with p=%s, n=%i and i=%i\n", p, n, i);
-    perror("semget error: ");
-    return ret;
-  }
 
   return ret;
 }
@@ -259,6 +242,13 @@ int mpsoc_init(char* pathname, int num_replicas, int m)
   }
 
   printf("Init shared area for messages. Address=%p, len=%i\n", messages, size);
+
+  // a special mask to apply for multicast
+  multicast_bitmap_mask = 0;
+  for (i = 0; i < num_replicas; i++)
+  {
+    multicast_bitmap_mask = multicast_bitmap_mask | (1 << i);
+  }
 
   /*******************************/
   /* init shared area for writer */
@@ -339,6 +329,21 @@ int mpsoc_init(char* pathname, int num_replicas, int m)
   printf("Init shared area for reader_indexes. Addresses=%p, len=%i\n",
       reader_indexes, size);
 
+  block_ops_send = (struct mpsoc_block_ops*) mpsoc_init_shm(pathname,
+      sizeof(struct mpsoc_block_ops), 'f');
+  if (!block_ops_send)
+  {
+    printf("Error while allocating shared memory for block_ops_recv\n");
+    return -1;
+  }
+
+  block_ops_send->value = 0;
+  if (sem_init(&(block_ops_send->semaphore), 1, 0) == -1)
+  {
+    perror("Semaphore initialization failed (1)");
+    exit(-1);
+  }
+
   return 0;
 }
 
@@ -348,6 +353,11 @@ int mpsoc_init(char* pathname, int num_replicas, int m)
  */
 void* mpsoc_alloc(size_t len, int *nw)
 {
+  while (__sync_fetch_and_add(&(block_ops_send->value), 0) == nb_msg)
+  {
+    sem_wait(&(block_ops_send->semaphore));
+  }
+
   spinlock_lock(writer_lock);
   *nw = *next_write;
   *next_write = (*next_write + 1) % nb_msg;
@@ -358,6 +368,8 @@ void* mpsoc_alloc(size_t len, int *nw)
   //add message
   messages[*nw].bitmap = 0;
   messages[*nw].len = min(len, MESSAGE_MAX_SIZE);
+
+  __sync_fetch_and_add(&(block_ops_send->value), 1);
 
   return (void*) (messages[*nw].buf);
 }
@@ -376,7 +388,7 @@ ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
   //update bitmap & add message to reader_array_indexes
   if (dest == -1)
   {
-    messages[nw].bitmap = ~0;
+    messages[nw].bitmap = multicast_bitmap_mask;
 
     for (i = 0; i < nb_replicas; i++)
     {
@@ -388,7 +400,6 @@ ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
 
       spinlock_unlock(&(reader_indexes[i].lock));
     }
-
   }
   else
   {
@@ -408,9 +419,12 @@ ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
   return ret;
 }
 
-/* Read len bytes into *buf.
- Returns the number of bytes read or -1 for errors */
-ssize_t mpsoc_recvfrom(void **buf, size_t len)
+/*
+ * Read len bytes into *buf.
+ * Give the id of the caller (from 0 to nb_readers-1) as an argument
+ * Returns the number of bytes read or -1 for errors
+ */
+ssize_t mpsoc_recvfrom(void **buf, size_t len, int core_id)
 {
   int ret, pos;
   struct mpsoc_reader_index *readx;
@@ -419,7 +433,6 @@ ssize_t mpsoc_recvfrom(void **buf, size_t len)
   readx = &reader_indexes[core_id];
 
   // get a position
-  printf("waiting before reader indexes lock\n");
   spinlock_lock(&(reader_indexes[core_id].lock));
 
   pos = readx->array[readx->raf];
@@ -432,10 +445,9 @@ ssize_t mpsoc_recvfrom(void **buf, size_t len)
 
   spinlock_unlock(&(reader_indexes[core_id].lock));
 
-  // get a message at position pos
   if (pos >= 0 && pos < nb_msg)
   {
-    printf("waiting before reader lock\n");
+    // get a message at position pos
     mpsoc_rw_readerlock(pos);
 
     if (messages[pos].bitmap & (1 << core_id))
@@ -443,6 +455,14 @@ ssize_t mpsoc_recvfrom(void **buf, size_t len)
       ret = min(messages[pos].len, len);
       *buf = messages[pos].buf;
       messages[pos].bitmap &= ~(1 << core_id);
+
+      if (messages[pos].bitmap == 0)
+      {
+        if (__sync_fetch_and_sub(&(block_ops_send->value), 1) == nb_msg)
+        {
+          sem_post(&(block_ops_send->semaphore));
+        }
+      }
     }
 
     mpsoc_rw_readerunlock(pos);
@@ -454,5 +474,17 @@ ssize_t mpsoc_recvfrom(void **buf, size_t len)
 // destroys the shared area
 void mpsoc_destroy(void)
 {
+  int i;
+
+  shmdt(block_ops_send);
+
+  for (i = 0; i < nb_replicas; i++)
+  {
+    shmdt(reader_indexes[i].array);
+  }
+
+  shmdt(reader_indexes);
+  shmdt(readcount);
+  shmdt(next_write);
   shmdt(messages);
 }

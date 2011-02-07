@@ -52,10 +52,20 @@ local_multicast_microbench: $(DEPS) src/local_multicast.c
 	
 ul_lm_0copy_microbench: $(DEPS) src/mpsoc.c src/ul_lm_0copy.c
 	$(shell if [ ! -e UL_LM_0COPY_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DMESSAGE_MAX_SIZE=1000" > UL_LM_0COPY_PROPERTIES; fi)
-	$(C) $(CFLAGS) $(shell grep -v '#' UL_LM_0COPY_PROPERTIES 2>/dev/null) -o bin/$@ $^
+	$(C) $(CFLAGS) $(shell grep -v '#' UL_LM_0COPY_PROPERTIES 2>/dev/null) -o bin/$@ $^ -lrt
+	
 clean:
 	-rm *.o
 	-rm *~
+	-rm INET_TCP_PROPERTIES
+	-rm INET_UDP_PROPERTIES
+	-rm UNIX_SOCKETS_PROPERTIES
+	-rm PIPE_PROPERTIES
+	-rm IPC_MSG_QUEUE_PROPERTIES
+	-rm POSIX_MSG_QUEUE_PROPERTIES
+	-rm BARRELFISH_MESSAGE_PASSING_PROPERTIES
+	-rm LOCAL_MULTICAST_PROPERTIES
+	-rm UL_LM_0COPY_PROPERTIES
 
 clobber:
 	-rm *.o

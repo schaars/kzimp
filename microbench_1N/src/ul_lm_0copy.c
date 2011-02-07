@@ -171,18 +171,11 @@ int IPC_receive(int msg_size, long *msg_id)
   int recv_size = -1;
   while (recv_size == -1)
   {
-    printf("waiting - before\n");
-
     rdtsc(cycle_start);
-    recv_size = mpsoc_recvfrom((void**) &msg, msg_size);
+    recv_size = mpsoc_recvfrom((void**) &msg, msg_size, core_id-1);
     rdtsc(cycle_stop);
 
-    printf("waiting - after\n");
-
     nb_cycles_recv += cycle_stop - cycle_start;
-
-    usleep(1000);
-    printf("waiting - new loop\n");
   }
 
   if (nb_cycles_first_recv == 0)
