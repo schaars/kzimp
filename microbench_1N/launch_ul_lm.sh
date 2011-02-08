@@ -45,7 +45,7 @@ make ul_lm_0copy_microbench
 ./remove_shared_segment.pl
 
 # save files
-OUTPUT_DIR="microbench_ul_lm_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B_${MAX_MSG_CHANNEL}messages_in_buffer"
+OUTPUT_DIR="microbench_ul_lm_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B_${MAX_NB_MSG}messages_in_buffer"
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
