@@ -24,6 +24,7 @@ fi
 rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
 
 ./stop_all.sh
+./remove_shared_segment.pl
 
 # used by ftok
 touch /tmp/ul_lm_0copy_microbenchmark
@@ -41,6 +42,7 @@ make ul_lm_0copy_microbench
 ./bin/ul_lm_0copy_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
 
 ./stop_all.sh
+./remove_shared_segment.pl
 
 # save files
 OUTPUT_DIR="microbench_ul_lm_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B_${MAX_MSG_CHANNEL}messages_in_buffer"
