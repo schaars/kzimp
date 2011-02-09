@@ -42,7 +42,7 @@ fi
 ./stop_all.sh
 
 # save files
-OUTPUT_DIR="microbench_local_multicast_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B_{SIZE_BUFFER_LM}bufferSize"
+OUTPUT_DIR="microbench_local_multicast_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B_{SIZE_BUFFER_LM}messages_in_buffer"
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
