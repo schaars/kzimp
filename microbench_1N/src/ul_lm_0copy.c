@@ -36,7 +36,6 @@ static uint64_t nb_cycles_send;
 static uint64_t nb_cycles_recv;
 static uint64_t nb_cycles_first_recv;
 
-
 #define MIN(a, b) ((a < b) ? a : b)
 
 // Initialize resources for both the producer and the consumers
@@ -128,7 +127,6 @@ void IPC_sendToAll(int msg_size, long msg_id)
   // We force the allocation and the fetch of the pages with bzero
   bzero(msg, msg_size);
 
-
   int *msg_int = (int*) msg;
   msg_int[0] = msg_size;
   long *msg_long = (long*) (msg_int + 1);
@@ -169,13 +167,18 @@ int IPC_receive(int msg_size, long *msg_id)
   uint64_t cycle_start, cycle_stop;
 
   int recv_size = -1;
-  while (recv_size == -1)
+  while (1)
   {
     rdtsc(cycle_start);
-    recv_size = mpsoc_recvfrom((void**) &msg, msg_size, core_id-1);
+    recv_size = mpsoc_recvfrom((void**) &msg, msg_size, core_id - 1);
     rdtsc(cycle_stop);
 
     nb_cycles_recv += cycle_stop - cycle_start;
+
+    if (recv_size != -1)
+      break;
+    else
+      usleep(50); // 56 usec is the minumum time (on our machine) for which we can sleep
   }
 
   if (nb_cycles_first_recv == 0)
