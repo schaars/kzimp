@@ -167,10 +167,12 @@ int IPC_receive(int msg_size, long *msg_id)
   uint64_t cycle_start, cycle_stop;
 
   int recv_size = -1;
+  int pos;
   while (1)
   {
     rdtsc(cycle_start);
-    recv_size = mpsoc_recvfrom((void**) &msg, msg_size, core_id - 1);
+    recv_size = mpsoc_recvfrom((void**) &msg, msg_size, &pos, core_id - 1);
+    mpsoc_free(pos);
     rdtsc(cycle_stop);
 
     nb_cycles_recv += cycle_stop - cycle_start;

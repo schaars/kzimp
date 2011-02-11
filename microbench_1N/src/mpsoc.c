@@ -423,21 +423,22 @@ ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
  * Read len bytes into *buf.
  * Give the id of the caller (from 0 to nb_readers-1) as an argument
  * Returns the number of bytes read or -1 for errors
+ * pos will contain the position of the message in the circular buffer.
  */
-ssize_t mpsoc_recvfrom(void **buf, size_t len, int core_id)
+ssize_t mpsoc_recvfrom(void **buf, size_t len, int *pos, int core_id)
 {
-  int ret, pos;
+  int ret;
   struct mpsoc_reader_index *readx;
 
   ret = -1;
   readx = &reader_indexes[core_id];
 
-  // get a position
+  // get a *position
   spinlock_lock(&(reader_indexes[core_id].lock));
 
-  pos = readx->array[readx->raf];
+  *pos = readx->array[readx->raf];
 
-  if (pos >= 0 && pos < nb_msg)
+  if (*pos >= 0 && *pos < nb_msg)
   {
     readx->array[readx->raf] = -1;
     readx->raf = (readx->raf + 1) % nb_msg;
@@ -445,30 +446,41 @@ ssize_t mpsoc_recvfrom(void **buf, size_t len, int core_id)
 
   spinlock_unlock(&(reader_indexes[core_id].lock));
 
-  if (pos >= 0 && pos < nb_msg)
+  if (*pos >= 0 && *pos < nb_msg)
   {
-    // get a message at position pos
-    mpsoc_rw_readerlock(pos);
+    // get a message at *position *pos
+    mpsoc_rw_readerlock(*pos);
 
-    if (messages[pos].bitmap & (1 << core_id))
+    if (messages[*pos].bitmap & (1 << core_id))
     {
-      ret = min(messages[pos].len, len);
-      *buf = messages[pos].buf;
-      messages[pos].bitmap &= ~(1 << core_id);
+      ret = min(messages[*pos].len, len);
+      *buf = messages[*pos].buf;
+      messages[*pos].bitmap &= ~(1 << core_id);
 
-      if (messages[pos].bitmap == 0)
+      if (messages[*pos].bitmap == 0)
       {
         if (__sync_fetch_and_sub(&(block_ops_send->value), 1) == nb_msg)
         {
-          sem_post(&(block_ops_send->semaphore));
+          sem_*post(&(block_ops_send->semaphore));
         }
       }
     }
 
-    mpsoc_rw_readerunlock(pos);
+    //mpsoc_rw_readerunlock(*pos);
   }
 
   return ret;
+}
+
+/*
+ * return the lock at position pos in the circular buffer
+ */
+void mpsoc_free(int pos)
+{
+  if (pos >= 0 && pos < nb_msg)
+  {
+    mpsoc_rw_readerunlock(pos);
+  }
 }
 
 // destroys the shared area
