@@ -22,7 +22,7 @@
 
 /********** All the variables needed by IPC message queues **********/
 
-#define MIN_MSG_SIZE (sizeof(int) + sizeof(long))
+#define MIN_MSG_SIZE (sizeof(char))
 
 /* a message for IPC message queue */
 struct ipc_message
@@ -38,7 +38,6 @@ static int request_size; // requests size in bytes
 static uint64_t nb_cycles_send;
 static uint64_t nb_cycles_recv;
 static uint64_t nb_cycles_first_recv;
-
 
 static int *consumers;
 static int consumer_queue; // pointer to this consumer's queue for reading
@@ -158,7 +157,7 @@ uint64_t get_cycles_recv()
 
 // Send a message to all the cores
 // The message id will be msg_id
-void IPC_sendToAll(int msg_size, long msg_id)
+void IPC_sendToAll(int msg_size, char msg_id)
 {
   uint64_t cycle_start, cycle_stop;
   struct ipc_message ipc_msg;
@@ -173,18 +172,13 @@ void IPC_sendToAll(int msg_size, long msg_id)
 
   bzero(ipc_msg.mtext, msg_size);
 
-
-  int *msg_as_int = (int*) ipc_msg.mtext;
-  msg_as_int[0] = msg_size;
-  long *msg_as_long = (long*) (msg_as_int + 1);
-  msg_as_long[0] = msg_id;
+  ipc_msg.mtext[0] = msg_id;
 
 #ifdef DEBUG
   printf(
-      "[producer %i] going to send message %li of size %i to %i recipients\n",
-      core_id, msg_as_long[0], msg_size, nb_receivers);
+      "[producer %i] going to send message %i of size %i to %i recipients\n",
+      core_id, msg[0], msg_size, nb_receivers);
 #endif
-
 
   for (i = 0; i < nb_receivers; i++)
   {
@@ -207,7 +201,7 @@ void IPC_sendToAll(int msg_size, long msg_id)
 // Get a message for this core
 // return the size of the message if it is valid, 0 otherwise
 // Place in *msg_id the id of this message
-int IPC_receive(int msg_size, long *msg_id)
+int IPC_receive(int msg_size, char *msg_id)
 {
   uint64_t cycle_start, cycle_stop;
   struct ipc_message ipc_msg;
@@ -243,18 +237,16 @@ int IPC_receive(int msg_size, long *msg_id)
   }
 #endif
 
-  int msg_size_in_msg = *((int*) ipc_msg.mtext);
-
   // get the id of the message
-  *msg_id = *((long*) ((int*) ipc_msg.mtext + 1));
+  *msg_id = ipc_msg.mtext[0];
 
 #ifdef DEBUG
   printf(
-      "[consumer %i] received message %li of size %i, should be %i (%i in the message)\n",
-      core_id, *msg_id, recv_size, msg_size, msg_size_in_msg);
+      "[consumer %i] received message %i of size %i, should be %i\n",
+      core_id, *msg_id, recv_size, msg_size);
 #endif
 
-  if (recv_size == msg_size && msg_size == msg_size_in_msg)
+  if (recv_size == msg_size)
   {
     return msg_size;
   }
