@@ -461,7 +461,7 @@ ssize_t mpsoc_recvfrom(void **buf, size_t len, int *pos, int core_id)
       {
         if (__sync_fetch_and_sub(&(block_ops_send->value), 1) == nb_msg)
         {
-          sem_*post(&(block_ops_send->semaphore));
+          sem_post(&(block_ops_send->semaphore));
         }
       }
     }
