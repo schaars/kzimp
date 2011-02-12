@@ -15,14 +15,14 @@ static event_t default_events[] = {
 		.name = "CLK_UNHALTED",
 		.type = PERF_TYPE_HARDWARE,
 		.config = PERF_COUNT_HW_CPU_CYCLES,
-		.sampling_period = 5000,
+		.sampling_period = 1000000000,
 		.exclude_user = 0,
 	},
 	{
 		.name = "INSTRUCTIONS",
 		.type = PERF_TYPE_HARDWARE,
 		.config = PERF_COUNT_HW_INSTRUCTIONS,
-		.sampling_period = 1000000,
+		.sampling_period = 1000000000,
 		.exclude_user = 0,
 	},
 	/*
@@ -262,7 +262,7 @@ static uint64_t mmap_read(int core, int event_idx, void *base, uint64_t old_inde
    assert(written == size);
 
    end_mmap:;
-   printf("[%d] Total written: %d\n", core, (int) total);
+   //printf("[%d] Total written: %d\n", core, (int) total);
    /* Indicate to poll that we have read all the data so that we are not constantly waked up. */
    header->data_tail = old; /* WARNING : DO NOT REMOVE THAT LINE ! */
    return old;
@@ -453,7 +453,7 @@ int main(int argc, char**argv) {
       data->events = events;
 
       char *file = NULL;
-      asprintf(&file, "/home/b218/prof_dump/perf.data.%d", i);
+      asprintf(&file, "/tmp/perf.data.%d", i);
       data->log = fopen(file, "w");
       pipe(data->pipe);
       if (!data->log)

@@ -18,6 +18,13 @@ else
    exit 0
 fi
 
+OUTPUT_DIR="microbench_inet_tcp_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B"
+
+if [ -d $OUTPUT_DIR ]; then
+   echo Inet TCP ${NB_CONSUMERS} consumers, ${DURATION_XP} sec, ${MSG_SIZE}B already done
+   exit 0
+fi
+
 rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
 
 ./stop_all.sh
@@ -35,12 +42,19 @@ done
 
 # launch XP
 ./get_memory_usage.sh  $MEMORY_DIR &
-./bin/inet_tcp_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
+./bin/inet_tcp_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP &
+
+sleep 5
+
+sudo ./profiler/profiler &
+
+sleep $DURATION_XP
+pkill profiler
 
 ./stop_all.sh
 
 # save files
-OUTPUT_DIR="microbench_inet_tcp_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B"
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
+mv /tmp/perf.data.* $OUTPUT_DIR/
