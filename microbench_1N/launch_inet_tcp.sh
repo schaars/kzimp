@@ -63,7 +63,7 @@ sudo chown bft:bft /tmp/perf.data.*
 
 for c in $(seq 0 ${NB_CONSUMERS}); do
    for e in 0 1 2; do
-      ./profiler/parser-sampling /tmp/perf.data.${c} --c ${c} --base-event ${e} --app inet_tcp_microb >> $OUTPUT_DIR/perf_core_${c}.log
+      ./profiler/parser-sampling /tmp/perf.data.${c} --c ${c} --base-event ${e} --app inet_tcp_microb > $OUTPUT_DIR/perf_core_${c}_event_${e}.log
    done
 done
 rm /tmp/perf.data.* -f
