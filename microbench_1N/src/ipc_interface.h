@@ -34,9 +34,9 @@ uint64_t get_cycles_recv();
 
 // Send a message to all the cores
 // The message id will be msg_id
-void IPC_sendToAll(int msg_size, long msg_id);
+void IPC_sendToAll(int msg_size, char msg_id);
 
 // Get a message for this core
 // return the size of the received message if it is valid, 0 otherwise
 // Place in *msg_id the id of this message
-int IPC_receive(int msg_size, long *msg_id);
+int IPC_receive(int msg_size, char *msg_id);

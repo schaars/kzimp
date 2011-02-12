@@ -62,10 +62,10 @@ double do_producer(void)
   while (thr_elapsed_time < xp_duration * 1000000)
   {
 #ifdef DEBUG2
-    printf("[producer] Sending message %li\n", nb_msg);
+    printf("[producer] Sending message %i\n", nb_msg);
 #endif
 
-    IPC_sendToAll(message_size, nb_msg);
+    IPC_sendToAll(message_size, 0);
 
     nb_msg++;
     rdtsc(thr_current_time);
@@ -98,7 +98,7 @@ double do_producer(void)
 double do_consumer(void)
 {
   long nb_msg;
-  long msg_id;
+  char msg_id;
   uint64_t thr_start_time, thr_stop_time, thr_elapsed_time;
   uint64_t total_payload;
   double throughput;
@@ -113,7 +113,7 @@ double do_consumer(void)
     IPC_receive(message_size, &msg_id);
 
 #ifdef DEBUG2
-    printf("[consumer %i] Receiving message %li\n", core_id, nb_msg);
+    printf("[consumer %i] Receiving message %i\n", core_id, nb_msg);
 #endif
 
     nb_msg++;
