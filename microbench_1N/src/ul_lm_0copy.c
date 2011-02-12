@@ -178,7 +178,7 @@ int IPC_receive(int msg_size, long *msg_id)
     if (recv_size != -1)
       break;
     else
-      usleep(50); // 56 usec is the minumum time (on our machine) for which we can sleep
+      usleep(1); // 56 usec is the minumum time (on our machine) for which we can sleep
   }
 
   if (nb_cycles_first_recv == 0)
