@@ -7,6 +7,8 @@
 
 
 MEMORY_DIR="memory_conso"
+NB_THREADS_PER_CORE=2
+
 
 # get arguments
 if [ $# -eq 3 ]; then
@@ -46,10 +48,10 @@ done
 
 sleep 5
 
-sudo ./profiler/profiler &
+sudo ./profiler/profiler-sampling &
 
 sleep $DURATION_XP
-pkill profiler
+sudo pkill profiler
 
 ./stop_all.sh
 
@@ -57,4 +59,10 @@ pkill profiler
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
-mv /tmp/perf.data.* $OUTPUT_DIR/
+sudo chown bft:bft /tmp/perf.data.*
+
+for c in $(seq 0 ${NB_CONSUMERS}); do
+   mv /tmp/perf.data.$(( $c * $NB_THREADS_PER_CORE )) $OUTPUT_DIR/
+done
+rm /tmp/perf.data.* -f
+

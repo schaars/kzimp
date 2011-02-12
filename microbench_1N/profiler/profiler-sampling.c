@@ -15,14 +15,21 @@ static event_t default_events[] = {
 		.name = "CLK_UNHALTED",
 		.type = PERF_TYPE_HARDWARE,
 		.config = PERF_COUNT_HW_CPU_CYCLES,
-		.sampling_period = 1000000000,
+		.sampling_period = 1000000,
 		.exclude_user = 0,
 	},
 	{
 		.name = "INSTRUCTIONS",
 		.type = PERF_TYPE_HARDWARE,
 		.config = PERF_COUNT_HW_INSTRUCTIONS,
-		.sampling_period = 1000000000,
+		.sampling_period = 1000000,
+		.exclude_user = 0,
+	},
+	{
+		.name = "CACHE_MISSES",
+		.type = PERF_TYPE_HARDWARE,
+		.config = PERF_COUNT_HW_CACHE_MISSES,
+		.sampling_period = 1000000,
 		.exclude_user = 0,
 	},
 	/*
