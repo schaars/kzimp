@@ -67,4 +67,4 @@ for c in $(seq 0 ${NB_CONSUMERS}); do
       ./profiler/parser-sampling /tmp/perf.data.* --c ${cid} --base-event ${e} --app inet_tcp_microb > $OUTPUT_DIR/perf_core_${cid}_event_${e}.log
    done
 done
-#rm /tmp/perf.data.* -f
+rm /tmp/perf.data.* -f
