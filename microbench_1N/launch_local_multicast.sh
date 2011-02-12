@@ -8,6 +8,7 @@
 
 
 MEMORY_DIR="memory_conso"
+NB_THREADS_PER_CORE=2
 START_PORT=6001
 
 # get arguments
@@ -37,7 +38,15 @@ else
 fi
 
 ./get_memory_usage.sh  $MEMORY_DIR &
-./bin/local_multicast_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
+./bin/local_multicast_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP &
+
+sleep 5
+
+sudo ./profiler/profiler-sampling &
+
+sleep $DURATION_XP
+sudo pkill profiler
+
 
 ./stop_all.sh
 
@@ -46,3 +55,12 @@ OUTPUT_DIR="microbench_local_multicast_${NB_CONSUMERS}consumers_${DURATION_XP}se
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
+
+sudo chown bft:bft /tmp/perf.data.*
+for c in $(seq 0 ${NB_CONSUMERS}); do
+   cid=$(( $c * $NB_THREADS_PER_CORE ))
+   for e in 0 1 2; do
+      ./profiler/parser-sampling /tmp/perf.data.${cid} --c ${cid} --base-event ${e} --app local_multicast > $OUTPUT_DIR/perf_core_${cid}_event_${e}.log
+   done
+done
+rm /tmp/perf.data.* -f
