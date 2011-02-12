@@ -62,7 +62,9 @@ mv statistics*.log $OUTPUT_DIR/
 sudo chown bft:bft /tmp/perf.data.*
 
 for c in $(seq 0 ${NB_CONSUMERS}); do
-   mv /tmp/perf.data.$(( $c * $NB_THREADS_PER_CORE )) $OUTPUT_DIR/
+   for e in 0 1 2; do
+      ./profiler/parser-sampling /tmp/perf.data.${c} --c ${c} --base-event ${e} --app inet_tcp_microb >> $OUTPUT_DIR/perf_core_${c}.log
+   done
 done
 rm /tmp/perf.data.* -f
 
