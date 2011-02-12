@@ -30,6 +30,18 @@ else
 fi
 
 
+if [ -z $MULTICAST ]; then
+   OUTPUT_DIR="microbench_inet_udp_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B"
+else
+   OUTPUT_DIR="microbench_inet_udp_multicast_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B"
+fi
+
+if [ -d $OUTPUT_DIR ]; then
+   echo Inet UDP ${NB_CONSUMERS} consumers, ${DURATION_XP} sec, ${MSG_SIZE}B, multicast=$MULTICAST already done
+   exit 0
+fi
+
+
 rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
 
 ./stop_all.sh
@@ -59,12 +71,6 @@ sudo pkill profiler
 ./stop_all.sh
 
 # save files
-if [ -z $MULTICAST ]; then
-   OUTPUT_DIR="microbench_inet_udp_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B"
-else
-   OUTPUT_DIR="microbench_inet_udp_multicast_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B"
-fi
-
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/

@@ -21,6 +21,13 @@ else
 fi
 
 
+OUTPUT_DIR="microbench_pipe_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B"
+
+if [ -d $OUTPUT_DIR ]; then
+   echo Pipes ${NB_CONSUMERS} consumers, ${DURATION_XP} sec, ${MSG_SIZE}B already done
+   exit 0
+fi
+
 rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
 
 ./stop_all.sh
@@ -38,7 +45,6 @@ sudo pkill profiler
 ./stop_all.sh
 
 # save files
-OUTPUT_DIR="microbench_pipe_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B"
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/

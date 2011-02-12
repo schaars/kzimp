@@ -22,6 +22,12 @@ else
    exit 0
 fi
 
+OUTPUT_DIR="microbench_unix_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B_${NB_DATAGRAMS}dgrams"
+
+if [ -d $OUTPUT_DIR ]; then
+   echo Unix sockets ${NB_CONSUMERS} consumers, ${DURATION_XP} sec, ${MSG_SIZE}B already done
+   exit 0
+fi
 
 rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
 
@@ -43,7 +49,6 @@ sudo pkill profiler
 ./stop_all.sh
 
 # save files
-OUTPUT_DIR="microbench_unix_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B_${NB_DATAGRAMS}dgrams"
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
