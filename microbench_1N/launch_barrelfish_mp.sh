@@ -8,6 +8,8 @@
 
 
 MEMORY_DIR="memory_conso"
+NB_THREADS_PER_CORE=2
+
 
 # get arguments
 if [ $# -eq 4 ]; then
@@ -20,6 +22,12 @@ else
    exit 0
 fi
 
+OUTPUT_DIR="microbench_barrelfish_message_passing_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B_${MAX_MSG_CHANNEL}nb_messages_channel"
+
+if [ -d $OUTPUT_DIR ]; then
+   echo Barrelfish ${NB_CONSUMERS} consumers, ${DURATION_XP} sec, ${MSG_SIZE}B, ${MAX_MSG_CHANNEL} msg in channel already done
+   exit 0
+fi
 
 rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
 
@@ -39,13 +47,28 @@ make barrelfish_message_passing
 
 # launch XP
 ./get_memory_usage.sh  $MEMORY_DIR &
-./bin/barrelfish_message_passing -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
+./bin/barrelfish_message_passing -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP &
+
+sleep 5
+
+sudo ./profiler/profiler-sampling &
+
+sleep $DURATION_XP
+sudo pkill profiler
 
 ./stop_all.sh
 ./remove_shared_segment.pl
 
 # save files
-OUTPUT_DIR="microbench_barrelfish_message_passing_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B_${MAX_MSG_CHANNEL}nb_messages_channel"
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
+
+sudo chown bft:bft /tmp/perf.data.*
+for c in $(seq 0 ${NB_CONSUMERS}); do
+   cid=$(( $c * $NB_THREADS_PER_CORE ))
+   for e in 0 1 2; do
+      ./profiler/parser-sampling /tmp/perf.data.* --c ${cid} --base-event ${e} --app barrelfish_mess > $OUTPUT_DIR/perf_core_${cid}_event_${e}.log
+   done
+done
+r

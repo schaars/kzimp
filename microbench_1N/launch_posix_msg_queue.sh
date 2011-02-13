@@ -7,6 +7,8 @@
 
 
 MEMORY_DIR="memory_conso"
+NB_THREADS_PER_CORE=2
+
 
 # get arguments
 if [ $# -eq 3 ]; then
@@ -18,6 +20,12 @@ else
    exit 0
 fi
 
+OUTPUT_DIR="microbench_posix_msg_queue_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B"
+
+if [ -d $OUTPUT_DIR ]; then
+   echo POSIX msg queue ${NB_CONSUMERS} consumers, ${DURATION_XP} sec, ${MSG_SIZE}B already done
+   exit 0
+fi
 
 rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
 
@@ -34,12 +42,27 @@ else
 fi
 
 ./get_memory_usage.sh  $MEMORY_DIR &
-./bin/posix_msg_queue_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
+./bin/posix_msg_queue_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP &
+
+sleep 5
+
+sudo ./profiler/profiler-sampling &
+
+sleep $DURATION_XP
+sudo pkill profiler
 
 ./stop_all.sh
 
 # save files
-OUTPUT_DIR="microbench_posix_msg_queue_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B"
 mkdir $OUTPUT_DIR
 mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
+
+sudo chown bft:bft /tmp/perf.data.*
+for c in $(seq 0 ${NB_CONSUMERS}); do
+   cid=$(( $c * $NB_THREADS_PER_CORE ))
+   for e in 0 1 2; do
+      ./profiler/parser-sampling /tmp/perf.data.* --c ${cid} --base-event ${e} --app posix_msg_queue > $OUTPUT_DIR/perf_core_${cid}_event_${e}.log
+   done
+done
+rm /tmp/perf.data.* -f
