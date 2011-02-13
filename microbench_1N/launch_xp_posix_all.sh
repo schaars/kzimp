@@ -3,8 +3,7 @@
 
 NUM_CONSUMERS_ARRAY=( 1 3 5 7 )
 #msg size = 102400 or 1048576: mq_open error: cannot allocate memory
-#MSG_SIZE_ARRAY=( 64 1024 4096 10240 102400 1048576 )
-MSG_SIZE_ARRAY=( 64 1024 4096 10240 )
+MSG_SIZE_ARRAY=( 1 64 128 512 1024 10240 )
 
 XP_DURATION=$((5*60))   # 5 minutes
 
