@@ -53,7 +53,7 @@ sudo ./profiler/profiler-sampling &
 
 sleep $DURATION_XP
 sudo pkill profiler
-
+sleep 30
 
 ./stop_all.sh
 
