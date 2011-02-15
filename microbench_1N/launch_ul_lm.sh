@@ -55,6 +55,7 @@ sudo ./profiler/profiler-sampling &
 
 sleep $DURATION_XP
 sudo pkill profiler
+sleep 15
 
 ./stop_all.sh
 ./remove_shared_segment.pl
