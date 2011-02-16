@@ -264,14 +264,18 @@ int main(int argc, char **argv)
       perror("Error while creating the file for the producer");
     }
 
+    float nb_cycles_per_byte_send = (float) get_cycles_send() / (nb_messages
+        * message_size);
+    float nb_cycles_per_byte_recv = (float) get_cycles_recv() / ((nb_messages
+        - 1) * message_size);
+
     // When receiving we do not take into account the first message since the receive is blocking and does not start necesarily with
     // a message in the mechanism buffer for reception
     fprintf(
         F,
         "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\n",
         core_id, nb_receivers, nb_messages, message_size, throughput,
-        (float) get_cycles_send() / nb_messages, (float) get_cycles_recv()
-            / (nb_messages - 1));
+        nb_cycles_per_byte_send, nb_cycles_per_byte_recv);
 
     fclose(F);
   }
@@ -292,14 +296,18 @@ int main(int argc, char **argv)
       perror("Error while creating the file for the consumer");
     }
 
+    float nb_cycles_per_byte_send = (float) get_cycles_send() / (nb_messages
+        * message_size);
+    float nb_cycles_per_byte_recv = (float) get_cycles_recv() / ((nb_messages
+        - 1) * message_size);
+
     // When receiving we do not take into account the first message since the receive is blocking and does not start necesarily with
     // a message in the mechanism buffer for reception
     fprintf(
         F,
         "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\n",
         core_id, nb_receivers, nb_messages, message_size, throughput,
-        (float) get_cycles_send() / nb_messages, (float) get_cycles_recv()
-            / (nb_messages - 1));
+        nb_cycles_per_byte_send, nb_cycles_per_byte_recv);
 
     fclose(F);
   }

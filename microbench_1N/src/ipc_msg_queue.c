@@ -22,6 +22,8 @@
 
 /********** All the variables needed by IPC message queues **********/
 
+#define CACHE_LINE_SIZE 64
+
 #define MIN_MSG_SIZE (sizeof(char))
 
 /* a message for IPC message queue */
@@ -29,7 +31,7 @@ struct ipc_message
 {
   long mtype;
   char mtext[MESSAGE_MAX_SIZE]; // MESSAGE_MAX_SIZE is defined at compile time, when calling gcc
-};
+} __attribute__((__packed__,  __aligned__(CACHE_LINE_SIZE)));
 
 static int core_id; // 0 is the producer. The others are children
 static int nb_receivers;

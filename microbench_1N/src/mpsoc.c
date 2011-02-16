@@ -17,6 +17,8 @@
 #include "mpsoc.h"
 #include "atomic.h"
 
+#define CACHE_LINE_SIZE 64
+
 #define max(a, b) (a > b ? a : b)
 #define min(a, b) (a < b ? a : b)
 
@@ -29,13 +31,15 @@ typedef struct rwlock_t
 } rwlock_t;
 
 /* what is a message */
+#define MPSOC_MESSAGE_SIZE (sizeof(int)+sizeof(size_t)+sizeof(rwlock_t)+MESSAGE_MAX_SIZE)
 struct mpsoc_message
 {
   int bitmap;
   size_t len;
   rwlock_t lock;
   char buf[MESSAGE_MAX_SIZE];
-};
+  char __p[CACHE_LINE_SIZE + (MPSOC_MESSAGE_SIZE / CACHE_LINE_SIZE) * CACHE_LINE_SIZE]; // for padding
+} __attribute__((__packed__,  __aligned__(CACHE_LINE_SIZE)));
 
 /* what is a reader index */
 struct mpsoc_reader_index

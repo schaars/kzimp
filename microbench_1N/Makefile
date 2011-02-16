@@ -7,7 +7,7 @@ all: inet_tcp_microbench inet_udp_microbench inet_udp_multicast_microbench unix_
 	 barrelfish_message_passing local_multicast_microbench ul_lm_0copy_microbench
 
 C:=gcc
-CFLAGS:=-Wall -Werror -g -lm
+CFLAGS:=-Wall -Werror -g -lm -ltcmalloc
 DEPS:=src/microbench.c
 
 inet_tcp_microbench: $(DEPS) src/tcp_net.c src/inet_tcp_socket.c 

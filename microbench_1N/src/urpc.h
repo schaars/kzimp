@@ -30,6 +30,8 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#define CACHE_LINE_SIZE 64
+
 typedef uint16_t urpc_t;
 #define URPC_TYPE_SIZE          (sizeof(urpc_t) * 8)
 #define URPC_TYPE_REMAINDER     ((sizeof(uint64_t) * 8) - URPC_TYPE_SIZE)
@@ -59,7 +61,7 @@ struct urpc_channel
   size_t size; ///< Buffer size IN WORDS
   enum urpc_type type; ///< Channel type
   urpc_t epoch; ///< Next Message epoch
-}__attribute__ ((aligned (64)));
+} __attribute__((__packed__,  __aligned__(CACHE_LINE_SIZE)));
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
