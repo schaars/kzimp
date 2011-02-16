@@ -55,11 +55,13 @@ sleep $DURATION_XP
 sudo pkill profiler
 
 c=$(ps -A | grep local_multicast | wc -l)
-while [ $c -gt 0 ]; do
+iter=0
+while [ $c -gt 0 ] && [ $iter -lt 10 ]; do
    sleep 20
    c=$(ps -A | grep local_multicast | wc -l)
+   iter=$(($iter+1))
+   echo iteration number $iter
 done
-sleep 15
 
 ./stop_all.sh
 
