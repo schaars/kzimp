@@ -97,7 +97,7 @@ sudo chown bft:bft /tmp/perf.data.*
 
 # for the consumers
 str=""
-for c in $(seq 0 ${NB_CONSUMERS}); do
+for c in $(seq 1 ${NB_CONSUMERS}); do
    cid=$(( $c * $NB_THREADS_PER_CORE ))
    str="$str --c $cid"
 done
