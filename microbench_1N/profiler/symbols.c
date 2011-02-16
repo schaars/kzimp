@@ -358,7 +358,7 @@ void symb_add_exe(char *file) {
       die("%s: cannot read %s ELF file.\n", __func__, file);
 
    if (gelf_getehdr(elf, &ehdr) == NULL) {
-      //fprintf(stderr,"%s: cannot get elf header of %s.\n", __func__, file);
+      fprintf(stderr,"%s: cannot get elf header of %s.\n", __func__, file);
       goto out_elf_end;
    }
 
@@ -366,7 +366,7 @@ void symb_add_exe(char *file) {
    if (sec == NULL) {
       sec = elf_section_by_name(elf, &ehdr, &shdr, ".dynsym", NULL);
       if (sec == NULL) {
-         //fprintf(stderr,"%s(%s): cannot get .symtab or .dynsym", __func__, file);
+         fprintf(stderr,"%s(%s): cannot get .symtab or .dynsym", __func__, file);
          goto out_elf_end;
       }
    }

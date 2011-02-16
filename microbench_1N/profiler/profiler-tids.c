@@ -3,12 +3,36 @@
 
 int callgraph = 0;
 static event_t default_events[] = {
-	{
+	/*{
 		.name = "CLK_UNHALTED",
 		.type = PERF_TYPE_HARDWARE,
 		.config = PERF_COUNT_HW_CPU_CYCLES,
 		.sampling_period = 500,
 		.exclude_user = 0,
+	},*/
+	{
+		.name = "CPU_DRAM_NODE0",
+		.type = PERF_TYPE_RAW,
+		.config = 0x1004001E0,
+		.sampling_period = 300,
+	},
+	{
+		.name = "CPU_DRAM_NODE1",
+		.type = PERF_TYPE_RAW,
+		.config = 0x1004002E0,
+		.sampling_period = 300,
+	},
+	{
+		.name = "CPU_DRAM_NODE2",
+		.type = PERF_TYPE_RAW,
+		.config = 0x1004004E0,
+		.sampling_period = 300,
+	},
+	{
+		.name = "CPU_DRAM_NODE3",
+		.type = PERF_TYPE_RAW,
+		.config = 0x1004008E0,
+		.sampling_period = 300,
 	},
 };
 #define MAX_PIDS  2000
@@ -55,18 +79,22 @@ static pid_t pid_synthesize_comm_event(pid_t pid, FILE *log) {
          comm_ev->comm[end-name] = '\0';
          size = end-name+1;
 	
-	 int i;
-	 for(i = 0; i < nb_observed_apps; i++) {
-		 if(!strcmp(comm_ev->comm, observed_apps[i])) {
-			 printf("#Matching pid: %d (%s)\n", (int)pid, comm_ev->comm);
-			 if(nb_observed_pids < MAX_PIDS) {
-				 observed_pids = realloc(observed_pids, (nb_observed_pids+1)*sizeof(*observed_pids));
-				 observed_pids[nb_observed_pids] = pid;
-				 nb_observed_pids++;
-			 } else {
-				 printf("#WARN: Ignoring pid\n");
+	 if(nb_observed_apps) {
+		 int i;
+		 for(i = 0; i < nb_observed_apps; i++) {
+			 if(!strcmp(comm_ev->comm, observed_apps[i])) {
+				 printf("#Matching pid: %d (%s)\n", (int)pid, comm_ev->comm);
+				 if(nb_observed_pids < MAX_PIDS) {
+					 observed_pids = realloc(observed_pids, (nb_observed_pids+1)*sizeof(*observed_pids));
+					 observed_pids[nb_observed_pids] = pid;
+					 nb_observed_pids++;
+				 } else {
+					 printf("#WARN: Ignoring pid %d\n", pid);
+				 }
 			 }
 		 }
+	 } else {
+		 printf("#Matching pid: %d (%s)\n", (int)pid, comm_ev->comm);
 	 }
       }
       else if (memcmp(bf, "Tgid:", 5) == 0) {
@@ -90,7 +118,7 @@ static pid_t pid_synthesize_comm_event(pid_t pid, FILE *log) {
    exit(EXIT_FAILURE);
 }
 
-static void pid_synthesize_mmap_samples(pid_t pid, FILE *log) {
+static void pid_synthesize_mmap_samples(pid_t pid, pid_t tid, FILE *log) {
    char filename[PATH_MAX];
    FILE *fp;
 
@@ -134,7 +162,7 @@ static void pid_synthesize_mmap_samples(pid_t pid, FILE *log) {
          mmap_ev.header.size = (sizeof(mmap_ev) - (sizeof(mmap_ev.filename)
                   - size));
          mmap_ev.pid = pid;
-         mmap_ev.tid = pid;
+         mmap_ev.tid = tid;
 
          size_t written = fwrite(&mmap_ev, 1, mmap_ev.header.size, log);
          assert(written == mmap_ev.header.size);
@@ -156,14 +184,21 @@ static void synthesize_all(FILE *log) {
    size_t written = fwrite(&new_evt, 1, sizeof(new_evt), log);
    assert(written == sizeof(new_evt));
 
-   int pid;
-   char buffer[1024];
-   FILE *procs = popen("ps -A -L -o lwp= -o comm=", "r"); 
-   while(fscanf(procs, "%d %s\n", &pid, buffer) == 2) {
-      pid_synthesize_comm_event(pid, log);
-      pid_synthesize_mmap_samples(pid, log);
+   int pid, ppid, i;
+   if(nb_observed_pids == 0) {
+	   char buffer[1024];
+	   FILE *procs = popen("ps -A -L -o lwp= -o comm=", "r"); 
+	   while(fscanf(procs, "%d %s\n", &pid, buffer) == 2) {
+		   ppid = pid_synthesize_comm_event(pid, log);
+		   pid_synthesize_mmap_samples(ppid, pid, log);
+	   }
+	   fclose(procs);
+   } else {
+	   for(i = 0; i < nb_observed_pids; i++) {
+		   ppid = pid_synthesize_comm_event(observed_pids[i], log);
+		   pid_synthesize_mmap_samples(ppid, observed_pids[i], log);
+	   }
    }
-   fclose(procs);
 }
 /* End Ingo powerfullness */
 
@@ -341,6 +376,11 @@ void parse_options(int argc, char **argv) {
 	 observed_apps[nb_observed_apps] = argv[i+1];
 	 nb_observed_apps++;
 	 i+=2;
+      } else if(!strcmp(argv[i], "--tid")) {
+         observed_pids = realloc(observed_pids, (nb_observed_pids+1)*sizeof(*observed_pids));
+	 observed_pids[nb_observed_pids] = atoi(argv[i+1]);
+	 nb_observed_pids++;
+	 i+=2;
       } else if(!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
          printf("Usage: %s [-e name_of_event value_of_raw_counter excluse_kernel exclude_user]* [-c NB_CORES] [--callgraph]\n", argv[0]);
       } else {
@@ -352,8 +392,8 @@ void parse_options(int argc, char **argv) {
       nb_events = nb_evts;
       events = evts;
    }
-   if(nb_observed_apps == 0) {
-      die("Please specify at least an --app to monitor...\n");
+   if(nb_observed_apps == 0 && nb_observed_pids == 0) {
+      die("Please specify at least an --app or a --tid to monitor...\n");
    }
 }
 
@@ -367,13 +407,14 @@ static void _sig_handler(int signal) {
 
 int main(int argc, char**argv) {
    int i, j, written;
+   uint64_t main_start,main_stop;
 
    signal(SIGPIPE, _sig_handler);
    signal(SIGTERM, _sig_handler);
    signal(SIGINT, _sig_handler);
    parse_options(argc, argv);
 
-   char *name = malloc(512), *name_sentence = NULL, *option_sentence = NULL;
+   char *name = malloc(512), *name_sentence = NULL, *option_sentence = NULL, *rdtscll_log;
    gethostname(name, 512);
    asprintf(&name_sentence, "#Host %s\n", name);
    asprintf(&option_sentence, "#CPU_IN_IP_EVENTS %d\n", CPU_IN_IP_EVENTS);
@@ -389,10 +430,11 @@ int main(int argc, char**argv) {
    fwrite(name_sentence, 1, strlen(name_sentence), log);
    fwrite(option_sentence, 1, strlen(option_sentence), log);
    synthesize_all(log);
-   fclose(log);
    if(nb_observed_pids == 0) {
       die("#FATAL: found not pid for monitored apps");
    }
+   rdtscll(main_start);
+   
 
    pthread_t threads[nb_observed_pids];
    datas = malloc(nb_observed_pids*sizeof(*datas));
@@ -432,6 +474,12 @@ int main(int argc, char**argv) {
    for (i = 0; i < nb_observed_pids - 1; i++) {
       pthread_join(threads[i], NULL);
    }
+
+   rdtscll(main_stop);
+   fwrite("###END HEADER\n", 1, strlen("###END HEADER\n"), log);
+   asprintf(&rdtscll_log, "#MAIN_LENGTH start %llu stop %llu length %llu [freq %llu]\n", (long long unsigned) main_start, (long long unsigned) main_stop, (long long unsigned) (main_stop - main_start), (long long unsigned)2493513984);
+   fwrite(rdtscll_log, 1, strlen(rdtscll_log), log);
+   fclose(log);
 
    return 0;
 }

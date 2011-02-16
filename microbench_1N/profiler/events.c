@@ -81,7 +81,7 @@ static struct mmaped_zone *symb_map_new() {
 void symb_add_map(struct mmap_event *evt) {
    struct process *p = symb_find_pid(evt->pid);
    if(!p) {
-      fprintf(stderr, "#Cannot find process pid %d\n", evt->pid);
+      fprintf(stderr, "#Cannot find process pid %d tid %d\n", evt->pid, evt->tid);
       return;
    }
 
@@ -230,8 +230,9 @@ int symb_add_sample(struct ip_event *evt, int evt_index, int core) {
    if (!(p = symb_find_pid(evt->pid))) {
       return 1;
    }
-   if(options.app && strcmp(options.app, p->name))
+   if(options.app && strcmp(options.app, p->name)) {
 	   return 4;
+   }
    struct symb *s;
    if ((evt->header.misc & PERF_RECORD_MISC_CPUMODE_MASK)
             == PERF_RECORD_MISC_KERNEL) {
@@ -243,7 +244,7 @@ int symb_add_sample(struct ip_event *evt, int evt_index, int core) {
       }
       struct symb_arr *f = symb_find_exe(l->file);
       if (!f)
-         die("Cannot fine file %s in maps", l->file);
+         die("Cannot find file %s in maps", l->file);
       s = symb_find(evt->ip - l->begin + l->off, f);
    }
    if(s) {

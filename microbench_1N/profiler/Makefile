@@ -7,14 +7,10 @@ all:
 	gcc $(CFLAGS) -c -o profiler.o profiler.c
 	gcc $(CFLAGS) -c -o profiler-sampling.o profiler-sampling.c
 	gcc $(CFLAGS) -c -o parser-sampling.o parser-sampling.c
-	gcc $(CLFAGS) -c -o profiler-tids.o profiler-tids.c
 	gcc $(CFLAGS) -c -o symbols.o symbols.c
 	gcc $(CFLAGS) -c -o events.o events.c
 	gcc -o profiler profiler.o $(LDFLAGS)
 	gcc -o profiler-sampling profiler-sampling.o $(LDFLAGS)
-	gcc -o parser-sampling parser-sampling.o symbols.o events.o $(LDFLAGS)
-	gcc -o profiler-tids profiler-tids.o $(LDFLAGS)
-
 
 clean:
 	rm -f *.o $(TARGETS)

@@ -79,13 +79,28 @@ static void check_host(struct mmaped_file *f) {
 /**
  * Get the events array.
  */
+static sample_event_t seen_events[MAX_EVT];
 static void check_events(struct mmaped_file *f) {
    int nb_evts = 0, old;
    for (old = 0; old < f->size; ) {
       sample_event_t *event = (sample_event_t *)&f->data[old];
 
       if(event->header.type == PERF_RECORD_CUSTOM_EVENT_EVENT) {
-         printf("#Event %d: %s (%llx), count %llu (Exclude Kernel: %s; Exclude User: %s)\n", nb_evts++, event->new_event.name, (long long unsigned)event->new_event.event.config, (long long unsigned) event->new_event.event.sampling_period, (event->new_event.event.exclude_kernel)?"yes":"no", (event->new_event.event.exclude_user)?"yes":"no");
+         if(nb_evts>=MAX_EVT)
+	    die("Too many events in file %s (%d; maximum of %d authorized)\n", f->name, nb_evts, MAX_EVT);
+	 if(seen_events[nb_evts].new_event.name[0] == 0) {
+	    memcpy(&seen_events[nb_evts], event, event->header.size);
+	    printf("#Event %d: %s (%llx), count %llu (Exclude Kernel: %s; Exclude User: %s)\n", nb_evts, event->new_event.name, (long long unsigned)event->new_event.event.config, (long long unsigned) event->new_event.event.sampling_period, (event->new_event.event.exclude_kernel)?"yes":"no", (event->new_event.event.exclude_user)?"yes":"no");
+	 } else {
+            if(strcmp(seen_events[nb_evts].new_event.name, event->new_event.name) 
+               || event->new_event.event.config != seen_events[nb_evts].new_event.event.config
+	       || event->new_event.event.sampling_period != seen_events[nb_evts].new_event.event.sampling_period
+	       || event->new_event.event.exclude_kernel != seen_events[nb_evts].new_event.event.exclude_kernel
+	       || event->new_event.event.exclude_user != seen_events[nb_evts].new_event.event.exclude_user) {
+		    die("Seen in file %s:\n#Event %d: %s (%llx), count %llu (Exclude Kernel: %s; Exclude User: %s)\nExpected:\n#Event %d: %s (%llx), count %llu (Exclude Kernel: %s; Exclude User: %s)\n", f->name, nb_evts, event->new_event.name, (long long unsigned)event->new_event.event.config, (long long unsigned) event->new_event.event.sampling_period, (event->new_event.event.exclude_kernel)?"yes":"no", (event->new_event.event.exclude_user)?"yes":"no", nb_evts, seen_events[nb_evts].new_event.name, (long long unsigned)seen_events[nb_evts].new_event.event.config, (long long unsigned) seen_events[nb_evts].new_event.event.sampling_period, (seen_events[nb_evts].new_event.event.exclude_kernel)?"yes":"no", (seen_events[nb_evts].new_event.event.exclude_user)?"yes":"no");
+	    }
+	 }
+	 nb_evts++;
       } else {
          break;
       }
@@ -106,6 +121,7 @@ uint64_t first_time, last_time;
 uint64_t total_samples[MAX_EVT][MAX_CORE];
 static int check_samples(struct mmaped_file *f) {
    int i;
+   char *raw_data;
    int custom_event_read = 0;
    int ignore_samples = options.ignore_samples;
    sample_event_t *base_event = (sample_event_t *)&f->data[f->index];
@@ -183,10 +199,11 @@ static int check_samples(struct mmaped_file *f) {
 		    printf("%llu\t%d\t%d\t%d\t%s\n",(long long unsigned)event->ip.time, event->ip.tid, f->event, core, p?p->name:"unknown");
             } else {
                f->old_time[f->event] = event->ip.time;
-               int ret = symb_add_sample(&event->ip, (options.ltid)?0:f->event, core);
+               int ret = symb_add_sample(&event->ip, (options.all_events)?0:f->event, core);
 	       if(ret == 4) { //ignored
 		  f->ignores++;
                } else if(ret) {
+		  //printf("fail %llu %d %d\n", (long long unsigned)event->ip.ip, event->ip.pid, event->ip.tid);
 	          f->fails++;
 	       } else {
 	          f->successes++;
@@ -201,22 +218,23 @@ static int check_samples(struct mmaped_file *f) {
             }
             break;
          case PERF_RECORD_MMAP: /* A file has just been mmaped in virtual memory -> used to know where the symbols of shared libs are loaded */
-	    if(options.ltid && event->mmap.tid == options.ltid)
-		    printf("MMAP EVT for tid %d\n", options.ltid);
+	    /*if(options.ltid && event->mmap.tid == options.ltid)
+		    printf("MMAP EVT for tid %d %s %llu %llu %d\n", options.ltid, event->mmap.filename, (long long unsigned)event->mmap.start, (long long unsigned)event->mmap.len, event->mmap.pid);*/
+
             symb_add_exe(event->mmap.filename);
             symb_add_map(&event->mmap);
             break;
          case PERF_RECORD_FORK: /* fork(): we add the pid to the list of known pids */
-	    if(options.ltid && event->fork.tid == options.ltid)
-		    printf("FORK EVT for tid %d\n", options.ltid);
+	    /*if(options.ltid && event->fork.tid == options.ltid)
+		    printf("FORK EVT for tid %d\n", options.ltid);*/
 	    symb_add_fork(&event->fork);
             break;
          case PERF_RECORD_EXIT: /* exit(): useless for now? */
             break;
          case PERF_RECORD_COMM: /* comm = exec(): used to do the link between pids and process names */
-	    if(options.ltid && event->comm.tid == options.ltid)
-		    printf("COMM EVT for tid %d\n", options.ltid);
-            symb_add_pid(&event->comm);
+	    /*if(options.ltid && event->comm.tid == options.ltid)
+		    printf("COMM EVT for pid %d tid %d\n", event->comm.pid, event->comm.tid);*/
+	    symb_add_pid(&event->comm);
             break;
          case PERF_RECORD_LOST: /* Bad... */
 	    fprintf(stderr, "#Event losts CORE %d EVT %d\n", f->event, f->core);
@@ -229,15 +247,23 @@ static int check_samples(struct mmaped_file *f) {
             f->event = event->write_event.event;
             if(f->event >= MAX_EVT)
                die("Got event %d which is > %d", f->event, MAX_EVT);
-	    //printf("**dump core %d evt %d time %lld***\n", f->core, f->event, (long long) event->write_event.time);
 	    if(event->write_event.time < options.min_time || event->write_event.time > options.max_time) {
 		    ignore_samples = 1;
+	    }
+	    if(options.ttid) {
+		    printf("#EVT %d RDT %llu\n", f->event, (long long unsigned)event->write_event.time);
 	    }
             break;
          case PERF_RECORD_THROTTLE:
          case PERF_RECORD_UNTHROTTLE:
             break;
          default: /* Very baadd... */
+	    raw_data = (char*)event;
+	    if(!strncmp(raw_data, "###END HEADER", sizeof("###END HEADER") -1)) {
+		    printf("%s", raw_data + sizeof("###END HEADER"));
+		    f->index = f->size;
+		    break;
+	    }
             die("%d\t%d\tUNKNOWN HEADER [WARNING THIS PROBABLY MEANS THAT WE ARE LOSING LOTS AND LOTS OF SAMPLES AND THE WHOLE PROFILER IS COMPLETLY CONFUSED]\n", f->core, event->header.type);
             break;
       }
@@ -286,6 +312,7 @@ int main(int argc, char **argv) {
    symb_add_kern("/proc/kallsyms");
 
    int file_index = 0;
+   options.all_events = 1;
    for(i = 1; i < argc; i++) {
       if(!strcmp(argv[i], "--ignore-samples")) {
 	      options.ignore_samples = 1;
@@ -298,6 +325,7 @@ int main(int argc, char **argv) {
 	      continue;
       } else if(!strcmp(argv[i], "--base-event")) {
 	      options.base_event = atol(argv[++i]);
+	      options.all_events = 0;
 	      continue;
       } else if(!strcmp(argv[i], "--temporal")) {
 	      options.temporal_dump = atol(argv[++i]);
@@ -370,7 +398,10 @@ int main(int argc, char **argv) {
    }
    printf("#RDT - Total duration of the bench %llu (%llu -> %llu)\n", (long long unsigned)(last_time - first_time), (long long unsigned)first_time, (long long unsigned)last_time);
    printf("#SAMPLES - Total duration of the bench %llu (%llu -> %llu)\n", (long long unsigned)(samples_last_time - samples_first_time), (long long unsigned)samples_first_time, (long long unsigned)samples_last_time);
-   printf("#TOTAL SAMPLES OF EVT %d ", options.base_event);
+   if(options.all_events)
+	   printf("#TOTAL SAMPLES OF EVT %s ", "ALL_EVTS");
+   else
+	   printf("#TOTAL SAMPLES OF EVT %d ", options.base_event);
    for(i = 0; i < 16; i++) {
 	   printf("%d ", (int)total_samples[options.base_event][i]);
    }
