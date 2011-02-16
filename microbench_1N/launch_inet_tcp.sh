@@ -52,7 +52,12 @@ sudo ./profiler/profiler-sampling &
 
 sleep $DURATION_XP
 sudo pkill profiler
-sleep 15
+
+c=$(ps -A | grep inet_tcp_microb | wc -l)
+while [ $c -gt 0 ]; do
+   sleep 20
+   c=$(ps -A | grep inet_tcp_microb | wc -l)
+done
 
 ./stop_all.sh
 

@@ -57,6 +57,12 @@ sleep $DURATION_XP
 sudo pkill profiler
 sleep 15
 
+c=$(ps -A | grep barrelfish_mess | wc -l)
+while [ $c -gt 0 ]; do
+   sleep 20
+   c=$(ps -A | grep barrelfish_mess | wc -l)
+done
+
 ./stop_all.sh
 ./remove_shared_segment.pl
 

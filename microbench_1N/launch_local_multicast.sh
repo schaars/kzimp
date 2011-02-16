@@ -53,6 +53,12 @@ sudo ./profiler/profiler-sampling &
 
 sleep $DURATION_XP
 sudo pkill profiler
+
+c=$(ps -A | grep local_multicast | wc -l)
+while [ $c -gt 0 ]; do
+   sleep 20
+   c=$(ps -A | grep local_multicast | wc -l)
+done
 sleep 15
 
 ./stop_all.sh
