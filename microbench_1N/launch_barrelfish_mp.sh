@@ -72,9 +72,17 @@ mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
 
 sudo chown bft:bft /tmp/perf.data.*
+
+# for the consumers
+str=""
 for c in $(seq 0 ${NB_CONSUMERS}); do
    cid=$(( $c * $NB_THREADS_PER_CORE ))
-   for e in 0 1 2; do
-      ./profiler/parser-sampling /tmp/perf.data.* --c ${cid} --base-event ${e} --app barrelfish_mess > $OUTPUT_DIR/perf_core_${cid}_event_${e}.log
-   done
+   str="$str --c $cid"
 done
+
+for e in 0 1 2; do
+   ./profiler/parser-sampling /tmp/perf.data.* --c 0 --base-event ${e} --app barrelfish_mess > $OUTPUT_DIR/perf_producer_event_${e}.log
+   ./profiler/parser-sampling /tmp/perf.data.* ${str} --base-event ${e} --app barrelfish_mess > $OUTPUT_DIR/perf_consumers_event_${e}.log
+done
+
+rm /tmp/perf.data.* -f
