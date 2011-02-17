@@ -5,6 +5,9 @@
 
 #include <stdint.h>
 
+/* the minimal size of a malloc, used so that there is no problem in the cache */
+#define CACHE_LINE_SIZE 64
+#define GET_MALLOC_SIZE(a) ((a) >= (CACHE_LINE_SIZE) ? (a) : (CACHE_LINE_SIZE))
 
 // Initialize resources for both the producer and the consumers
 // First initialization function called

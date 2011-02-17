@@ -168,7 +168,7 @@ void IPC_sendToAll(int msg_size, char msg_id)
     msg_size = MIN_MSG_SIZE;
   }
 
-  msg = (char*) malloc(sizeof(char) * msg_size);
+  msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
   if (!msg)
   {
     perror("IPC_sendToAll allocation error! ");
