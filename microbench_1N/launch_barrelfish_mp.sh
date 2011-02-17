@@ -55,7 +55,6 @@ sudo ./profiler/profiler-sampling &
 
 sleep $DURATION_XP
 sudo pkill profiler
-sleep 15
 
 c=$(ps -A | grep barrelfish_mess | wc -l)
 while [ $c -gt 0 ]; do
