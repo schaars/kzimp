@@ -47,6 +47,9 @@ static long nb_messages; // total number of messages sent/received during this e
 static long xp_duration; // duration of the experiment, in seconds
 static int message_size; // messages size in bytes
 
+// start and end of the experiment, in cycles
+uint64_t cycle_start_xp, cycle_stop_xp;
+
 // return the throughput, in MB/s
 double do_producer(void)
 {
@@ -91,6 +94,8 @@ double do_producer(void)
       "[producer] Throughput = %f MB/s\n", throughput);
 #endif
 
+  cycle_start_xp = thr_start_time;
+
   return throughput;
 }
 
@@ -122,6 +127,8 @@ double do_consumer(void)
       break;
     }
   }
+
+  rdtsc(cycle_stop_xp);
 
   thr_stop_time = get_current_time();
   thr_elapsed_time = thr_stop_time - thr_start_time;
@@ -193,6 +200,8 @@ int main(int argc, char **argv)
   {
     print_help_and_exit(argv[0]);
   }
+
+  cycle_start_xp = cycle_stop_xp = 0;
 
   init_clock_mhz();
 
@@ -273,9 +282,9 @@ int main(int argc, char **argv)
     // a message in the mechanism buffer for reception
     fprintf(
         F,
-        "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\n",
+        "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\ncycle_start_xp= %lu\n",
         core_id, nb_receivers, nb_messages, message_size, throughput,
-        nb_cycles_per_byte_send, nb_cycles_per_byte_recv);
+        nb_cycles_per_byte_send, nb_cycles_per_byte_recv, (unsigned long)cycle_start_xp);
 
     fclose(F);
   }
@@ -305,9 +314,9 @@ int main(int argc, char **argv)
     // a message in the mechanism buffer for reception
     fprintf(
         F,
-        "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\n",
+        "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\ncycle_stop_xp= %f\n",
         core_id, nb_receivers, nb_messages, message_size, throughput,
-        nb_cycles_per_byte_send, nb_cycles_per_byte_recv);
+        nb_cycles_per_byte_send, nb_cycles_per_byte_recv, (unsigned long) cycle_stop_xp);
 
     fclose(F);
   }
