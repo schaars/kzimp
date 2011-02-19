@@ -314,7 +314,7 @@ int main(int argc, char **argv)
     // a message in the mechanism buffer for reception
     fprintf(
         F,
-        "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\ncycle_stop_xp= %f\n",
+        "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\ncycle_stop_xp= %lu\n",
         core_id, nb_receivers, nb_messages, message_size, throughput,
         nb_cycles_per_byte_send, nb_cycles_per_byte_recv, (unsigned long) cycle_stop_xp);
 
