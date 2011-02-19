@@ -5,12 +5,6 @@
 int ncpus;
 int callgraph = 0;
 static event_t default_events[] = {
-	/*{
-		.name = "DISTANT_ACCESS",
-		.type = PERF_TYPE_RAW,
-		.config = 0x004098E9,
-		.sampling_period = 30000,
-	},*/
 	{
 		.name = "CLK_UNHALTED",
 		.type = PERF_TYPE_HARDWARE,
@@ -32,8 +26,20 @@ static event_t default_events[] = {
 		.sampling_period = 1000,
 		.exclude_user = 0,
 	},
+  {
+    .name = "CONTEXT_SWITCHES",
+    .type = PERF_TYPE_SOFTWARE,
+    .config = PERF_COUNT_SW_CONTEXT_SWITCHES,
+    .sampling_period = 10000,
+    .exclude_user = 0,
+  },
 	/*
-	
+	{
+    .name = "DISTANT_ACCESS",
+    .type = PERF_TYPE_RAW,
+    .config = 0x004098E9,
+    .sampling_period = 30000,
+  },
 	{
 		.name = "CPU_DRAM_NODE0",
 		.type = PERF_TYPE_RAW,
