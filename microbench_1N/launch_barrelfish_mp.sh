@@ -80,8 +80,8 @@ for c in $(seq 1 ${NB_CONSUMERS}); do
 done
 
 for e in 0 1 2; do
-   ./profiler/parser-sampling /tmp/perf.data.* --c 0 --base-event ${e} --app barrelfish_mess > $OUTPUT_DIR/perf_producer_event_${e}.log
-   ./profiler/parser-sampling /tmp/perf.data.* ${str} --base-event ${e} --app barrelfish_mess > $OUTPUT_DIR/perf_consumers_event_${e}.log
+   ./profiler/parser-sampling /tmp/perf.data.* --c 0 --base-event ${e} > $OUTPUT_DIR/perf_producer_event_${e}.log
+   ./profiler/parser-sampling /tmp/perf.data.* ${str} --base-event ${e} > $OUTPUT_DIR/perf_consumers_event_${e}.log
 done
 
 rm /tmp/perf.data.* -f

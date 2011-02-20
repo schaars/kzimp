@@ -284,7 +284,8 @@ int main(int argc, char **argv)
         F,
         "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\ncycle_start_xp= %lu\n",
         core_id, nb_receivers, nb_messages, message_size, throughput,
-        nb_cycles_per_byte_send, nb_cycles_per_byte_recv, (unsigned long)cycle_start_xp);
+        nb_cycles_per_byte_send, nb_cycles_per_byte_recv,
+        (unsigned long) cycle_start_xp);
 
     fclose(F);
   }
@@ -316,7 +317,8 @@ int main(int argc, char **argv)
         F,
         "core_id= %i\nnb_receivers= %i\nnb_messages= %li\nmessages_size= %i\nthr= %f\nnb_cycles_send= %f\nnb_cycles_recv= %f\ncycle_stop_xp= %lu\n",
         core_id, nb_receivers, nb_messages, message_size, throughput,
-        nb_cycles_per_byte_send, nb_cycles_per_byte_recv, (unsigned long) cycle_stop_xp);
+        nb_cycles_per_byte_send, nb_cycles_per_byte_recv,
+        (unsigned long) cycle_stop_xp);
 
     fclose(F);
   }
