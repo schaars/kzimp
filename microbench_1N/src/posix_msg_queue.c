@@ -63,6 +63,35 @@ void IPC_initialize(int _nb_receivers, int _request_size)
     exit(errno);
   }
 
+
+/****** get message queues properties ******/
+struct rlimit rlim;
+int res;
+
+res = getrlimit(RLIMIT_MSGQUEUE, &rlim);
+if (res == -1) {
+    perror("getrlimit error");
+} else {
+printf("===== BEFORE MODIFICATION\nsoft=%i, hard=%i\n", (int)rlim.rlim_cur, (int)rlim.rlim_max);
+}
+
+
+rlim.rlim_cur = rlim.rlim_max = 1073741824;
+res = setrlimit(RLIMIT_MSGQUEUE, &rlim);
+if (res == -1) {
+    perror("setrlimit error");
+}
+
+
+res = getrlimit(RLIMIT_MSGQUEUE, &rlim);
+if (res == -1) {
+    perror("getrlimit error");
+} else {
+printf("===== AFTER MODIFICATION\nsoft=%i, hard=%i\n", (int)rlim.rlim_cur, (int)rlim.rlim_max);
+}
+
+
+
   int i;
   char filename[256];
 
