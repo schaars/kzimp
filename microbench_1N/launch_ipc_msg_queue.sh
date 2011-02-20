@@ -101,7 +101,7 @@ for c in $(seq 1 ${NB_CONSUMERS}); do
    str="$str --c $cid"
 done
 
-for e in 0 1 2; do
+for e in 0 1 2 3; do
    ./profiler/parser-sampling /tmp/perf.data.* --c 0 --base-event ${e} > $OUTPUT_DIR/perf_producer_event_${e}.log
    ./profiler/parser-sampling /tmp/perf.data.* ${str} --base-event ${e} > $OUTPUT_DIR/perf_consumers_event_${e}.log
 done
