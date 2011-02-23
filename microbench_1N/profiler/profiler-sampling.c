@@ -5,6 +5,8 @@
 int ncpus;
 int callgraph = 0;
 static event_t default_events[] = {
+    /********** Set of counters for several stuff but memory accesses **********/
+    /*
 	{
 		.name = "CLK_UNHALTED",
 		.type = PERF_TYPE_HARDWARE,
@@ -33,53 +35,36 @@ static event_t default_events[] = {
     .sampling_period = 10000,
     .exclude_user = 0,
   },
-	/*
-	{
-    .name = "DISTANT_ACCESS",
+  */
+    /********** Set of counters for memory accesses **********/
+  {
+    .name = "MEM_INST_RETIRED.LOAD",
     .type = PERF_TYPE_RAW,
-    .config = 0x004098E9,
-    .sampling_period = 30000,
+    .config = 0x000000010B,
+    .sampling_period = 10000,
+    .exclude_user = 0,
   },
-	{
-		.name = "CPU_DRAM_NODE0",
-		.type = PERF_TYPE_RAW,
-		.config = 0x1004001E0,
-		.sampling_period = 3000,
-	},
-	{
-		.name = "CPU_DRAM_NODE1",
-		.type = PERF_TYPE_RAW,
-		.config = 0x1004002E0,
-		.sampling_period = 3000,
-	},
-	{
-		.name = "CPU_DRAM_NODE2",
-		.type = PERF_TYPE_RAW,
-		.config = 0x1004004E0,
-		.sampling_period = 3000,
-	},
-	{
-		.name = "CPU_DRAM_NODE3",
-		.type = PERF_TYPE_RAW,
-		.config = 0x1004008E0,
-		.sampling_period = 3000,
-	},
-	*/
-	/*
-	{
-	.name = "READ_CMD_LATENCY",
-	.type = PERF_TYPE_RAW,
-	.config = 0x100401fE2,
-	.exclude_user = 1,
-	.sampling_period = 100000,
-	},
-	{
-	.name = "READ_CMD_NUMBER",
-	.type = PERF_TYPE_RAW,
-	.config = 0x100401fE3,
-	.exclude_user = 1,
-	.sampling_period = 1000,
-	},*/
+  {
+    .name = "MEM_INST_RETIRED.STORE",
+    .type = PERF_TYPE_RAW,
+    .config = 0x000000020B,
+    .sampling_period = 10000,
+    .exclude_user = 0,
+  },
+  {
+    .name = "MEM_UNCORE_RETIRED.REMOTE_DRAM",
+    .type = PERF_TYPE_RAW,
+    .config = 0x000000100F,
+    .sampling_period = 10000,
+    .exclude_user = 0,
+  },
+  {
+    .name = "MEM_UNCORE_RETIRED.LOCAL_DRAM",
+    .type = PERF_TYPE_RAW,
+    .config = 0x000000200F,
+    .sampling_period = 10000,
+    .exclude_user = 0,
+  },
 };
 static int nb_events = sizeof(default_events) / sizeof(*default_events);
 static event_t *events = default_events;
