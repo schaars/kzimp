@@ -26,6 +26,13 @@ static event_t default_events[] = {
     .sampling_period = 100000,
     .exclude_user = 0,
   },
+  {
+    .name = "UNHALTED_CPU_CLK",
+    .type = PERF_TYPE_HARDWARE,
+    .config = CPU_CLK_UNHALTED,
+    .sampling_period = 100000,
+    .exclude_user = 0,
+  },
 //{
 //  .name = "CACHE_MISSES",
 //  .type = PERF_TYPE_HARDWARE,
