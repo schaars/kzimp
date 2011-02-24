@@ -294,7 +294,9 @@ void IPC_sendToAll(int msg_size, char msg_id)
 int IPC_receive(int msg_size, char *msg_id)
 {
   char *msg;
+  int old_msg_size;
 
+  old_msg_size = msg_size;
   if (msg_size < MIN_MSG_SIZE)
   {
     msg_size = MIN_MSG_SIZE;
@@ -349,6 +351,10 @@ int IPC_receive(int msg_size, char *msg_id)
   if (recv_size == msg_size)
   {
     return msg_size;
+  }
+  else if (old_msg_size == 1)
+  {
+    return old_msg_size;
   }
   else
   {
