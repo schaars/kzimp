@@ -5,7 +5,7 @@
 // Events to look for
 // 0 -> several stuff but memory access
 // 1 -> memory access, L3 cache stuff
-#define TYPE_OF_EVENTS 1
+#define TYPE_OF_EVENTS 0
 
 int ncpus;
 int callgraph = 0;
@@ -28,8 +28,8 @@ static event_t default_events[] = {
   },
   {
     .name = "UNHALTED_CPU_CLK",
-    .type = PERF_TYPE_HARDWARE,
-    .config = CPU_CLK_UNHALTED,
+    .type = PERF_TYPE_RAW,
+    .config = 0x000000003c,
     .sampling_period = 100000,
     .exclude_user = 0,
   },
