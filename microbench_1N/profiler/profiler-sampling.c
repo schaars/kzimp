@@ -2,11 +2,17 @@
 //#define MMAP_SIZE               (128)
 #define MMAP_SIZE               (64)
 
+// Events to look for
+// 0 -> several stuff but memory access
+// 1 -> memory access, L3 cache stuff
+// 2 -> memory access, QPI stuff
+#define TYPE_OF_EVENTS 2
+
 int ncpus;
 int callgraph = 0;
 static event_t default_events[] = {
+#if TYPE_OF_EVENTS==0
     /********** Set of counters for several stuff but memory accesses **********/
-    /*
 	{
 		.name = "CLK_UNHALTED",
 		.type = PERF_TYPE_HARDWARE,
@@ -21,13 +27,13 @@ static event_t default_events[] = {
 		.sampling_period = 100000,
 		.exclude_user = 0,
 	},
-	{
-		.name = "CACHE_MISSES",
-		.type = PERF_TYPE_HARDWARE,
-		.config = PERF_COUNT_HW_CACHE_MISSES,
-		.sampling_period = 1000,
-		.exclude_user = 0,
-	},
+	//{
+	//	.name = "CACHE_MISSES",
+	//	.type = PERF_TYPE_HARDWARE,
+	//	.config = PERF_COUNT_HW_CACHE_MISSES,
+	//	.sampling_period = 1000,
+	//	.exclude_user = 0,
+	//},
   {
     .name = "CONTEXT_SWITCHES",
     .type = PERF_TYPE_SOFTWARE,
@@ -35,37 +41,71 @@ static event_t default_events[] = {
     .sampling_period = 10000,
     .exclude_user = 0,
   },
-  */
-    /********** Set of counters for memory accesses **********/
+
+#elif TYPE_OF_EVENTS == 1
+  /********** Set of counters for memory accesses, L3 cache stuff **********/
   {
-    .name = "MEM_INST_RETIRED.LOAD",
-    .type = PERF_TYPE_RAW,
-    .config = 0x000000010B,
-    .sampling_period = 10000,
-    .exclude_user = 0,
+  .name = "UNC_LLC_HITS.ANY",
+  .type = PERF_TYPE_RAW,
+  .config = 0x0000000308,
+  .sampling_period = 10000,
+  .exclude_user = 0,
   },
   {
-    .name = "MEM_INST_RETIRED.STORE",
-    .type = PERF_TYPE_RAW,
-    .config = 0x000000020B,
-    .sampling_period = 10000,
-    .exclude_user = 0,
+  .name = "UNC_LLC_HITS.PROBE",
+  .type = PERF_TYPE_RAW,
+  .config = 0x0000000408,
+  .sampling_period = 10000,
+  .exclude_user = 0,
   },
   {
-    .name = "MEM_UNCORE_RETIRED.REMOTE_DRAM",
-    .type = PERF_TYPE_RAW,
-    .config = 0x000000100F,
-    .sampling_period = 10000,
-    .exclude_user = 0,
+  .name = "UNC_LLC_MISS.ANY",
+  .type = PERF_TYPE_RAW,
+  .config = 0x0000000309,
+  .sampling_period = 10000,
+  .exclude_user = 0,
   },
   {
-    .name = "MEM_UNCORE_RETIRED.LOCAL_DRAM",
-    .type = PERF_TYPE_RAW,
-    .config = 0x000000200F,
-    .sampling_period = 10000,
-    .exclude_user = 0,
+  .name = "UNC_LLC_MISS.PROBE",
+  .type = PERF_TYPE_RAW,
+  .config = 0x0000000409,
+  .sampling_period = 10000,
+  .exclude_user = 0,
   },
+
+#elif TYPE_OF_EVENTS == 2
+  /********** Set of counters for memory accesses, QPI stuff **********/
+  {
+  .name = "UNC_QHL_REQUESTS.REMOTE_READS",
+  .type = PERF_TYPE_RAW,
+  .config = 0x0000000420,
+  .sampling_period = 10000,
+  .exclude_user = 0,
+  },
+  {
+  .name = "UNC_QHL_REQUESTS.REMOTE_WRITES",
+  .type = PERF_TYPE_RAW,
+  .config = 0x0000000820,
+  .sampling_period = 10000,
+  .exclude_user = 0,
+  },
+  {
+  .name = "UNC_QHL_REQUESTS.LOCAL_READS",
+  .type = PERF_TYPE_RAW,
+  .config = 0x0000001020,
+  .sampling_period = 10000,
+  .exclude_user = 0,
+  },
+  {
+  .name = "UNC_QHL_REQUESTS.LOCAL_WRITES",
+  .type = PERF_TYPE_RAW,
+  .config = 0x0000002020,
+  .sampling_period = 10000,
+  .exclude_user = 0,
+  },
+#endif
 };
+
 static int nb_events = sizeof(default_events) / sizeof(*default_events);
 static event_t *events = default_events;
 pdata_t **datas;
