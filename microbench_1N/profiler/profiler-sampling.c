@@ -5,35 +5,34 @@
 // Events to look for
 // 0 -> several stuff but memory access
 // 1 -> memory access, L3 cache stuff
-// 2 -> memory access, QPI stuff
-#define TYPE_OF_EVENTS 2
+#define TYPE_OF_EVENTS 1
 
 int ncpus;
 int callgraph = 0;
 static event_t default_events[] = {
 #if TYPE_OF_EVENTS==0
     /********** Set of counters for several stuff but memory accesses **********/
-	{
-		.name = "CLK_UNHALTED",
-		.type = PERF_TYPE_HARDWARE,
-		.config = PERF_COUNT_HW_CPU_CYCLES,
-		.sampling_period = 100000,
-		.exclude_user = 0,
-	},
-	{
-		.name = "INSTRUCTIONS",
-		.type = PERF_TYPE_HARDWARE,
-		.config = PERF_COUNT_HW_INSTRUCTIONS,
-		.sampling_period = 100000,
-		.exclude_user = 0,
-	},
-	//{
-	//	.name = "CACHE_MISSES",
-	//	.type = PERF_TYPE_HARDWARE,
-	//	.config = PERF_COUNT_HW_CACHE_MISSES,
-	//	.sampling_period = 1000,
-	//	.exclude_user = 0,
-	//},
+  {
+    .name = "CLK_UNHALTED",
+    .type = PERF_TYPE_HARDWARE,
+    .config = PERF_COUNT_HW_CPU_CYCLES,
+    .sampling_period = 100000,
+    .exclude_user = 0,
+  },
+  {
+    .name = "INSTRUCTIONS",
+    .type = PERF_TYPE_HARDWARE,
+    .config = PERF_COUNT_HW_INSTRUCTIONS,
+    .sampling_period = 100000,
+    .exclude_user = 0,
+  },
+//{
+//  .name = "CACHE_MISSES",
+//  .type = PERF_TYPE_HARDWARE,
+//  .config = PERF_COUNT_HW_CACHE_MISSES,
+//  .sampling_period = 1000,
+//  .exclude_user = 0,
+//},
   {
     .name = "CONTEXT_SWITCHES",
     .type = PERF_TYPE_SOFTWARE,
@@ -69,37 +68,6 @@ static event_t default_events[] = {
   .name = "UNC_LLC_MISS.PROBE",
   .type = PERF_TYPE_RAW,
   .config = 0x0000000409,
-  .sampling_period = 10000,
-  .exclude_user = 0,
-  },
-
-#elif TYPE_OF_EVENTS == 2
-  /********** Set of counters for memory accesses, QPI stuff **********/
-  {
-  .name = "UNC_QHL_REQUESTS.REMOTE_READS",
-  .type = PERF_TYPE_RAW,
-  .config = 0x0000000420,
-  .sampling_period = 10000,
-  .exclude_user = 0,
-  },
-  {
-  .name = "UNC_QHL_REQUESTS.REMOTE_WRITES",
-  .type = PERF_TYPE_RAW,
-  .config = 0x0000000820,
-  .sampling_period = 10000,
-  .exclude_user = 0,
-  },
-  {
-  .name = "UNC_QHL_REQUESTS.LOCAL_READS",
-  .type = PERF_TYPE_RAW,
-  .config = 0x0000001020,
-  .sampling_period = 10000,
-  .exclude_user = 0,
-  },
-  {
-  .name = "UNC_QHL_REQUESTS.LOCAL_WRITES",
-  .type = PERF_TYPE_RAW,
-  .config = 0x0000002020,
   .sampling_period = 10000,
   .exclude_user = 0,
   },
