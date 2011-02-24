@@ -7,7 +7,7 @@
 #  $4: max size of Local Multicast ring buffer
 
 
-MEMORY_DIR="memory_conso"
+#MEMORY_DIR="memory_conso"
 NB_THREADS_PER_CORE=2
 START_PORT=6001
 
@@ -31,7 +31,7 @@ if [ -d $OUTPUT_DIR ]; then
 fi
 
 
-rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
+#rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
 
 ./stop_all.sh
 
@@ -44,7 +44,7 @@ else
    exit 0
 fi
 
-./get_memory_usage.sh  $MEMORY_DIR &
+#./get_memory_usage.sh  $MEMORY_DIR &
 ./bin/local_multicast_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP &
 
 sleep 5
@@ -67,21 +67,23 @@ done
 
 # save files
 mkdir $OUTPUT_DIR
-mv $MEMORY_DIR $OUTPUT_DIR/
+#mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
 
 sudo chown bft:bft /tmp/perf.data.*
 
 # for the consumers
 str=""
-for c in $(seq 1 ${NB_CONSUMERS}); do
+#for c in $(seq 1 ${NB_CONSUMERS}); do
+for c in $(seq 0 ${NB_CONSUMERS}); do
    cid=$(( $c * $NB_THREADS_PER_CORE ))
    str="$str --c $cid"
 done
 
 for e in 0 1 2 3; do
-   ./profiler/parser-sampling /tmp/perf.data.* --c 0 --base-event ${e} > $OUTPUT_DIR/perf_producer_event_${e}.log
-   ./profiler/parser-sampling /tmp/perf.data.* ${str} --base-event ${e} > $OUTPUT_DIR/perf_consumers_event_${e}.log
+   #./profiler/parser-sampling /tmp/perf.data.* --c 0 --base-event ${e} > $OUTPUT_DIR/perf_producer_event_${e}.log
+   #./profiler/parser-sampling /tmp/perf.data.* ${str} --base-event ${e} > $OUTPUT_DIR/perf_consumers_event_${e}.log
+   ./profiler/parser-sampling /tmp/perf.data.* ${str} --base-event ${e} > $OUTPUT_DIR/perf_everyone_event_${e}.log
 done
 
 rm /tmp/perf.data.* -f
