@@ -8,7 +8,7 @@
 #include "profiler.h"
 
 int ncpus = 4;
-static int sleep_time = 5*TIME_SECOND;
+static int sleep_time = 1*TIME_SECOND;
 
 /*
  * Events :
@@ -44,16 +44,18 @@ static event_t default_events[] = {
            .type = PERF_TYPE_RAW,
            .config = 0x100408fE3,
         },
+*/
         { 
            .name = "CLK_UNHALTED",
            .type = PERF_TYPE_HARDWARE,
            .config = PERF_COUNT_HW_CPU_CYCLES,
-        },
-        { 
+        },  
+      { 
            .name = "RETIRED_INSTR",
            .type = PERF_TYPE_RAW,
            .config = 0x004000C0,
-        },*/
+        }
+/*,
 	 {
 		 .name = "CPUDRAM_TO_NODE0",
 		 .type = PERF_TYPE_RAW,
@@ -74,7 +76,6 @@ static event_t default_events[] = {
 		 .type = PERF_TYPE_RAW,
 		 .config = 0x1004008E0,
 	 },
-	 /*
          { 
                   .name = "HT_LINK2",
                   .type = PERF_TYPE_RAW,

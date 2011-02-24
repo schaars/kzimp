@@ -52,7 +52,7 @@ if [ -d $OUTPUT_DIR ]; then
 fi
 
 
-rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
+#rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
 
 ./stop_all.sh
 
@@ -69,7 +69,7 @@ if [ -z $NO_COMPILE ]; then
    make ipc_msg_queue_microbench
 fi
 
-./get_memory_usage.sh  $MEMORY_DIR &
+#./get_memory_usage.sh  $MEMORY_DIR &
 ./bin/ipc_msg_queue_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP &
 
 sleep 5
@@ -89,7 +89,7 @@ done
 
 # save files
 mkdir $OUTPUT_DIR
-mv $MEMORY_DIR $OUTPUT_DIR/
+#mv $MEMORY_DIR $OUTPUT_DIR/
 mv statistics*.log $OUTPUT_DIR/
 
 sudo chown bft:bft /tmp/perf.data.*
@@ -106,4 +106,4 @@ for e in 0 1 2 3; do
    ./profiler/parser-sampling /tmp/perf.data.* ${str} --base-event ${e} > $OUTPUT_DIR/perf_consumers_event_${e}.log
 done
 
-rm /tmp/perf.data.* -f
+#rm /tmp/perf.data.* -f
