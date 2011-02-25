@@ -74,7 +74,7 @@ fi
 
 sleep 5
 
-sudo ./profiler/profiler-sampling &
+sudo ./profiler/profiler-sampling -cg &
 
 sleep $DURATION_XP
 sudo pkill profiler
