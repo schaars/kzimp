@@ -35,6 +35,14 @@ static uint64_t nb_cycles_send;
 static uint64_t nb_cycles_recv;
 static uint64_t nb_cycles_first_recv;
 
+// if INET_SYSCALLS_MEASUREMENT then the number of cycles is counted.
+// The value is modified directly by tcp_net.c
+#ifdef INET_SYSCALLS_MEASUREMENT
+uint64_t nb_syscalls_send;
+uint64_t nb_syscalls_recv;
+uint64_t nb_syscalls_first_recv;
+#endif
+
 static int *sockets; // sockets used to communicate
 
 // Initialize resources for both the producer and the consumers
@@ -52,6 +60,12 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   nb_cycles_send = 0;
   nb_cycles_recv = 0;
   nb_cycles_first_recv = 0;
+
+#ifdef INET_SYSCALLS_MEASUREMENT
+  nb_syscalls_send = 0;
+  nb_syscalls_recv = 0;
+  nb_syscalls_first_recv = 0;
+#endif
 }
 
 // Initialize resources for the producer
@@ -133,7 +147,7 @@ void IPC_initialize_producer(int _core_id)
 #ifdef DEBUG
     // print some information about the accepted connection
     printf("[producer] A connection has been accepted from %s:%i\n", inet_ntoa(
-        csin.sin_addr), ntohs(csin.sin_port));
+            csin.sin_addr), ntohs(csin.sin_port));
 #endif
   }
 
@@ -307,10 +321,18 @@ int IPC_receive(int msg_size, char *msg_id)
     s = recvMsg(sockets[0], (void*) (msg + header_size), left, &nb_cycles_recv);
   }
 
+  // forget the first message (this message is not counted in the statistics)
   if (nb_cycles_first_recv == 0)
   {
     nb_cycles_first_recv = nb_cycles_recv;
   }
+
+#ifdef INET_SYSCALLS_MEASUREMENT
+  if (nb_syscalls_first_recv == 0)
+  {
+    nb_syscalls_first_recv = nb_syscalls_recv;
+  }
+#endif
 
   // get the id of the message
   *msg_id = msg[0];
