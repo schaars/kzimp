@@ -50,6 +50,12 @@ static int message_size; // messages size in bytes
 // start and end of the experiment, in cycles
 uint64_t cycle_start_xp, cycle_stop_xp;
 
+#ifdef INET_SYSCALLS_MEASUREMENT
+extern uint64_t nb_syscalls_send;
+extern uint64_t nb_syscalls_recv;
+extern uint64_t nb_syscalls_first_recv;
+#endif
+
 // return the throughput, in MB/s
 double do_producer(void)
 {
@@ -287,6 +293,11 @@ int main(int argc, char **argv)
         nb_cycles_per_byte_send, nb_cycles_per_byte_recv,
         (unsigned long) cycle_start_xp);
 
+#ifdef INET_SYSCALLS_MEASUREMENT
+    fprintf(F, "nb_syscalls_send= %lu\nnb_syscalls_recv= %lu\n",
+        (unsigned long) nb_syscalls_send, (unsigned long) (nb_syscalls_recv-nb_syscalls_first_recv));
+#endif
+
     fclose(F);
   }
   else
@@ -319,6 +330,11 @@ int main(int argc, char **argv)
         core_id, nb_receivers, nb_messages, message_size, throughput,
         nb_cycles_per_byte_send, nb_cycles_per_byte_recv,
         (unsigned long) cycle_stop_xp);
+
+#ifdef INET_SYSCALLS_MEASUREMENT
+    fprintf(F, "nb_syscalls_send= %lu\nnb_syscalls_recv= %lu\n",
+        (unsigned long) nb_syscalls_send, (unsigned long) (nb_syscalls_recv-nb_syscalls_first_recv));
+#endif
 
     fclose(F);
   }

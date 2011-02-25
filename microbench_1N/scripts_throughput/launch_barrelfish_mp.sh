@@ -39,7 +39,11 @@ sudo ./root_set_value.sh 10000000000 /proc/sys/kernel/shmall
 sudo ./root_set_value.sh 10000000000 /proc/sys/kernel/shmmax
 
 # recompile with message size
-echo "-DNB_MESSAGES=$MAX_MSG_CHANNEL -DURPC_MSG_WORDS=$(($MSG_SIZE/8))" > BARRELFISH_MESSAGE_PASSING_PROPERTIES
+if [ $MSG_SIZE -lt 64 ]; then
+   echo "-DNB_MESSAGES=$MAX_MSG_CHANNEL -DURPC_MSG_WORDS=$((64/8))" > BARRELFISH_MESSAGE_PASSING_PROPERTIES
+else
+   echo "-DNB_MESSAGES=$MAX_MSG_CHANNEL -DURPC_MSG_WORDS=$(($MSG_SIZE/8))" > BARRELFISH_MESSAGE_PASSING_PROPERTIES
+fi
 make barrelfish_message_passing
 
 # launch XP

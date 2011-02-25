@@ -41,6 +41,12 @@ static uint64_t nb_cycles_send;
 static uint64_t nb_cycles_recv;
 static uint64_t nb_cycles_first_recv;
 
+#ifdef INET_SYSCALLS_MEASUREMENT
+uint64_t nb_syscalls_send;
+uint64_t nb_syscalls_recv;
+uint64_t nb_syscalls_first_recv;
+#endif
+
 static int sock; // the socket
 
 #ifdef IP_MULTICAST
@@ -66,6 +72,12 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   nb_cycles_send = 0;
   nb_cycles_recv = 0;
   nb_cycles_first_recv = 0;
+
+#ifdef INET_SYSCALLS_MEASUREMENT
+  nb_syscalls_send = 0;
+  nb_syscalls_recv = 0;
+  nb_syscalls_first_recv = 0;
+#endif
 }
 
 #ifdef IP_MULTICAST
@@ -303,6 +315,10 @@ void IPC_sendToAll(int msg_size, char msg_id)
       rdtsc(cycle_stop);
 
       nb_cycles_send += cycle_stop - cycle_start;
+
+#ifdef INET_SYSCALLS_MEASUREMENT
+      nb_syscalls_send++;
+#endif
     }
 
 #ifdef IP_MULTICAST
@@ -350,12 +366,24 @@ int IPC_receive(int msg_size, char *msg_id)
     rdtsc(cycle_stop);
 
     nb_cycles_recv += cycle_stop - cycle_start;
+
+#ifdef INET_SYSCALLS_MEASUREMENT
+    nb_syscalls_recv++;
+#endif
   }
 
+  // forget the first message (this message is not counted in the statistics)
   if (nb_cycles_first_recv == 0)
   {
     nb_cycles_first_recv = nb_cycles_recv;
   }
+
+#ifdef INET_SYSCALLS_MEASUREMENT
+  if (nb_syscalls_first_recv == 0)
+  {
+    nb_syscalls_first_recv = nb_syscalls_recv;
+  }
+#endif
 
   // get the id of the message
   *msg_id = msg[0];
