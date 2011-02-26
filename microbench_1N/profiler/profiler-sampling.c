@@ -5,7 +5,8 @@
 // Events to look for
 // 0 -> several stuff but memory access
 // 1 -> memory access, L3 cache stuff
-#define TYPE_OF_EVENTS 0
+// 2 -> memory access, L1D and L2 cache stuff
+#define TYPE_OF_EVENTS 2
 
 int ncpus;
 int callgraph = 0;
@@ -75,6 +76,41 @@ static event_t default_events[] = {
   .name = "UNC_LLC_MISS.PROBE",
   .type = PERF_TYPE_RAW,
   .config = 0x0000000409,
+  .sampling_period = 10000,
+  .exclude_user = 0,
+  },
+
+#elif TYPE_OF_EVENTS == 2
+  /********** Set of counters for memory accesses, L1D and L2 cache stuff **********/
+
+  // L1D_MISSES = MEM_INST_RETIRED.LOADS - MEM_LOAD_RETIRED.L1D_HIT
+  {
+  .name = "MEM_INST_RETIRED.LOADS",
+  .type = PERF_TYPE_RAW,
+  .config = 0x000000010B,
+  .sampling_period = 10000,
+  .exclude_user = 0,
+  },
+  {
+  .name = "MEM_LOAD_RETIRED.L1D_HIT",
+  .type = PERF_TYPE_RAW,
+  .config = 0x00000001CB,
+  .sampling_period = 10000,
+  .exclude_user = 0,
+  },
+
+  // L2_HITS = L2_RQSTS.REFERENCES - L2_RQSTS.MISS
+  {
+  .name = "L2_RQSTS.MISS",
+  .type = PERF_TYPE_RAW,
+  .config = 0x000000AA24,
+  .sampling_period = 10000,
+  .exclude_user = 0,
+  },
+  {
+  .name = "L2_RQSTS.REFERENCES",
+  .type = PERF_TYPE_RAW,
+  .config = 0x000000FF24,
   .sampling_period = 10000,
   .exclude_user = 0,
   },

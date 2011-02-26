@@ -319,8 +319,8 @@ int main(int argc, char **argv)
 
     float nb_cycles_per_byte_send = (float) get_cycles_send() / (nb_messages
         * message_size);
-    float nb_cycles_per_byte_recv = (float) get_cycles_recv() / ((nb_messages
-        - 1) * message_size);
+    float nb_cycles_per_byte_recv = (float) get_cycles_recv() / (nb_messages
+        * message_size);
 
     // When receiving we do not take into account the first message since the receive is blocking and does not start necesarily with
     // a message in the mechanism buffer for reception
@@ -333,7 +333,7 @@ int main(int argc, char **argv)
 
 #ifdef INET_SYSCALLS_MEASUREMENT
     fprintf(F, "nb_syscalls_send= %lu\nnb_syscalls_recv= %lu\n",
-        (unsigned long) nb_syscalls_send, (unsigned long) (nb_syscalls_recv-nb_syscalls_first_recv));
+        (unsigned long) nb_syscalls_send, (unsigned long) (nb_syscalls_recv-nb_syscalls_first_recv);
 #endif
 
     fclose(F);
