@@ -295,8 +295,13 @@ int IPC_receive(int msg_size, char *msg_id)
   printf("Waiting for a new message\n");
 #endif
 
+  // read in one stroke the whole message
+#ifdef ONE_SYSCALL_RECV
+  int header_size = 0;
+#else
   int header_size = recvMsg(sockets[0], (void*) msg, MIN_MSG_SIZE,
       &nb_cycles_recv);
+#endif
 
   // get the message
   int s = 0;
