@@ -8,8 +8,9 @@
 /* initialize mpsoc. Basically it creates the shared memory zone to handle m messages
  * at most at the same time for n processes. pathname is the name of an
  * existing file, required by ftok. Returns 0 on success, -1 for errors
+ * mmask is the mask to apply on multicast messages.
  */
-int	mpsoc_init(char* pathname, int num_replicas, int m);
+int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask);
 
 /*
  * Allocate a message of size len in shared mem.
