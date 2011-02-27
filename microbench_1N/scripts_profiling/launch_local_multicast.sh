@@ -10,6 +10,12 @@
 #MEMORY_DIR="memory_conso"
 NB_THREADS_PER_CORE=2
 START_PORT=6001
+if [ -z $YIELD_COUNT ]; then
+   YIELD_COUNT=1
+fi
+if [ -z $MULTICAST_MASK ]; then
+   MULTICAST_MASK="0xffffffff"
+fi
 
 # get arguments
 if [ $# -eq 4 ]; then
@@ -38,7 +44,7 @@ fi
 # activate Local Multicast
 END_PORT=$(( $START_PORT + $NB_CONSUMERS - 1 ))
 if [ -e /proc/local_multicast ]; then
-   sudo ./root_set_value.sh "$START_PORT $END_PORT $SIZE_BUFFER_LM" /proc/local_multicast
+   sudo ./root_set_value.sh "$START_PORT $END_PORT $SIZE_BUFFER_LM $YIELD_COUNT $MULTICAST_MASK" /proc/local_multicast
 else
    echo "You need a kernel compiled with Local Multicast. Aborting."
    exit 0
