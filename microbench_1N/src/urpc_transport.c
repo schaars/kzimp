@@ -116,7 +116,7 @@ bool urpc_transport_send(struct urpc_connection *c, void *msg, size_t msg_len)
   msg_as_uint64_t[URPC_PAYLOAD_WORDS]
       = ((uint64_t) c->seq_id << URPC_TYPE_SIZE) | c->sent_id;
   c->sent_id++;
-  urpc_send(&c->out, msg_as_uint64_t);
+  urpc_send_abstract(&c->out, msg_as_uint64_t);
 
   return true;
 }
@@ -144,7 +144,7 @@ size_t urpc_transport_recv_nonblocking(struct urpc_connection *c, void *msg,
 {
   uint64_t* msg_as_uint64_t = (uint64_t*) msg;
 
-  if (urpc_poll(c->in, msg_as_uint64_t))
+  if (urpc_poll_abstract(c->in, msg_as_uint64_t))
   {
     // there is a message
     return get_the_message(c, msg_as_uint64_t);
@@ -164,7 +164,7 @@ size_t urpc_transport_recv(struct urpc_connection *c, void *msg, size_t msg_len)
 {
   uint64_t* msg_as_uint64_t = (uint64_t*) msg;
 
-  while (!urpc_poll(c->in, msg_as_uint64_t))
+  while (!urpc_poll_abstract(c->in, msg_as_uint64_t))
   {
 #ifdef URPC_TRANSPORT_DEBUG
     //printf("[urpc_transport_recv][%u] Trying again\n",

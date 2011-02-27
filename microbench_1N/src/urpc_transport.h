@@ -48,11 +48,32 @@ bool urpc_transport_send(struct urpc_connection *c, void *msg, size_t msg_len);
 // receive a message
 // Return the length of the read message or 0 if there is no message
 // busy waiting (with a small sleep)
-size_t urpc_transport_recv_nonblocking(struct urpc_connection *c, void *msg, size_t msg_len);
+size_t urpc_transport_recv_nonblocking(struct urpc_connection *c, void *msg,
+    size_t msg_len);
 
 // receive a message
 // Return the length of the read message
 // busy waiting (with a small sleep)
-size_t urpc_transport_recv(struct urpc_connection *c, void *msg, size_t msg_len);
+size_t
+    urpc_transport_recv(struct urpc_connection *c, void *msg, size_t msg_len);
+
+static inline bool urpc_poll_abstract(struct urpc_channel *c, uint64_t *msg)
+{
+#ifdef OPTIMIZE_THROUGHPUT
+  return urpc_poll_throughput(c, msg);
+#else
+  return urpc_poll(c, msg);
+#endif
+}
+
+static inline bool urpc_send_abstract(struct urpc_channel *c, uint64_t *msg)
+{
+#ifdef OPTIMIZE_THROUGHPUT
+  return urpc_send_throughput(c, msg);
+#else
+  return urpc_send(c, msg);
+#endif
+
+}
 
 #endif /* URPC_TRANSPORT_H_ */

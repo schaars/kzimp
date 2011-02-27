@@ -61,7 +61,7 @@ struct urpc_channel
   size_t size; ///< Buffer size IN WORDS
   enum urpc_type type; ///< Channel type
   urpc_t epoch; ///< Next Message epoch
-} __attribute__((__packed__,  __aligned__(CACHE_LINE_SIZE)));
+}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
