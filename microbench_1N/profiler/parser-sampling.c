@@ -10,7 +10,7 @@
 struct options options;
 struct mmaped_file {
    char *data;
-   int size, index;
+   size_t size, index;
    char *name;
    int event, core;
    int fails, successes, ignores;
@@ -81,7 +81,8 @@ static void check_host(struct mmaped_file *f) {
  */
 static sample_event_t seen_events[MAX_EVT];
 static void check_events(struct mmaped_file *f) {
-   int nb_evts = 0, old;
+   int nb_evts = 0;
+   size_t old;
    for (old = 0; old < f->size; ) {
       sample_event_t *event = (sample_event_t *)&f->data[old];
 
@@ -148,6 +149,10 @@ static int check_samples(struct mmaped_file *f) {
 		}
 		if(!found)
 			break;
+	    }
+
+	    if(event->ip.time < options.min_time || event->ip.time > options.max_time) {
+		    break;
 	    }
 				
 	    if(!samples_first_time || event->ip.time < samples_first_time)
@@ -247,11 +252,11 @@ static int check_samples(struct mmaped_file *f) {
             f->event = event->write_event.event;
             if(f->event >= MAX_EVT)
                die("Got event %d which is > %d", f->event, MAX_EVT);
-	    if(event->write_event.time < options.min_time || event->write_event.time > options.max_time) {
-		    ignore_samples = 1;
-	    }
-	    if(options.ttid) {
+	    /*if(options.ttid) {
 		    printf("#EVT %d RDT %llu\n", f->event, (long long unsigned)event->write_event.time);
+	    }*/
+	    if(event->write_event.failed) {
+               die("A mmap_read failed during profiling ?!\n");
 	    }
             break;
          case PERF_RECORD_THROTTLE:

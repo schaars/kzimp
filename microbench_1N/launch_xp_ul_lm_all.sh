@@ -10,7 +10,7 @@ for num_consumers in ${NUM_CONSUMERS_ARRAY[@]}; do
    for i in $(seq 0 $(( ${#MSG_SIZE_ARRAY[@]}-1 )) ); do
 
       if [ $num_consumers -eq 1 ]; then
-         if [ ${MSG_SIZE_ARRAY[$i]} -le 1024 ]; then
+         if [ ${MSG_SIZE_ARRAY[$i]} -le 4096 ]; then
             num_msg_channel=1000
          elif [ ${MSG_SIZE_ARRAY[$i]} -eq 10240 ]; then
             num_msg_channel=100

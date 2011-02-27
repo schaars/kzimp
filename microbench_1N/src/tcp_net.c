@@ -13,6 +13,11 @@
 #include "tcp_net.h"
 #include "time.h"
 
+#ifdef INET_SYSCALLS_MEASUREMENT
+uint64_t nb_syscalls_send;
+uint64_t nb_syscalls_recv;
+#endif
+
 int recvMsg(int s, void *buf, size_t len, uint64_t *nb_cycles)
 {
   uint64_t cycle_start, cycle_stop;
@@ -24,11 +29,18 @@ int recvMsg(int s, void *buf, size_t len, uint64_t *nb_cycles)
     rdtsc(cycle_start);
     n = recv(s, &(((char *) buf)[len_tmp]), len - len_tmp, 0);
     rdtsc(cycle_stop);
+
     if (n == -1)
     {
       perror("tcp_net:recv():");
       exit(-1);
     }
+
+#ifdef INET_SYSCALLS_MEASUREMENT
+    nb_syscalls_recv++;
+
+    //printf("recv_size= %i\n", n);
+#endif
 
     *nb_cycles += cycle_stop - cycle_start;
 
@@ -56,6 +68,10 @@ void sendMsg(int s, void *msg, int size, uint64_t *nb_cycles)
       perror("tcp_net:send():");
       exit(-1);
     }
+
+#ifdef INET_SYSCALLS_MEASUREMENT
+    nb_syscalls_send++;
+#endif
 
     *nb_cycles += cycle_stop - cycle_start;
 

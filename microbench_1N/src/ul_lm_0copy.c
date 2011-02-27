@@ -54,7 +54,15 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   nb_cycles_recv = 0;
   nb_cycles_first_recv = 0;
 
-  mpsoc_init("/tmp/ul_lm_0copy_microbenchmark", nb_receivers, NB_MESSAGES);
+  int i;
+  unsigned int multicast_bitmap_mask = 0;
+  for (i = 0; i < nb_receivers; i++)
+  {
+    multicast_bitmap_mask = multicast_bitmap_mask | (1 << i);
+  }
+
+  mpsoc_init("/tmp/ul_lm_0copy_microbenchmark", nb_receivers, NB_MESSAGES,
+      multicast_bitmap_mask);
 }
 
 // Initialize resources for the producer
