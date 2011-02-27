@@ -38,6 +38,8 @@ int recvMsg(int s, void *buf, size_t len, uint64_t *nb_cycles)
 
 #ifdef INET_SYSCALLS_MEASUREMENT
     nb_syscalls_recv++;
+
+    //printf("recv_size= %i\n", n);
 #endif
 
     *nb_cycles += cycle_stop - cycle_start;
