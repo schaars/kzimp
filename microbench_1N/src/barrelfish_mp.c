@@ -122,7 +122,9 @@ void IPC_initialize(int _nb_receivers, int _request_size)
     request_size = MIN_MSG_SIZE;
   }
 
-  buffer_size = URPC_MSG_WORDS*8*NB_MESSAGES;
+  size_t urpc_msg_word = URPC_MSG_WORDS;
+  size_t nb_messages = NB_MESSAGES;
+  buffer_size = urpc_msg_word * 8 * nb_messages;
   connection_size = buffer_size * 2 + 2 * URPC_CHANNEL_SIZE;
 
   nb_cycles_send = 0;
