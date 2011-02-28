@@ -39,7 +39,6 @@
 void urpc_transport_create(int mon_id, void *buf, size_t buffer_size,
     size_t channel_length, struct urpc_connection *c, bool create)
 {
-
   assert(channel_length * 2 + 2 * URPC_CHANNEL_SIZE <= buffer_size);
 
   /* initialise our local instance data */
