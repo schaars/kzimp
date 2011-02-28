@@ -103,8 +103,9 @@ bool urpc_transport_send(struct urpc_connection *c, void *msg, size_t msg_len)
     fflush(NULL);
 #endif
 
-    //TODO: adaptive waiting time.
-    //usleep(1000);
+    // sleep
+    //usleep(50);
+    //__asm__ __volatile__("nop");
   }
 
 #ifdef URPC_TRANSPORT_DEBUG
@@ -171,8 +172,9 @@ size_t urpc_transport_recv(struct urpc_connection *c, void *msg, size_t msg_len)
     //    (unsigned int) c->monitor_id);
 #endif
 
-    //TODO: adaptive waiting time. Maybe we should use mwait?
-    //usleep(1000);
+    // sleep
+    //usleep(50);
+    //__asm__ __volatile__("nop");
   }
 
   // we have received a message in msg_as_uint64_t

@@ -138,14 +138,17 @@ static inline bool urpc_peek(struct urpc_channel *c, uint64_t *msg)
   {
     //XXX
     memcpy(msg, (void*)&(c->buf[c->pos]), URPC_MSG_WORDS);
+    //memcpy(msg, (void*)(c->buf + c->pos), URPC_MSG_WORDS);
+  
+    //memcpy((void*)&(c->buf[c->pos]), msg, URPC_MSG_WORDS);
 
-    /*
+/*
     int i;
     for (i = 0; i < URPC_MSG_WORDS; i++)
     {
       msg[i] = c->buf[c->pos + i];
     }
-    */
+*/
 
     return true;
   }
@@ -220,9 +223,10 @@ static inline bool urpc_send(struct urpc_channel *c, uint64_t *msg)
 {
   assert(c->type == URPC_OUTGOING);
 
-
+  //XXX
   memcpy((void*)&(c->buf[c->pos]), msg, URPC_MSG_WORDS);
-  /* XXX
+
+  /*
   int i;
   for (i = 0; i < URPC_MSG_WORDS - 1; i++)
   {
