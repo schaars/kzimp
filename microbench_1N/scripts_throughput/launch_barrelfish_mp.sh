@@ -35,8 +35,8 @@ fi
 touch /tmp/barrelfish_message_passing_microbench
 
 # modify shared mem parameters
-sudo ./root_set_value.sh 10000000000 /proc/sys/kernel/shmall
-sudo ./root_set_value.sh 10000000000 /proc/sys/kernel/shmmax
+sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmall
+sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmmax
 
 # recompile with message size
 if [ $MSG_SIZE -lt 64 ]; then
