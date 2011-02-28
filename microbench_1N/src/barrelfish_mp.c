@@ -24,7 +24,7 @@
 
 /********** All the variables needed by Barrelfish message-passing **********/
 
-#define BUFFER_SIZE (URPC_MSG_WORDS*8*NB_MESSAGES)
+//#define BUFFER_SIZE (URPC_MSG_WORDS*8*NB_MESSAGES)
 //#define CONNECTION_SIZE (BUFFER_SIZE * 2 + 2 * URPC_CHANNEL_SIZE)
 
 #define MIN_MSG_SIZE (URPC_MSG_WORDS*sizeof(uint64_t))
@@ -33,6 +33,8 @@ static int core_id; // 0 is the producer. The others are children
 static int nb_receivers;
 static int request_size; // requests size in bytes
 static int nb_messages_in_transit; // Barrelfish requires an acknowledgement of sent messages. We send one peridically
+
+static size_t buffer_size;
 static size_t connection_size;
 
 static uint64_t nb_cycles_send;
@@ -120,7 +122,8 @@ void IPC_initialize(int _nb_receivers, int _request_size)
     request_size = MIN_MSG_SIZE;
   }
 
-  connection_size = BUFFER_SIZE * 2 + 2 * URPC_CHANNEL_SIZE;
+  buffer_size = URPC_MSG_WORDS*8*NB_MESSAGES;
+  connection_size = buffer_size * 2 + 2 * URPC_CHANNEL_SIZE;
 
   nb_cycles_send = 0;
   nb_cycles_recv = 0;
@@ -164,7 +167,7 @@ void IPC_initialize_producer(int _core_id)
   int i;
   for (i = 0; i < nb_receivers; i++)
   {
-    urpc_transport_create(0, shared_areas[i], connection_size, BUFFER_SIZE,
+    urpc_transport_create(0, shared_areas[i], connection_size, buffer_size,
         &conn[i], true);
   }
 
@@ -194,7 +197,7 @@ void IPC_initialize_consumer(int _core_id)
   }
 
   urpc_transport_create(core_id, shared_areas[core_id - 1], connection_size,
-      BUFFER_SIZE, consumer_connection, false);
+      buffer_size, consumer_connection, false);
 }
 
 // Clean ressources created for both the producer and the consumer.
