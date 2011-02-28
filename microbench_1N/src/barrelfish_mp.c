@@ -24,9 +24,8 @@
 
 /********** All the variables needed by Barrelfish message-passing **********/
 
-//#define NB_MESSAGES 10
 #define BUFFER_SIZE (URPC_MSG_WORDS*8*NB_MESSAGES)
-#define CONNECTION_SIZE (BUFFER_SIZE * 2 + 2 * URPC_CHANNEL_SIZE)
+//#define CONNECTION_SIZE (BUFFER_SIZE * 2 + 2 * URPC_CHANNEL_SIZE)
 
 #define MIN_MSG_SIZE (URPC_MSG_WORDS*sizeof(uint64_t))
 
@@ -34,6 +33,7 @@ static int core_id; // 0 is the producer. The others are children
 static int nb_receivers;
 static int request_size; // requests size in bytes
 static int nb_messages_in_transit; // Barrelfish requires an acknowledgement of sent messages. We send one peridically
+static size_t connection_size;
 
 static uint64_t nb_cycles_send;
 static uint64_t nb_cycles_recv;
@@ -120,6 +120,8 @@ void IPC_initialize(int _nb_receivers, int _request_size)
     request_size = MIN_MSG_SIZE;
   }
 
+  connection_size = BUFFER_SIZE * 2 + 2 * URPC_CHANNEL_SIZE;
+
   nb_cycles_send = 0;
   nb_cycles_recv = 0;
   nb_cycles_first_recv = 0;
@@ -137,7 +139,7 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   for (i = 0; i < nb_receivers; i++)
   {
     shared_areas[i] = init_shared_memory_segment(
-        "/tmp/barrelfish_message_passing_microbench", CONNECTION_SIZE, 'a' + i);
+        "/tmp/barrelfish_message_passing_microbench", connection_size, 'a' + i);
 
 #ifdef DEBUG
     printf("New shared area @ %p, len = %li\n", shared_areas[i],
@@ -162,7 +164,7 @@ void IPC_initialize_producer(int _core_id)
   int i;
   for (i = 0; i < nb_receivers; i++)
   {
-    urpc_transport_create(0, shared_areas[i], CONNECTION_SIZE, BUFFER_SIZE,
+    urpc_transport_create(0, shared_areas[i], connection_size, BUFFER_SIZE,
         &conn[i], true);
   }
 
@@ -191,7 +193,7 @@ void IPC_initialize_consumer(int _core_id)
     exit(errno);
   }
 
-  urpc_transport_create(core_id, shared_areas[core_id - 1], CONNECTION_SIZE,
+  urpc_transport_create(core_id, shared_areas[core_id - 1], connection_size,
       BUFFER_SIZE, consumer_connection, false);
 }
 
