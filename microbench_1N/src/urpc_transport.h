@@ -28,7 +28,6 @@ struct urpc_connection
 {
   struct urpc_channel *in, out;
   urpc_t sent_id, seq_id;
-  //XXX volatile urpc_t ack_id;
   urpc_t ack_id;
   urpc_t max_msgs;
   size_t chanlength_bytes;

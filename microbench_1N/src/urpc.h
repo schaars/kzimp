@@ -58,7 +58,6 @@ enum urpc_type
 struct urpc_channel
 {
   uint64_t pos; ///< Current position
-  //volatile uint64_t *buf; ///< Ring buffer
   uint64_t *buf; ///< Ring buffer
   size_t size; ///< Buffer size IN WORDS
   enum urpc_type type; ///< Channel type
@@ -82,7 +81,7 @@ struct urpc_channel
  * \param       size    Size (in bytes) of buffer. Must be multiple of 64.
  * \param       type    Channel type.
  */
-static inline void urpc_new(struct urpc_channel *c, /*volatile*/ void *buf,
+static inline void urpc_new(struct urpc_channel *c, void *buf,
     size_t size, enum urpc_type type)
 {
   assert(size % (URPC_MSG_WORDS * sizeof(uint64_t)) == 0);
@@ -132,8 +131,6 @@ static inline bool urpc_havemessage(struct urpc_channel *c)
  */
 static inline bool urpc_peek(struct urpc_channel *c, uint64_t *msg)
 {
-  int i;
-
   assert(c->type == URPC_INCOMING);
 
   if (urpc_havemessage(c))
