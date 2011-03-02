@@ -173,28 +173,22 @@ int IPC_receive(int msg_size, char *msg_id)
 
   int recv_size = -1;
   int pos;
-  while (1)
-  {
-    rdtsc(cycle_start);
-    recv_size = mpsoc_recvfrom((void**) &msg, msg_size, &pos, core_id - 1);
-    mpsoc_free(pos);
-    rdtsc(cycle_stop);
 
-    nb_cycles_recv += cycle_stop - cycle_start;
+  rdtsc(cycle_start);
+  recv_size = mpsoc_recvfrom((void**) &msg, msg_size, &pos, core_id - 1);
 
-    if (recv_size != -1)
-      break;
-    else
-      usleep(1); // 56 usec is the minumum time (on our machine) for which we can sleep
-  }
+  // get the id of the message
+  *msg_id = msg[0];
+
+  mpsoc_free(pos);
+  rdtsc(cycle_stop);
+
+  nb_cycles_recv += cycle_stop - cycle_start;
 
   if (nb_cycles_first_recv == 0)
   {
     nb_cycles_first_recv = nb_cycles_recv;
   }
-
-  // get the id of the message
-  *msg_id = msg[0];
 
 #ifdef DEBUG
   printf(

@@ -38,8 +38,9 @@ struct mpsoc_message
   size_t len;
   rwlock_t lock;
   char buf[MESSAGE_MAX_SIZE];
-  char __p[CACHE_LINE_SIZE + (MPSOC_MESSAGE_SIZE / CACHE_LINE_SIZE) * CACHE_LINE_SIZE]; // for padding
-} __attribute__((__packed__,  __aligned__(CACHE_LINE_SIZE)));
+  char __p[CACHE_LINE_SIZE + (MPSOC_MESSAGE_SIZE / CACHE_LINE_SIZE)
+      * CACHE_LINE_SIZE]; // for padding
+}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 /* what is a reader index */
 struct mpsoc_reader_index
@@ -434,43 +435,50 @@ ssize_t mpsoc_recvfrom(void **buf, size_t len, int *pos, int core_id)
   ret = -1;
   readx = &reader_indexes[core_id];
 
-  // get a *position
-  spinlock_lock(&(reader_indexes[core_id].lock));
-
-  *pos = readx->array[readx->raf];
-
-  if (*pos >= 0 && *pos < nb_msg)
+  while (1)
   {
-    readx->array[readx->raf] = -1;
-    readx->raf = (readx->raf + 1) % nb_msg;
-  }
+    // get a position
+    spinlock_lock(&(reader_indexes[core_id].lock));
 
-  spinlock_unlock(&(reader_indexes[core_id].lock));
+    *pos = readx->array[readx->raf];
 
-  if (*pos >= 0 && *pos < nb_msg)
-  {
-    // get a message at *position *pos
-    mpsoc_rw_readerlock(*pos);
-
-    if (messages[*pos].bitmap & (1 << core_id))
+    if (*pos >= 0 && *pos < nb_msg)
     {
-      ret = min(messages[*pos].len, len);
-      *buf = messages[*pos].buf;
-      messages[*pos].bitmap &= ~(1 << core_id);
-
-      if (messages[*pos].bitmap == 0)
-      {
-        if (__sync_fetch_and_sub(&(block_ops_send->value), 1) == nb_msg)
-        {
-          sem_post(&(block_ops_send->semaphore));
-        }
-      }
+      readx->array[readx->raf] = -1;
+      readx->raf = (readx->raf + 1) % nb_msg;
     }
 
-    //mpsoc_rw_readerunlock(*pos);
-  }
+    spinlock_unlock(&(reader_indexes[core_id].lock));
 
-  return ret;
+    if (*pos >= 0 && *pos < nb_msg)
+    {
+      // get a message at position *pos
+      mpsoc_rw_readerlock(*pos);
+
+      if (messages[*pos].bitmap & (1 << core_id))
+      {
+        ret = min(messages[*pos].len, len);
+        *buf = messages[*pos].buf;
+        messages[*pos].bitmap &= ~(1 << core_id);
+
+        if (messages[*pos].bitmap == 0)
+        {
+          if (__sync_fetch_and_sub(&(block_ops_send->value), 1) == nb_msg)
+          {
+            sem_post(&(block_ops_send->semaphore));
+          }
+        }
+      }
+
+      //mpsoc_rw_readerunlock(*pos);
+
+      return ret;
+    }
+
+    //XXX: how to sleep
+    usleep(1);
+    //__asm__ __volatile__("nop");
+  }
 }
 
 /*

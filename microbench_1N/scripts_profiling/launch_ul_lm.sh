@@ -38,8 +38,8 @@ fi
 touch /tmp/ul_lm_0copy_microbenchmark
 
 # modify shared mem parameters
-sudo ./root_set_value.sh 10000000000 /proc/sys/kernel/shmall
-sudo ./root_set_value.sh 10000000000 /proc/sys/kernel/shmmax
+sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmall
+sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmmax
 
 # recompile with message size
 echo "-DNB_MESSAGES=$MAX_NB_MSG -DMESSAGE_MAX_SIZE=$MSG_SIZE" > UL_LM_0COPY_PROPERTIES
