@@ -30,10 +30,6 @@ fi
 
 ./stop_all.sh
 
-# recompile with message size
-echo "-DMESSAGE_MAX_SIZE=$MSG_SIZE" > UNIX_SOCKETS_PROPERTIES
-make unix_microbench
-
 # modify the max number of datagrams
 sudo ./root_set_value.sh $NB_DATAGRAMS /proc/sys/net/unix/max_dgram_qlen
 

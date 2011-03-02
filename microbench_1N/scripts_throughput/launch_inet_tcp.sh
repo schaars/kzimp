@@ -28,10 +28,6 @@ fi
 
 ./stop_all.sh
 
-# recompile with message size
-echo "-DMESSAGE_MAX_SIZE=$MSG_SIZE -DTCP_NAGLE" > INET_TCP_PROPERTIES
-make inet_tcp_microbench
-
 sudo sysctl -p inet_sysctl.conf
 
 # wait for TIME_WAIT connections

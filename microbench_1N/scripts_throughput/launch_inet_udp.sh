@@ -43,11 +43,10 @@ fi
 
 ./stop_all.sh
 
-# recompile with message size
 if [ -z $MULTICAST ]; then
-echo "-DMESSAGE_MAX_SIZE=$MSG_SIZE" > INET_UDP_PROPERTIES
+echo "" > INET_UDP_PROPERTIES
 else
-echo "-DMESSAGE_MAX_SIZE=$MSG_SIZE -DIP_MULTICAST" > INET_UDP_PROPERTIES
+echo "-DIP_MULTICAST" > INET_UDP_PROPERTIES
 fi
 make inet_udp_microbench
 
