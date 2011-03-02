@@ -10,7 +10,10 @@
 NB_THREADS_PER_CORE=2
 START_PORT=6001
 if [ -z $YIELD_COUNT ]; then
-   YIELD_COUNT=1
+   YIELD_COUNT=10
+fi
+if [ -z $SLEEP_DURATION ]; then
+   SLEEP_DURATION=1
 fi
 if [ -z $MULTICAST_MASK ]; then
    MULTICAST_MASK="0xffffffff"
@@ -41,7 +44,7 @@ fi
 # activate Local Multicast
 END_PORT=$(( $START_PORT + $NB_CONSUMERS - 1 ))
 if [ -e /proc/local_multicast ]; then
-   sudo ./root_set_value.sh "$START_PORT $END_PORT $SIZE_BUFFER_LM $YIELD_COUNT $MULTICAST_MASK" /proc/local_multicast
+   sudo ./root_set_value.sh "$START_PORT $END_PORT $SIZE_BUFFER_LM $YIELD_COUNT $SLEEP_DURATION $MULTICAST_MASK" /proc/local_multicast
 else
    echo "You need a kernel compiled with Local Multicast. Aborting."
    exit 0

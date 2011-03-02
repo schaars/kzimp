@@ -61,7 +61,6 @@ mv statistics*.log $OUTPUT_DIR/
 
 sudo chown bft:bft /tmp/perf.data.*
 
-# for the consumers
 str=""
 for c in $(seq 0 ${NB_CONSUMERS}); do
    cid=$(( $c * $NB_THREADS_PER_CORE ))

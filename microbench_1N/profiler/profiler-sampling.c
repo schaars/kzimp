@@ -6,7 +6,7 @@
 // 0 -> several stuff but memory access
 // 1 -> memory access, L3 cache stuff
 // 2 -> memory access, L1D and L2 cache stuff
-#define TYPE_OF_EVENTS 2
+#define TYPE_OF_EVENTS 0
 
 int ncpus;
 int callgraph = 0;
@@ -17,21 +17,21 @@ static event_t default_events[] = {
     .name = "CLK_UNHALTED",
     .type = PERF_TYPE_HARDWARE,
     .config = PERF_COUNT_HW_CPU_CYCLES,
-    .sampling_period = 100000,
+    .sampling_period = 1000000,
     .exclude_user = 0,
   },
   {
     .name = "INSTRUCTIONS",
     .type = PERF_TYPE_HARDWARE,
     .config = PERF_COUNT_HW_INSTRUCTIONS,
-    .sampling_period = 100000,
+    .sampling_period = 1000000,
     .exclude_user = 0,
   },
   {
     .name = "UNHALTED_CPU_CLK",
     .type = PERF_TYPE_RAW,
     .config = 0x000000003c,
-    .sampling_period = 100000,
+    .sampling_period = 1000000,
     .exclude_user = 0,
   },
 //{
@@ -45,7 +45,7 @@ static event_t default_events[] = {
     .name = "CONTEXT_SWITCHES",
     .type = PERF_TYPE_SOFTWARE,
     .config = PERF_COUNT_SW_CONTEXT_SWITCHES,
-    .sampling_period = 10000,
+    .sampling_period = 1000000,
     .exclude_user = 0,
   },
 
@@ -88,14 +88,14 @@ static event_t default_events[] = {
   .name = "MEM_INST_RETIRED.LOADS",
   .type = PERF_TYPE_RAW,
   .config = 0x000000010B,
-  .sampling_period = 10000,
+  .sampling_period = 100000,
   .exclude_user = 0,
   },
   {
   .name = "MEM_LOAD_RETIRED.L1D_HIT",
   .type = PERF_TYPE_RAW,
   .config = 0x00000001CB,
-  .sampling_period = 10000,
+  .sampling_period = 100000,
   .exclude_user = 0,
   },
 
@@ -104,14 +104,14 @@ static event_t default_events[] = {
   .name = "L2_RQSTS.MISS",
   .type = PERF_TYPE_RAW,
   .config = 0x000000AA24,
-  .sampling_period = 10000,
+  .sampling_period = 100000,
   .exclude_user = 0,
   },
   {
   .name = "L2_RQSTS.REFERENCES",
   .type = PERF_TYPE_RAW,
   .config = 0x000000FF24,
-  .sampling_period = 10000,
+  .sampling_period = 100000,
   .exclude_user = 0,
   },
 #endif
