@@ -77,9 +77,8 @@ mv statistics*.log $OUTPUT_DIR/
 
 sudo chown bft:bft /tmp/perf.data.*
 
-# for the consumers
 for e in 0 1 2 3; do
    ./profiler/parser-sampling /tmp/perf.data.* --base-event ${e} > $OUTPUT_DIR/perf_everyone_event_${e}.log
 done
 
-rm /tmp/perf.data.* -f
+#rm /tmp/perf.data.* -f
