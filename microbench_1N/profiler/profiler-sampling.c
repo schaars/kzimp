@@ -88,14 +88,14 @@ static event_t default_events[] = {
   .name = "MEM_INST_RETIRED.LOADS",
   .type = PERF_TYPE_RAW,
   .config = 0x000000010B,
-  .sampling_period = 10000,
+  .sampling_period = 100000,
   .exclude_user = 0,
   },
   {
   .name = "MEM_LOAD_RETIRED.L1D_HIT",
   .type = PERF_TYPE_RAW,
   .config = 0x00000001CB,
-  .sampling_period = 10000,
+  .sampling_period = 100000,
   .exclude_user = 0,
   },
 
@@ -104,14 +104,14 @@ static event_t default_events[] = {
   .name = "L2_RQSTS.MISS",
   .type = PERF_TYPE_RAW,
   .config = 0x000000AA24,
-  .sampling_period = 10000,
+  .sampling_period = 100000,
   .exclude_user = 0,
   },
   {
   .name = "L2_RQSTS.REFERENCES",
   .type = PERF_TYPE_RAW,
   .config = 0x000000FF24,
-  .sampling_period = 10000,
+  .sampling_period = 100000,
   .exclude_user = 0,
   },
 #endif
