@@ -20,25 +20,15 @@ uint64_t nb_syscalls_recv;
 
 int recvMsg(int s, void *buf, size_t len, uint64_t *nb_cycles)
 {
-#ifdef COMPUTE_CYCLES
   uint64_t cycle_start, cycle_stop;
-#endif
-
   int len_tmp = 0;
   int n;
 
   do
   {
-#ifdef COMPUTE_CYCLES
     rdtsc(cycle_start);
-#endif
-
     n = recv(s, &(((char *) buf)[len_tmp]), len - len_tmp, 0);
-
-#ifdef COMPUTE_CYCLES
     rdtsc(cycle_stop);
-    *nb_cycles += cycle_stop - cycle_start;
-#endif
 
     if (n == -1)
     {
@@ -48,7 +38,11 @@ int recvMsg(int s, void *buf, size_t len, uint64_t *nb_cycles)
 
 #ifdef INET_SYSCALLS_MEASUREMENT
     nb_syscalls_recv++;
+
+    //printf("recv_size= %i\n", n);
 #endif
+
+    *nb_cycles += cycle_stop - cycle_start;
 
     len_tmp = len_tmp + n;
   } while (len_tmp < len);
@@ -58,26 +52,16 @@ int recvMsg(int s, void *buf, size_t len, uint64_t *nb_cycles)
 
 void sendMsg(int s, void *msg, int size, uint64_t *nb_cycles)
 {
-#ifdef COMPUTE_CYCLES
   uint64_t cycle_start, cycle_stop;
-#endif
-
   int total = 0; // how many bytes we've sent
   int bytesleft = size; // how many we have left to send
   int n = -1;
 
   while (total < size)
   {
-#ifdef COMPUTE_CYCLES
     rdtsc(cycle_start);
-#endif
-
     n = send(s, (char*) msg + total, bytesleft, 0);
-
-#ifdef COMPUTE_CYCLES
     rdtsc(cycle_stop);
-    *nb_cycles += cycle_stop - cycle_start;
-#endif
 
     if (n == -1)
     {
@@ -88,6 +72,8 @@ void sendMsg(int s, void *msg, int size, uint64_t *nb_cycles)
 #ifdef INET_SYSCALLS_MEASUREMENT
     nb_syscalls_send++;
 #endif
+
+    *nb_cycles += cycle_stop - cycle_start;
 
     total += n;
     bytesleft -= n;

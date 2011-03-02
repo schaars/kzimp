@@ -164,12 +164,24 @@ uint64_t get_cycles_recv()
 // The message id will be msg_id
 void IPC_sendToAll(int msg_size, char msg_id)
 {
-#ifdef COMPUTE_CYCLES
   uint64_t cycle_start, cycle_stop;
-#endif
   int i;
-  char msg[MESSAGE_MAX_SIZE];
+  char *msg;
 
+  if (msg_size < MIN_MSG_SIZE)
+  {
+    msg_size = MIN_MSG_SIZE;
+  }
+
+  msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
+  if (!msg)
+  {
+    perror("IPC_sendToAll allocation error! ");
+    exit(errno);
+  }
+
+  // malloc is lazy: the pages may not be really allocated yet.
+  // We force the allocation and the fetch of the pages with bzero
   bzero(msg, msg_size);
 
   msg[0] = msg_id;
@@ -189,18 +201,16 @@ void IPC_sendToAll(int msg_size, char msg_id)
     {
       to_send = MIN(msg_size - sent, UDP_SEND_MAX_SIZE);
 
-#ifdef COMPUTE_CYCLES
       rdtsc(cycle_start);
-#endif
       sent += sendto(sock, msg + sent, to_send, 0,
           (struct sockaddr*) &addresses[i], sizeof(addresses[i]));
-#ifdef COMPUTE_CYCLES
       rdtsc(cycle_stop);
-      nb_cycles_send += cycle_stop - cycle_start;
-#endif
 
+      nb_cycles_send += cycle_stop - cycle_start;
     }
   }
+
+  free(msg);
 }
 
 // Get a message for this core
@@ -208,7 +218,19 @@ void IPC_sendToAll(int msg_size, char msg_id)
 // Place in *msg_id the id of this message
 int IPC_receive(int msg_size, char *msg_id)
 {
-  char msg[MESSAGE_MAX_SIZE];
+  char *msg;
+
+  if (msg_size < MIN_MSG_SIZE)
+  {
+    msg_size = MIN_MSG_SIZE;
+  }
+
+  msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
+  if (!msg)
+  {
+    perror("IPC_receive allocation error! ");
+    exit(errno);
+  }
 
 #ifdef DEBUG
   printf("Waiting for a new message\n");
@@ -221,22 +243,17 @@ int IPC_receive(int msg_size, char *msg_id)
   int recv_size = 0;
   while (recv_size < msg_size)
   {
-#ifdef COMPUTE_CYCLES
     rdtsc(cycle_start);
-#endif
     recv_size += recvfrom(sock, msg + recv_size, msg_size - recv_size, 0, 0, 0);
-#ifdef COMPUTE_CYCLES
     rdtsc(cycle_stop);
+
     nb_cycles_recv += cycle_stop - cycle_start;
-#endif
   }
 
-#ifdef COMPUTE_CYCLES
   if (nb_cycles_first_recv == 0)
   {
     nb_cycles_first_recv = nb_cycles_recv;
   }
-#endif
 
   // get the id of the message
   *msg_id = msg[0];
@@ -246,6 +263,8 @@ int IPC_receive(int msg_size, char *msg_id)
       "[consumer %i] received message %i of size %i, should be %i\n",
       core_id, *msg_id, recv_size, msg_size);
 #endif
+
+  free(msg);
 
   if (recv_size == msg_size)
   {
