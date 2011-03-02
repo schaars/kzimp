@@ -39,7 +39,7 @@ struct mpsoc_reader_index
 {
   int raf; // read_at_first
   int ral; // read at last
-  int array[MESSAGE_MAX_SIZE];
+  int array[NB_MESSAGES];
   char __p[CACHE_LINE_SIZE + ((MESSAGE_MAX_SIZE + 3 * sizeof(int))
       / CACHE_LINE_SIZE) * CACHE_LINE_SIZE];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
