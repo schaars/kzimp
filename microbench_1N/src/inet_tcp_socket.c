@@ -21,10 +21,6 @@
 #define DEBUG
 #undef DEBUG
 
-// define TCP_NAGLE if you want to enable TCP_NODELAY
-#define TCP_NAGLE
-//#undef TCP_NAGLE
-
 /********** All the variables needed by TCP sockets **********/
 
 #define BOOTSTRAP_PORT 4242
@@ -266,7 +262,12 @@ uint64_t get_cycles_recv()
 void IPC_sendToAll(int msg_size, char msg_id)
 {
   int i;
-  char msg[MESSAGE_MAX_SIZE];
+  char *msg;
+
+  if (msg_size < MIN_MSG_SIZE)
+  {
+    msg_size = MIN_MSG_SIZE;
+  }
 
   msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
   if (!msg)
@@ -300,7 +301,12 @@ void IPC_sendToAll(int msg_size, char msg_id)
 // Place in *msg_id the id of this message
 int IPC_receive(int msg_size, char *msg_id)
 {
-  char msg[MESSAGE_MAX_SIZE];
+  char *msg;
+
+  if (msg_size < MIN_MSG_SIZE)
+  {
+    msg_size = MIN_MSG_SIZE;
+  }
 
   msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
   if (!msg)

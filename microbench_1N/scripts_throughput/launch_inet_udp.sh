@@ -43,6 +43,13 @@ fi
 
 ./stop_all.sh
 
+if [ -z $MULTICAST ]; then
+echo "" > INET_UDP_PROPERTIES
+else
+echo "-DIP_MULTICAST" > INET_UDP_PROPERTIES
+fi
+make inet_udp_microbench
+
 # deactivate Local Multicast if present
 if [ -e /proc/local_multicast ]; then
    sudo ./root_set_value.sh "0 0 0" /proc/local_multicast
@@ -51,11 +58,7 @@ fi
 sudo sysctl -p inet_sysctl.conf
 
 # launch XP
-if [ -z $MULTICAST ]; then
-   ./bin/inet_udp_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
-else
-   ./bin/inet_udp_multicast_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
-fi
+./bin/inet_udp_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
 
 ./stop_all.sh
 

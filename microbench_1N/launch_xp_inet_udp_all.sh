@@ -10,7 +10,7 @@ for num_consumers in ${NUM_CONSUMERS_ARRAY[@]}; do
 
 	for i in $(seq 0 $(( ${#MSG_SIZE_ARRAY[@]}-1 )) ); do
 
-		echo "===== $num_consumers consumers, ${XP_DURATION} secondes, msg size is ${MSG_SIZE_ARRAY[$i]}B ====="
+		echo "===== $(date) $num_consumers consumers, ${XP_DURATION} secondes, msg size is ${MSG_SIZE_ARRAY[$i]}B ====="
 		./launch_inet_udp.sh $num_consumers ${MSG_SIZE_ARRAY[$i]} ${XP_DURATION}
 
 	done

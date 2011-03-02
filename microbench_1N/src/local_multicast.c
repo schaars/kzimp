@@ -140,7 +140,12 @@ uint64_t get_cycles_recv()
 void IPC_sendToAll(int msg_size, char msg_id)
 {
   uint64_t cycle_start, cycle_stop;
-  char msg[MESSAGE_MAX_SIZE];
+  char *msg;
+
+  if (msg_size < MIN_MSG_SIZE)
+  {
+    msg_size = MIN_MSG_SIZE;
+  }
 
   msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
   if (!msg)
@@ -165,14 +170,10 @@ void IPC_sendToAll(int msg_size, char msg_id)
 
   while (sent < msg_size)
   {
-  #ifdef COMPUTE_CYCLES
-  rdtsc(cycle_start);
-#endif
+    rdtsc(cycle_start);
     sent += sendto(sock, msg, msg_size, 0, (struct sockaddr*) &multicast_addr,
         sizeof(multicast_addr));
-  #ifdef COMPUTE_CYCLES
-  rdtsc(cycle_stop);
-#endif
+    rdtsc(cycle_stop);
 
     nb_cycles_send += cycle_stop - cycle_start;
   }
@@ -185,7 +186,12 @@ void IPC_sendToAll(int msg_size, char msg_id)
 // Place in *msg_id the id of this message
 int IPC_receive(int msg_size, char *msg_id)
 {
-  char msg[MESSAGE_MAX_SIZE];
+  char *msg;
+
+  if (msg_size < MIN_MSG_SIZE)
+  {
+    msg_size = MIN_MSG_SIZE;
+  }
 
   msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
   if (!msg)
@@ -206,14 +212,10 @@ int IPC_receive(int msg_size, char *msg_id)
   int recv_size = 0;
   while (recv_size < msg_size)
   {
-  #ifdef COMPUTE_CYCLES
-  rdtsc(cycle_start);
-#endif
+    rdtsc(cycle_start);
     recv_size += recvfrom(sock, msg + recv_size, msg_size - recv_size,
         MSG_DONTWAIT, 0, 0);
-  #ifdef COMPUTE_CYCLES
-  rdtsc(cycle_stop);
-#endif
+    rdtsc(cycle_stop);
 
     nb_cycles_recv += cycle_stop - cycle_start;
   }

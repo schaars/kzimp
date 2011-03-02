@@ -245,7 +245,12 @@ void IPC_sendToAll(int msg_size, char msg_id)
 {
   uint64_t cycle_start, cycle_stop;
   int i;
-  char msg[MESSAGE_MAX_SIZE];
+  char *msg;
+
+  if (msg_size < MIN_MSG_SIZE)
+  {
+    msg_size = MIN_MSG_SIZE;
+  }
 
   msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
   if (!msg)
@@ -269,13 +274,9 @@ void IPC_sendToAll(int msg_size, char msg_id)
   for (i = 0; i < nb_receivers; i++)
   {
     // writing the content
-  #ifdef COMPUTE_CYCLES
-  rdtsc(cycle_start);
-#endif
+    rdtsc(cycle_start);
     urpc_transport_send(&conn[i], msg, URPC_MSG_WORDS);
-  #ifdef COMPUTE_CYCLES
-  rdtsc(cycle_stop);
-#endif
+    rdtsc(cycle_stop);
 
     nb_cycles_send += cycle_stop - cycle_start;
   }
@@ -321,14 +322,10 @@ int IPC_receive(int msg_size, char *msg_id)
 
   uint64_t cycle_start, cycle_stop;
 
-#ifdef COMPUTE_CYCLES
   rdtsc(cycle_start);
-#endif
   int recv_size = urpc_transport_recv(consumer_connection, (void*) msg,
       URPC_MSG_WORDS);
-#ifdef COMPUTE_CYCLES
   rdtsc(cycle_stop);
-#endif
 
   nb_cycles_recv += cycle_stop - cycle_start;
   if (nb_cycles_first_recv == 0)

@@ -12,7 +12,7 @@ for num_msg_channel in ${NUM_MSG_CHANNEL_ARRAY[@]}; do
 
       for i in $(seq 0 $(( ${#MSG_SIZE_ARRAY[@]}-1 )) ); do
 
-         echo "===== $num_consumers consumers, ${XP_DURATION} secondes, msg size is ${MSG_SIZE_ARRAY[$i]}B, $num_msg_channel messages in channel ====="
+         echo "===== $(date) $num_consumers consumers, ${XP_DURATION} secondes, msg size is ${MSG_SIZE_ARRAY[$i]}B, $num_msg_channel messages in channel ====="
          ./launch_ul_lm.sh $num_consumers ${MSG_SIZE_ARRAY[$i]} ${XP_DURATION} $num_msg_channel
 
       done
