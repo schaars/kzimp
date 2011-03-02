@@ -2,8 +2,8 @@ toplevel:
 	-mkdir -p bin
 	-$(MAKE) $(MLAGS) all
 
-all: inet_tcp_microbench inet_udp_microbench inet_udp_multicast_microbench unix_microbench \
-	 pipe_microbench pipe_vmsplice_microbench ipc_msg_queue_microbench posix_msg_queue_microbench \
+all: inet_tcp_microbench inet_udp_microbench unix_microbench pipe_microbench \
+	 pipe_vmsplice_microbench ipc_msg_queue_microbench posix_msg_queue_microbench \
 	 barrelfish_message_passing local_multicast_microbench ul_lm_0copy_microbench
 
 C:=gcc
@@ -16,10 +16,6 @@ inet_tcp_microbench: $(DEPS) src/tcp_net.c src/inet_tcp_socket.c
 
 inet_udp_microbench: $(DEPS) src/inet_udp_socket.c
 	$(shell if [ ! -e INET_UDP_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=10000" > INET_UDP_PROPERTIES; fi)
-	$(C) $(CFLAGS) $(shell cat INET_UDP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
-
-inet_udp_multicast_microbench: $(DEPS) src/inet_udp_socket.c
-	$(shell if [ ! -e INET_UDP_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=10000 -DIP_MULTICAST" > INET_UDP_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat INET_UDP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 
 unix_microbench: $(DEPS) src/unix_socket.c
@@ -72,7 +68,6 @@ clobber:
 	-rm *~
 	-rm bin/inet_tcp_microbench
 	-rm bin/inet_udp_microbench
-	-rm bin/inet_udp_multicast_microbench
 	-rm bin/unix_microbench
 	-rm bin/pipe_microbench
 	-rm bin/pipe_vmsplice_microbench
