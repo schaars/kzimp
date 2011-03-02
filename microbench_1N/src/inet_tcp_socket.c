@@ -21,10 +21,6 @@
 #define DEBUG
 #undef DEBUG
 
-// define TCP_NAGLE if you want to enable TCP_NODELAY
-#define TCP_NAGLE
-//#undef TCP_NAGLE
-
 /********** All the variables needed by TCP sockets **********/
 
 #define BOOTSTRAP_PORT 4242
@@ -268,15 +264,6 @@ void IPC_sendToAll(int msg_size, char msg_id)
   int i;
   char msg[MESSAGE_MAX_SIZE];
 
-  msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
-  if (!msg)
-  {
-    perror("IPC_sendToAll allocation error! ");
-    exit(errno);
-  }
-
-  // malloc is lazy: the pages may not be really allocated yet.
-  // We force the allocation and the fetch of the pages with bzero
   bzero(msg, msg_size);
 
   msg[0] = msg_id;
@@ -291,8 +278,6 @@ void IPC_sendToAll(int msg_size, char msg_id)
   {
     sendMsg(sockets[i], msg, msg_size, &nb_cycles_send);
   }
-
-  free(msg);
 }
 
 // Get a message for this core
@@ -301,13 +286,6 @@ void IPC_sendToAll(int msg_size, char msg_id)
 int IPC_receive(int msg_size, char *msg_id)
 {
   char msg[MESSAGE_MAX_SIZE];
-
-  msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
-  if (!msg)
-  {
-    perror("IPC_receive allocation error! ");
-    exit(errno);
-  }
 
 #ifdef DEBUG
   printf("Waiting for a new message\n");
@@ -330,11 +308,13 @@ int IPC_receive(int msg_size, char *msg_id)
     s = recvMsg(sockets[0], (void*) (msg + header_size), left, &nb_cycles_recv);
   }
 
+#ifdef COMPUTE_CYCLES
   // forget the first message (this message is not counted in the statistics)
   if (nb_cycles_first_recv == 0)
   {
     nb_cycles_first_recv = nb_cycles_recv;
   }
+#endif
 
 #ifdef INET_SYSCALLS_MEASUREMENT
   if (nb_syscalls_first_recv == 0)
@@ -350,8 +330,6 @@ int IPC_receive(int msg_size, char *msg_id)
   printf("[consumer %i] received message %i of size %i, should be %i\n",
       core_id, *msg_id, s + header_size, msg_size);
 #endif
-
-  free(msg);
 
   if (s + header_size == msg_size)
   {

@@ -11,7 +11,7 @@ CFLAGS:=-Wall -Werror -g -lm -ltcmalloc
 DEPS:=src/microbench.c
 
 inet_tcp_microbench: $(DEPS) src/tcp_net.c src/inet_tcp_socket.c 
-	$(shell if [ ! -e INET_TCP_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=10000" > INET_TCP_PROPERTIES; fi)
+	$(shell if [ ! -e INET_TCP_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=10000 -DTCP_NAGLE" > INET_TCP_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat INET_TCP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 
 inet_udp_microbench: $(DEPS) src/inet_udp_socket.c
