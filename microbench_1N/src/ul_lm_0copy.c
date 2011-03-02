@@ -162,6 +162,15 @@ int IPC_receive(int msg_size, char *msg_id)
     msg_size = MIN_MSG_SIZE;
   }
 
+#ifndef ZERO_COPY
+  msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
+  if (!msg)
+  {
+    perror("IPC_receive allocation error! ");
+    exit(errno);
+  }
+#endif
+
 #ifdef DEBUG
   printf("Waiting for a new message\n");
 #endif
@@ -172,37 +181,45 @@ int IPC_receive(int msg_size, char *msg_id)
   uint64_t cycle_start, cycle_stop;
 
   int recv_size = -1;
+
+#ifdef ZERO_COPY
   int pos;
+#endif
+
   while (1)
   {
     rdtsc(cycle_start);
+
+#ifdef ZERO_COPY
     recv_size = mpsoc_recvfrom((void**) &msg, msg_size, &pos, core_id - 1);
+#else
+    recv_size = mpsoc_recvfrom(msg, msg_size, core_id - 1);
+#endif
+
     rdtsc(cycle_stop);
 
-    uint64_t cycles_tmp = cycle_stop - cycle_start;
+    nb_cycles_recv += cycle_stop - cycle_start;
 
     if (recv_size != -1)
     {
       *msg_id = msg[0];
 
+#ifdef ZERO_COPY
       rdtsc(cycle_start);
       mpsoc_free(pos, core_id - 1);
       rdtsc(cycle_stop);
 
-      nb_cycles_recv += cycles_tmp + cycle_stop - cycle_start;
+      nb_cycles_recv += cycle_stop - cycle_start;
+#endif
 
       break;
     }
     else
     {
-      nb_cycles_recv += cycles_tmp;
-
       //XXX sleep
       //usleep(1);
       __asm__ __volatile__("nop");
     }
-
-
   }
 
   if (nb_cycles_first_recv == 0)
@@ -210,13 +227,14 @@ int IPC_receive(int msg_size, char *msg_id)
     nb_cycles_first_recv = nb_cycles_recv;
   }
 
-  // get the id of the message
-  //*msg_id = msg[0];
-
 #ifdef DEBUG
   printf(
       "[consumer %i] received message %i of size %i, should be %i\n",
       core_id, *msg_id, recv_size, msg_size);
+#endif
+
+#ifndef ZERO_COPY
+  free(msg);
 #endif
 
   if (recv_size == msg_size)

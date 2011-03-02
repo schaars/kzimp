@@ -26,6 +26,8 @@ void* mpsoc_alloc(size_t len, int *nw);
  */
 ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest);
 
+#ifdef ZERO_COPY
+
 /*
  * Read len bytes into *buf.
  * Give the id of the caller (from 0 to nb_readers-1) as an argument
@@ -38,6 +40,17 @@ ssize_t mpsoc_recvfrom(void **buf, size_t len, int *pos, int core_id);
  * return the lock at position pos in the circular buffer
  */
 void mpsoc_free(int pos, int core_id);
+
+#else
+
+/*
+ * Copy len bytes into buf.
+ * Give the id of the caller (from 0 to nb_readers-1) as an argument
+ * Returns the number of bytes read or -1 for errors
+ */
+ssize_t mpsoc_recvfrom(void *buf, size_t len, int core_id);
+
+#endif
 
 // destroys the shared area
 void mpsoc_destroy(void);
