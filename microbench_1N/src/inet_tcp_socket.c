@@ -21,9 +21,13 @@
 #define DEBUG
 #undef DEBUG
 
+// define TCP_NAGLE if you want to enable TCP_NODELAY
+#define TCP_NAGLE
+//#undef TCP_NAGLE
+
 /********** All the variables needed by TCP sockets **********/
 
-#define BOOTSTRAP_PORT 6000
+#define BOOTSTRAP_PORT 4242
 
 #define MIN_MSG_SIZE (sizeof(char))
 
@@ -73,7 +77,11 @@ void IPC_initialize_producer(int _core_id)
 {
   int bootstrap_socket;
   struct sockaddr_in bootstrap_sin;
-  int i, flag;
+  int i;
+
+#ifdef TCP_NAGLE
+  int flag;
+#endif
 
   core_id = _core_id;
 
@@ -86,6 +94,7 @@ void IPC_initialize_producer(int _core_id)
   }
 
   // TCP NO DELAY
+#ifdef TCP_NAGLE
   flag = 1;
   int result = setsockopt(bootstrap_socket, IPPROTO_TCP, TCP_NODELAY,
       (char*) &flag, sizeof(int));
@@ -93,6 +102,7 @@ void IPC_initialize_producer(int _core_id)
   {
     perror("[IPC_initialize_producer] Error while setting TCP NO DELAY! ");
   }
+#endif
 
   // bind
   bootstrap_sin.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -135,6 +145,7 @@ void IPC_initialize_producer(int _core_id)
     }
 
     // TCP NO DELAY
+#ifdef TCP_NAGLE
     int flag = 1;
     int result = setsockopt(sockets[i], IPPROTO_TCP, TCP_NODELAY,
         (char *) &flag, sizeof(int));
@@ -143,6 +154,7 @@ void IPC_initialize_producer(int _core_id)
       perror(
           "[IPC_initialize_producer] Error while setting TCP NO DELAY for accepted socket! ");
     }
+#endif
 
 #ifdef DEBUG
     // print some information about the accepted connection
@@ -176,6 +188,7 @@ void IPC_initialize_consumer(int _core_id)
   }
 
   // TCP NO DELAY
+#ifdef TCP_NAGLE
   int flag = 1;
   int result = setsockopt(sockets[0], IPPROTO_TCP, TCP_NODELAY, (char*) &flag,
       sizeof(int));
@@ -183,6 +196,7 @@ void IPC_initialize_consumer(int _core_id)
   {
     perror("[IPC_initialize_consumer] Error while setting TCP NO DELAY! ");
   }
+#endif
 
   // connect to producer
   struct sockaddr_in addr;
