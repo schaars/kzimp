@@ -77,9 +77,15 @@ mv statistics*.log $OUTPUT_DIR/
 
 sudo chown bft:bft /tmp/perf.data.*
 
-# for the consumers
-for e in 0 1 2 3; do
-   ./profiler/parser-sampling /tmp/perf.data.* --base-event ${e} > $OUTPUT_DIR/perf_everyone_event_${e}.log
+str=""
+for c in $(seq 0 ${NB_CONSUMERS}); do
+   cid=$(( $c * $NB_THREADS_PER_CORE ))
+   str="$str --c $cid"
 done
 
-rm /tmp/perf.data.* -f
+
+for e in 0 1 2 3; do
+   ./profiler/parser-sampling /tmp/perf.data.* ${str} --base-event ${e} > $OUTPUT_DIR/perf_everyone_event_${e}.log
+done
+
+#rm /tmp/perf.data.* -f
