@@ -37,7 +37,7 @@ ssize_t mpsoc_recvfrom(void **buf, size_t len, int *pos, int core_id);
 /*
  * return the lock at position pos in the circular buffer
  */
-void mpsoc_free(int pos);
+void mpsoc_free(int pos, int core_id);
 
 // destroys the shared area
 void mpsoc_destroy(void);

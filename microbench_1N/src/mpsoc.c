@@ -356,35 +356,24 @@ int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
  */
 void* mpsoc_alloc(size_t len, int *nw)
 {
-/*
-  while (__sync_fetch_and_add(&(block_ops_send->value), 0) == nb_msg)
-  {
-    sem_wait(&(block_ops_send->semaphore));
-  }
-*/
-
+  // this lock is mandatory, otherwise we cannot apply the modulo operator in an atomic way
   spinlock_lock(writer_lock);
   *nw = *next_write;
   *next_write = (*next_write + 1) % nb_msg;
   spinlock_unlock(writer_lock);
 
-//printf("WRITER The bitmap was %x\n", messages[*nw].bitmap);
 
-while (messages[*nw].bitmap != 0) {
-//XXX sleep
-//usleep(1);
-__asm__ __volatile__("nop");
-}
+  while (messages[*nw].bitmap != 0) {
+    //XXX sleep
+    //usleep(1);
+    __asm__ __volatile__("nop");
+  }
 
-  mpsoc_rw_writerlock(*nw);
+  //mpsoc_rw_writerlock(*nw);
 
   //add message
-  messages[*nw].bitmap = 0;
+  //messages[*nw].bitmap = 0;
   messages[*nw].len = min(len, MESSAGE_MAX_SIZE);
-
-  //__sync_fetch_and_add(&(block_ops_send->value), 1);
-
- // printf("WRITER New message at %i\n", *nw);
 
   return (void*) (messages[*nw].buf);
 }
@@ -407,30 +396,23 @@ ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
 
     for (i = 0; i < nb_replicas; i++)
     {
-      //spinlock_lock(&(reader_indexes[i].lock));
-
       readx = &reader_indexes[i];
       int new_pos = (readx->ral + 1) % nb_msg;
       readx->array[new_pos] = nw;
       readx->ral = new_pos;
-
-      //spinlock_unlock(&(reader_indexes[i].lock));
     }
   }
   else
   {
     messages[nw].bitmap = (1 << dest);
 
-    spinlock_lock(&(reader_indexes[dest].lock));
-
     readx = &reader_indexes[dest];
-    readx->ral = (readx->ral + 1) % nb_msg;
-    readx->array[readx->ral] = nw;
-
-    spinlock_unlock(&(reader_indexes[dest].lock));
+    int new_pos = (readx->ral + 1) % nb_msg;
+    readx->array[new_pos] = nw;
+    readx->ral = new_pos;
   }
 
-  mpsoc_rw_writerunlock(nw);
+  //mpsoc_rw_writerunlock(nw);
 
   return ret;
 }
@@ -447,10 +429,8 @@ ssize_t mpsoc_recvfrom(void **buf, size_t len, int *pos, int core_id)
   struct mpsoc_reader_index *readx;
 
   ret = -1;
-  readx = &reader_indexes[core_id];
 
-  // get a position
-  //spinlock_lock(&(reader_indexes[core_id].lock));
+  readx = &reader_indexes[core_id];
 
   *pos = readx->array[readx->raf];
 
@@ -458,40 +438,16 @@ ssize_t mpsoc_recvfrom(void **buf, size_t len, int *pos, int core_id)
   {
     readx->array[readx->raf] = -1;
     readx->raf = (readx->raf + 1) % nb_msg;
-  }
 
-  //spinlock_unlock(&(reader_indexes[core_id].lock));
+    // get a message at *pos *pos
+    //mpsoc_rw_readerlock(*pos);
 
-  if (*pos >= 0 && *pos < nb_msg)
-  {
-    // get a message at position *pos
-    mpsoc_rw_readerlock(*pos);
-
-   // printf("READER %i has a message at %i with bitmap=%x\n", core_id, *pos, messages[*pos].bitmap);
-
-   int bitmap_cpy = __sync_fetch_and_and(&(messages[*pos].bitmap), ~(1 << core_id));
-
-   if (bitmap_cpy & (1 << core_id))
-    //if (messages[*pos].bitmap & (1 << core_id))
+   // we do not modify the bitmap yet. We only get its value
+   if (messages[*pos].bitmap & (1 << core_id))
     {
       ret = min(messages[*pos].len, len);
       *buf = messages[*pos].buf;
-      //messages[*pos].bitmap &= ~(1 << core_id);
-
-/*
-      if (messages[*pos].bitmap == 0)
-      {
-        if (__sync_fetch_and_sub(&(block_ops_send->value), 1) == nb_msg)
-        {
-          sem_post(&(block_ops_send->semaphore));
-        }
-      }
-*/
-   // printf("READER %i the bitmap is now %x\n", core_id, messages[*pos].bitmap);
-
     }
-
-    //mpsoc_rw_readerunlock(*pos);
   }
 
   return ret;
@@ -500,11 +456,13 @@ ssize_t mpsoc_recvfrom(void **buf, size_t len, int *pos, int core_id)
 /*
  * return the lock at position pos in the circular buffer
  */
-void mpsoc_free(int pos)
+void mpsoc_free(int pos, int core_id)
 {
   if (pos >= 0 && pos < nb_msg)
   {
-    mpsoc_rw_readerunlock(pos);
+   __sync_fetch_and_and(&(messages[pos].bitmap), ~(1 << core_id));
+
+   // mpsoc_rw_readerunlock(pos);
   }
 }
 
