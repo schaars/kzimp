@@ -134,8 +134,6 @@ void IPC_sendToAll(int msg_size, char msg_id)
     exit(errno);
   }
 
-  // malloc is lazy: the pages may not be really allocated yet.
-  // We force the allocation and the fetch of the pages with bzero
   bzero(msg, msg_size);
 
   msg[0] = msg_id;

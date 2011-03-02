@@ -243,19 +243,13 @@ uint64_t get_cycles_recv()
 // The message id will be msg_id
 void IPC_sendToAll(int msg_size, char msg_id)
 {
+#ifdef COMPUTE_CYCLES
   uint64_t cycle_start, cycle_stop;
+#endif
+
   int i;
-  char msg[MESSAGE_MAX_SIZE];
+  char msg[URPC_MSG_WORDS*8];
 
-  msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
-  if (!msg)
-  {
-    perror("IPC_sendToAll allocation error! ");
-    exit(errno);
-  }
-
-  // malloc is lazy: the pages may not be really allocated yet.
-  // We force the allocation and the fetch of the pages with bzero
   bzero(msg, msg_size);
 
   msg[0] = msg_id;
@@ -272,12 +266,13 @@ void IPC_sendToAll(int msg_size, char msg_id)
   #ifdef COMPUTE_CYCLES
   rdtsc(cycle_start);
 #endif
+
     urpc_transport_send(&conn[i], msg, URPC_MSG_WORDS);
+
   #ifdef COMPUTE_CYCLES
   rdtsc(cycle_stop);
+  nb_cycles_send += cycle_stop - cycle_start;
 #endif
-
-    nb_cycles_send += cycle_stop - cycle_start;
   }
 
   nb_messages_in_transit++;
@@ -290,8 +285,6 @@ void IPC_sendToAll(int msg_size, char msg_id)
     }
     nb_messages_in_transit = 0;
   }
-
-  free(msg);
 }
 
 // Get a message for this core
@@ -299,7 +292,7 @@ void IPC_sendToAll(int msg_size, char msg_id)
 // Place in *msg_id the id of this message
 int IPC_receive(int msg_size, char *msg_id)
 {
-  char *msg;
+  char msg[URPC_MSG_WORDS*8];
   int old_msg_size;
 
   old_msg_size = msg_size;
@@ -308,33 +301,26 @@ int IPC_receive(int msg_size, char *msg_id)
     msg_size = MIN_MSG_SIZE;
   }
 
-  msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
-  if (!msg)
-  {
-    perror("IPC_receive allocation error! ");
-    exit(errno);
-  }
-
 #ifdef DEBUG
   printf("Waiting for a new message\n");
 #endif
 
+#ifdef COMPUTE_CYCLES
   uint64_t cycle_start, cycle_stop;
 
-#ifdef COMPUTE_CYCLES
   rdtsc(cycle_start);
 #endif
   int recv_size = urpc_transport_recv(consumer_connection, (void*) msg,
       URPC_MSG_WORDS);
 #ifdef COMPUTE_CYCLES
   rdtsc(cycle_stop);
-#endif
-
   nb_cycles_recv += cycle_stop - cycle_start;
+
   if (nb_cycles_first_recv == 0)
   {
     nb_cycles_first_recv = nb_cycles_recv;
   }
+#endif
 
   // urpc_transport_recv returns URPC_MSG_WORDS. We want the size of the message in bytes
   recv_size *= sizeof(uint64_t);
@@ -355,8 +341,6 @@ int IPC_receive(int msg_size, char *msg_id)
     urpc_transport_send(consumer_connection, msg, URPC_MSG_WORDS);
     nb_messages_in_transit = 0;
   }
-
-  free(msg);
 
   if (recv_size == msg_size)
   {

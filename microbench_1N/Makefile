@@ -43,7 +43,7 @@ posix_msg_queue_microbench: $(DEPS) src/posix_msg_queue.c
 	$(C) $(CFLAGS) $(shell cat POSIX_MSG_QUEUE_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
 
 barrelfish_message_passing: $(DEPS) src/urpc.h src/urpc_transport.c src/barrelfish_mp.c
-	$(shell if [ ! -e BARRELFISH_MESSAGE_PASSING_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=10000 -DNB_MESSAGES=10 -DURPC_MSG_WORDS=8" > BARRELFISH_MESSAGE_PASSING_PROPERTIES; fi)
+	$(shell if [ ! -e BARRELFISH_MESSAGE_PASSING_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DURPC_MSG_WORDS=8" > BARRELFISH_MESSAGE_PASSING_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell grep -v '#' BARRELFISH_MESSAGE_PASSING_PROPERTIES 2>/dev/null) -o bin/$@ $^
 
 local_multicast_microbench: $(DEPS) src/local_multicast.c
