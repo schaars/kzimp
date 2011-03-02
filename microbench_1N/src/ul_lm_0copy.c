@@ -183,11 +183,19 @@ int IPC_receive(int msg_size, char *msg_id)
     nb_cycles_recv += cycle_stop - cycle_start;
 
     if (recv_size != -1)
+    {
       break;
-/*
+    }
     else
-      usleep(1); // 56 usec is the minumum time (on our machine) for which we can sleep
-*/
+    {
+      //XXX sleep
+      //usleep(1);
+      __asm__ __volatile__("nop");
+    }
+    /*
+     else
+     usleep(1); // 56 usec is the minumum time (on our machine) for which we can sleep
+     */
   }
 
   if (nb_cycles_first_recv == 0)

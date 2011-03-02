@@ -22,43 +22,27 @@
 #define max(a, b) (a > b ? a : b)
 #define min(a, b) (a < b ? a : b)
 
-/* what is a reader/writer lock */
-#define MPSOC_RWLOCK__T_SIZE (3*sizeof(lock_t))
-typedef struct rwlock_t
-{
-  lock_t m1;
-  lock_t m2;
-  lock_t m3;
-  char __p[CACHE_LINE_SIZE + (MPSOC_RWLOCK__T_SIZE / CACHE_LINE_SIZE) * CACHE_LINE_SIZE]; // for padding
-} rwlock_t;
-
 /* what is a message */
-#define MPSOC_MESSAGE_SIZE (sizeof(int)+sizeof(size_t)+sizeof(rwlock_t)+MESSAGE_MAX_SIZE)
 struct mpsoc_message
 {
-  int bitmap;
+  int bitmap; // the bitmap is alone on a cache line in order for the writer to poll on it
+  char __p1[CACHE_LINE_SIZE - sizeof(int)];
+
   size_t len;
-  rwlock_t lock;
   char buf[MESSAGE_MAX_SIZE];
-  char __p[CACHE_LINE_SIZE + (MPSOC_MESSAGE_SIZE / CACHE_LINE_SIZE) * CACHE_LINE_SIZE]; // for padding
-} __attribute__((__packed__,  __aligned__(CACHE_LINE_SIZE)));
+  char __p2[CACHE_LINE_SIZE + ((MESSAGE_MAX_SIZE + sizeof(size_t))
+      / CACHE_LINE_SIZE) * CACHE_LINE_SIZE];
+}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 /* what is a reader index */
 struct mpsoc_reader_index
 {
   int raf; // read_at_first
   int ral; // read at last
-  lock_t lock;
-  int *array;
-};
-
-/* structure which contains an int
- * and a semaphore for blocking operations */
-struct mpsoc_block_ops
-{
-  volatile int value;
-  sem_t semaphore;
-};
+  int array[MESSAGE_MAX_SIZE];
+  char __p[CACHE_LINE_SIZE + ((MESSAGE_MAX_SIZE + 3 * sizeof(int))
+      / CACHE_LINE_SIZE) * CACHE_LINE_SIZE];
+}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 /* number of messages */
 static int nb_msg;
@@ -80,74 +64,6 @@ static lock_t* writer_lock;
 
 /* reader indexes */
 static struct mpsoc_reader_index *reader_indexes;
-
-/* nb of readers for each message; for reader/writer lock */
-static int *readcount;
-
-/* blocking operations */
-static struct mpsoc_block_ops *block_ops_send;
-
-/* reader/writer lock, writer locks.
- * pos is the message to lock
- */
-void mpsoc_rw_writerlock(int pos)
-{
-  rwlock_t *lock;
-
-  lock = &(messages[pos].lock);
-
-  spinlock_lock(&(lock->m2));
-  spinlock_lock(&(lock->m3));
-}
-
-/* reader/writer lock, writer unlocks.
- * pos is the message to unlock
- */
-void mpsoc_rw_writerunlock(int pos)
-{
-  rwlock_t *lock;
-
-  lock = &(messages[pos].lock);
-
-  spinlock_unlock(&(lock->m3));
-  spinlock_unlock(&(lock->m2));
-}
-
-/* reader/writer lock, reader locks.
- * pos is the message to lock
- */
-void mpsoc_rw_readerlock(int pos)
-{
-  rwlock_t *lock;
-
-  lock = &(messages[pos].lock);
-
-  spinlock_lock(&(lock->m1));
-
-  readcount[pos] = readcount[pos] + 1;
-  if (readcount[pos] == 1)
-    spinlock_lock(&(lock->m3));
-
-  spinlock_unlock(&(lock->m1));
-}
-
-/* reader/writer lock, reader unlocks.
- * pos is the message to unlock
- */
-void mpsoc_rw_readerunlock(int pos)
-{
-  rwlock_t *lock;
-
-  lock = &(messages[pos].lock);
-
-  spinlock_lock(&(lock->m1));
-
-  readcount[pos] = readcount[pos] - 1;
-  if (readcount[pos] == 0)
-    spinlock_unlock(&(lock->m3));
-
-  spinlock_unlock(&(lock->m1));
-}
 
 /* init a shared area of size s with pathname p and project id i.
  * Return a pointer to it, or NULL in case of errors.
@@ -236,16 +152,10 @@ int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
     return -1;
   }
 
-  rwlock_t *lock;
   for (i = 0; i < nb_msg; i++)
   {
     messages[i].bitmap = 0;
     messages[i].len = 0;
-
-    lock = &(messages[i].lock);
-    spinlock_unlock(&(lock->m1));
-    spinlock_unlock(&(lock->m2));
-    spinlock_unlock(&(lock->m3));
   }
 
   printf("Init shared area for messages. Address=%p, len=%i\n", messages, size);
@@ -270,26 +180,6 @@ int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
 
   printf("Init shared area for writer. Address=%p, len=%i\n", next_write, size);
 
-  /*****************************************/
-  /* init shared area for read count */
-  /*****************************************/
-  size = sizeof(int) * nb_msg;
-  readcount = (int*) mpsoc_init_shm(pathname, size, 'c');
-
-  if (!readcount)
-  {
-    printf("Error while allocating shared memory for read count\n");
-    return -1;
-  }
-
-  for (i = 0; i < nb_msg; i++)
-  {
-    readcount[i] = 0;
-  }
-
-  printf("Init shared area for read count. Addresses=%p, len=%i\n", readcount,
-      size);
-
   /***************************************/
   /* init shared area for reader_indexes */
   /***************************************/
@@ -303,49 +193,19 @@ int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
     return -1;
   }
 
-  int size2 = sizeof(int) * nb_msg;
   for (i = 0; i < nb_replicas; i++)
   {
     reader_indexes[i].raf = 0;
     reader_indexes[i].ral = -1;
-    spinlock_unlock(&(reader_indexes[i].lock));
-
-    reader_indexes[i].array = (int*) mpsoc_init_shm(pathname, size2, 'e' + i);
-    if (!reader_indexes[i].array)
-    {
-      printf(
-          "Error while allocating shared memory for reader_indexes[%i].array\n",
-          i);
-      return -1;
-    }
 
     for (j = 0; j < nb_msg; j++)
     {
       reader_indexes[i].array[j] = -1;
     }
-
-    printf(
-        "Init shared area for reader_indexes[%i].array. Address=%p, len=%i\n",
-        i, reader_indexes[i].array, size2);
   }
 
   printf("Init shared area for reader_indexes. Addresses=%p, len=%i\n",
       reader_indexes, size);
-
-  block_ops_send = (struct mpsoc_block_ops*) mpsoc_init_shm(pathname,
-      sizeof(struct mpsoc_block_ops), 'f');
-  if (!block_ops_send)
-  {
-    printf("Error while allocating shared memory for block_ops_recv\n");
-    return -1;
-  }
-
-  block_ops_send->value = 0;
-  if (sem_init(&(block_ops_send->semaphore), 1, 0) == -1)
-  {
-    perror("Semaphore initialization failed (1)");
-    exit(-1);
-  }
 
   return 0;
 }
@@ -362,8 +222,8 @@ void* mpsoc_alloc(size_t len, int *nw)
   *next_write = (*next_write + 1) % nb_msg;
   spinlock_unlock(writer_lock);
 
-
-  while (messages[*nw].bitmap != 0) {
+  while (messages[*nw].bitmap != 0)
+  {
     //XXX sleep
     //usleep(1);
     __asm__ __volatile__("nop");
@@ -439,11 +299,8 @@ ssize_t mpsoc_recvfrom(void **buf, size_t len, int *pos, int core_id)
     readx->array[readx->raf] = -1;
     readx->raf = (readx->raf + 1) % nb_msg;
 
-    // get a message at *pos *pos
-    //mpsoc_rw_readerlock(*pos);
-
-   // we do not modify the bitmap yet. We only get its value
-   if (messages[*pos].bitmap & (1 << core_id))
+    // we do not modify the bitmap yet. We only get its value
+    if (messages[*pos].bitmap & (1 << core_id))
     {
       ret = min(messages[*pos].len, len);
       *buf = messages[*pos].buf;
@@ -460,9 +317,7 @@ void mpsoc_free(int pos, int core_id)
 {
   if (pos >= 0 && pos < nb_msg)
   {
-   __sync_fetch_and_and(&(messages[pos].bitmap), ~(1 << core_id));
-
-   // mpsoc_rw_readerunlock(pos);
+    __sync_fetch_and_and(&(messages[pos].bitmap), ~(1 << core_id));
   }
 }
 
@@ -471,15 +326,12 @@ void mpsoc_destroy(void)
 {
   int i;
 
-  shmdt(block_ops_send);
-
   for (i = 0; i < nb_replicas; i++)
   {
     shmdt(reader_indexes[i].array);
   }
 
   shmdt(reader_indexes);
-  shmdt(readcount);
   shmdt(next_write);
   shmdt(messages);
 }
