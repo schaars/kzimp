@@ -1,5 +1,6 @@
 /**
  * Our implementation of Barrelfish URPC on Linux
+ * The code comes from the 2nd release of Barrelfish, 2009
  *
  * Pierre Louis Aublin <pierre-louis.aublin@inria.fr>
  * January 2011
@@ -89,7 +90,7 @@ static bool cansend(struct urpc_connection *c)
 
 // send a message
 // return true if the sending has succeeded, false otherwise.
-// For now, busy waiting (with a small sleep)
+// For now, busy waiting
 bool urpc_transport_send(struct urpc_connection *c, void *msg, size_t msg_len)
 {
   uint64_t* msg_as_uint64_t = (uint64_t*) msg;
@@ -138,7 +139,6 @@ size_t get_the_message(struct urpc_connection *c, uint64_t *msg)
 
 // receive a message
 // Return the length of the read message or 0 if there is no message
-// busy waiting (with a small sleep)
 size_t urpc_transport_recv_nonblocking(struct urpc_connection *c, void *msg,
     size_t msg_len)
 {
@@ -154,12 +154,11 @@ size_t urpc_transport_recv_nonblocking(struct urpc_connection *c, void *msg,
     // there is no message
     return 0;
   }
-
 }
 
 // receive a message.
 // Return the length of the read message
-// busy waiting (with a small sleep)
+// busy waiting
 size_t urpc_transport_recv(struct urpc_connection *c, void *msg, size_t msg_len)
 {
   uint64_t* msg_as_uint64_t = (uint64_t*) msg;
