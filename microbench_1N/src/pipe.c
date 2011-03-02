@@ -165,12 +165,7 @@ void IPC_sendToAll(int msg_size, char msg_id)
 {
   uint64_t cycle_start, cycle_stop;
   int i;
-  char *msg;
-
-  if (msg_size < MIN_MSG_SIZE)
-  {
-    msg_size = MIN_MSG_SIZE;
-  }
+  char msg[MESSAGE_MAX_SIZE];
 
 #ifdef VMSPLICE
   if (msg_size > request_size)
@@ -212,13 +207,19 @@ void IPC_sendToAll(int msg_size, char msg_id)
     iov.iov_base = msg;
     iov.iov_len = msg_size;
 
-    rdtsc(cycle_start);
+  #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_start);
+#endif
     vmsplice(pipes[i][1], &iov, 1, 0);
 #else
-    rdtsc(cycle_start);
+  #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_start);
+#endif
     write(pipes[i][1], msg, msg_size);
 #endif
-    rdtsc(cycle_stop);
+  #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_stop);
+#endif
 
     nb_cycles_send += cycle_stop - cycle_start;
 
@@ -234,12 +235,7 @@ void IPC_sendToAll(int msg_size, char msg_id)
 // Place in *msg_id the id of this message
 int IPC_receive(int msg_size, char *msg_id)
 {
-  char *msg;
-
-  if (msg_size < MIN_MSG_SIZE)
-  {
-    msg_size = MIN_MSG_SIZE;
-  }
+  char msg[MESSAGE_MAX_SIZE];
 
   msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
   if (!msg)
@@ -254,9 +250,13 @@ int IPC_receive(int msg_size, char *msg_id)
 
   uint64_t cycle_start, cycle_stop;
 
+#ifdef COMPUTE_CYCLES
   rdtsc(cycle_start);
+#endif
   int header_size = read(consumer_reading_pipe, msg, MIN_MSG_SIZE);
+#ifdef COMPUTE_CYCLES
   rdtsc(cycle_stop);
+#endif
 
   nb_cycles_recv += cycle_stop - cycle_start;
 
@@ -266,9 +266,13 @@ int IPC_receive(int msg_size, char *msg_id)
   int left = msg_size - header_size;
   if (left > 0)
   {
-    rdtsc(cycle_start);
+  #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_start);
+#endif
     s = read(consumer_reading_pipe, (void*) (msg + header_size), left);
-    rdtsc(cycle_stop);
+  #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_stop);
+#endif
 
     nb_cycles_recv += cycle_stop - cycle_start;
   }

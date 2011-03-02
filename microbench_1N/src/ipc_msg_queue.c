@@ -188,13 +188,19 @@ void IPC_sendToAll(int msg_size, char msg_id)
 #ifdef ONE_QUEUE
     ipc_msg.mtype = i+1;
 
-    rdtsc(cycle_start);
+  #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_start);
+#endif
     msgsnd(consumers[0], &ipc_msg, msg_size, 0);
 #else
-    rdtsc(cycle_start);
+  #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_start);
+#endif
     msgsnd(consumers[i], &ipc_msg, msg_size, 0);
 #endif
-    rdtsc(cycle_stop);
+  #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_stop);
+#endif
 
     nb_cycles_send += cycle_stop - cycle_start;
   }
@@ -217,13 +223,17 @@ int IPC_receive(int msg_size, char *msg_id)
   printf("Waiting for a new message\n");
 #endif
 
+#ifdef COMPUTE_CYCLES
   rdtsc(cycle_start);
+#endif
 #ifdef ONE_QUEUE
   int recv_size = msgrcv(consumer_queue, &ipc_msg, sizeof(ipc_msg.mtext), core_id, 0);
 #else
   int recv_size = msgrcv(consumer_queue, &ipc_msg, sizeof(ipc_msg.mtext), 0, 0);
 #endif
+#ifdef COMPUTE_CYCLES
   rdtsc(cycle_stop);
+#endif
 
   nb_cycles_recv += cycle_stop - cycle_start;
 

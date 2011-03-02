@@ -222,9 +222,13 @@ void IPC_sendToAll(int msg_size, char msg_id)
    for (i = 0; i < nb_receivers; i++)
    {
       // writing the content
-      rdtsc(cycle_start);
+    #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_start);
+#endif
       mq_send(consumers[i], msg, msg_size, 0);
-      rdtsc(cycle_stop);
+    #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_stop);
+#endif
 
       nb_cycles_send += cycle_stop - cycle_start;
    }
@@ -257,9 +261,13 @@ int IPC_receive(int msg_size, char *msg_id)
 
    uint64_t cycle_start, cycle_stop;
 
-   rdtsc(cycle_start);
+ #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_start);
+#endif
    int recv_size = mq_receive(consumer_queue, msg, msg_max_size_in_queue, NULL);
-   rdtsc(cycle_stop);
+ #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_stop);
+#endif
 
    nb_cycles_recv += cycle_stop - cycle_start;
 

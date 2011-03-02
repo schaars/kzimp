@@ -266,12 +266,7 @@ uint64_t get_cycles_recv()
 void IPC_sendToAll(int msg_size, char msg_id)
 {
   int i;
-  char *msg;
-
-  if (msg_size < MIN_MSG_SIZE)
-  {
-    msg_size = MIN_MSG_SIZE;
-  }
+  char msg[MESSAGE_MAX_SIZE];
 
   msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
   if (!msg)
@@ -305,12 +300,7 @@ void IPC_sendToAll(int msg_size, char msg_id)
 // Place in *msg_id the id of this message
 int IPC_receive(int msg_size, char *msg_id)
 {
-  char *msg;
-
-  if (msg_size < MIN_MSG_SIZE)
-  {
-    msg_size = MIN_MSG_SIZE;
-  }
+  char msg[MESSAGE_MAX_SIZE];
 
   msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
   if (!msg)

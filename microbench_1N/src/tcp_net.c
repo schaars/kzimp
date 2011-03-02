@@ -26,9 +26,13 @@ int recvMsg(int s, void *buf, size_t len, uint64_t *nb_cycles)
 
   do
   {
-    rdtsc(cycle_start);
+  #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_start);
+#endif
     n = recv(s, &(((char *) buf)[len_tmp]), len - len_tmp, 0);
-    rdtsc(cycle_stop);
+  #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_stop);
+#endif
 
     if (n == -1)
     {
@@ -59,9 +63,13 @@ void sendMsg(int s, void *msg, int size, uint64_t *nb_cycles)
 
   while (total < size)
   {
-    rdtsc(cycle_start);
+  #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_start);
+#endif
     n = send(s, (char*) msg + total, bytesleft, 0);
-    rdtsc(cycle_stop);
+  #ifdef COMPUTE_CYCLES
+  rdtsc(cycle_stop);
+#endif
 
     if (n == -1)
     {

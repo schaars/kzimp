@@ -115,7 +115,10 @@ uint64_t get_cycles_recv()
 // The message id will be msg_id
 void IPC_sendToAll(int msg_size, char msg_id)
 {
+#ifdef COMPUTE_CYCLES
   uint64_t cycle_start, cycle_stop;
+#endif
+
   char *msg;
   int msg_pos_in_ring_buffer;
 
@@ -143,11 +146,16 @@ void IPC_sendToAll(int msg_size, char msg_id)
       core_id, msg_long[0], msg_size, nb_receivers);
 #endif
 
+#ifdef COMPUTE_CYCLES
   rdtsc(cycle_start);
-  mpsoc_sendto(msg, msg_size, msg_pos_in_ring_buffer, -1);
-  rdtsc(cycle_stop);
+#endif
 
+  mpsoc_sendto(msg, msg_size, msg_pos_in_ring_buffer, -1);
+
+#ifdef COMPUTE_CYCLES
+  rdtsc(cycle_stop);
   nb_cycles_send += cycle_stop - cycle_start;
+#endif
 }
 
 // Get a message for this core
@@ -155,20 +163,11 @@ void IPC_sendToAll(int msg_size, char msg_id)
 // Place in *msg_id the id of this message
 int IPC_receive(int msg_size, char *msg_id)
 {
+#ifdef ZERO_COPY
   char *msg;
-
-  if (msg_size < MIN_MSG_SIZE)
-  {
-    msg_size = MIN_MSG_SIZE;
-  }
-
-#ifndef ZERO_COPY
-  msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
-  if (!msg)
-  {
-    perror("IPC_receive allocation error! ");
-    exit(errno);
-  }
+  int pos;
+#else
+  char msg[MESSAGE_MAX_SIZE];
 #endif
 
 #ifdef DEBUG
@@ -178,17 +177,17 @@ int IPC_receive(int msg_size, char *msg_id)
   // let's say that the first packet contains the header
   // we assume messages are not delivered out of order
 
+#ifdef COMPUTE_CYCLES
   uint64_t cycle_start, cycle_stop;
+#endif
 
   int recv_size = -1;
 
-#ifdef ZERO_COPY
-  int pos;
-#endif
-
   while (1)
   {
+#ifdef COMPUTE_CYCLES
     rdtsc(cycle_start);
+#endif
 
 #ifdef ZERO_COPY
     recv_size = mpsoc_recvfrom((void**) &msg, msg_size, &pos, core_id - 1);
@@ -196,20 +195,26 @@ int IPC_receive(int msg_size, char *msg_id)
     recv_size = mpsoc_recvfrom(msg, msg_size, core_id - 1);
 #endif
 
+#ifdef COMPUTE_CYCLES
     rdtsc(cycle_stop);
-
     nb_cycles_recv += cycle_stop - cycle_start;
+#endif
 
     if (recv_size != -1)
     {
       *msg_id = msg[0];
 
 #ifdef ZERO_COPY
+#ifdef COMPUTE_CYCLES
       rdtsc(cycle_start);
-      mpsoc_free(pos, core_id - 1);
-      rdtsc(cycle_stop);
+#endif
 
+      mpsoc_free(pos, core_id - 1);
+
+#ifdef COMPUTE_CYCLES
+      rdtsc(cycle_stop);
       nb_cycles_recv += cycle_stop - cycle_start;
+#endif
 #endif
 
       break;
@@ -222,19 +227,17 @@ int IPC_receive(int msg_size, char *msg_id)
     }
   }
 
+#ifdef COMPUTE_CYCLES
   if (nb_cycles_first_recv == 0)
   {
     nb_cycles_first_recv = nb_cycles_recv;
   }
+#endif
 
 #ifdef DEBUG
   printf(
       "[consumer %i] received message %i of size %i, should be %i\n",
       core_id, *msg_id, recv_size, msg_size);
-#endif
-
-#ifndef ZERO_COPY
-  free(msg);
 #endif
 
   if (recv_size == msg_size)
