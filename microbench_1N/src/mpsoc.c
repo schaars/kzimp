@@ -311,7 +311,7 @@ ssize_t mpsoc_recvfrom(void **buf, size_t len, int *pos, int core_id)
 }
 
 /*
- * return the lock at position pos in the circular buffer
+ * say that reader core_id has read the message at position pos
  */
 void mpsoc_free(int pos, int core_id)
 {
