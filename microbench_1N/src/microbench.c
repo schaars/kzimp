@@ -333,7 +333,7 @@ int main(int argc, char **argv)
 
 #ifdef INET_SYSCALLS_MEASUREMENT
     fprintf(F, "nb_syscalls_send= %lu\nnb_syscalls_recv= %lu\n",
-        (unsigned long) nb_syscalls_send, (unsigned long) (nb_syscalls_recv-nb_syscalls_first_recv);
+        (unsigned long) nb_syscalls_send, (unsigned long) (nb_syscalls_recv-nb_syscalls_first_recv));
 #endif
 
     fclose(F);

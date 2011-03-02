@@ -1,4 +1,4 @@
-all: pipe_test pipe_signal_test pipe_splice_test
+all: pipe_test pipe_signal_test pipe_splice_test pipe_select
 
 GCC:=gcc
 FLAGS:=-g3 -ggdb -Wall -Werror
@@ -15,6 +15,10 @@ pipe_signal_test: pipe_signal_test.o
 pipe_splice_test: pipe_splice_test.o
 	$(GCC) $(FLAGS) -o $@ $^
 	
+pipe_select: pipe_select.o
+	$(GCC) $(FLAGS) -o $@ $^
+	
+	
 clean:
 	-rm *.o
 	-rm *~
@@ -22,4 +26,4 @@ clean:
 clobber:
 	-rm *.o
 	-rm *~
-	-rm pipe_test pipe_signal_test pipe_splice_test
+	-rm pipe_test pipe_signal_test pipe_splice_test pipe_select

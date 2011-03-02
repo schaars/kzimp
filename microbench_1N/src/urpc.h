@@ -29,6 +29,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <string.h>
 
 #define CACHE_LINE_SIZE 64
 
@@ -57,11 +58,11 @@ enum urpc_type
 struct urpc_channel
 {
   uint64_t pos; ///< Current position
-  volatile uint64_t *buf; ///< Ring buffer
+  uint64_t *buf; ///< Ring buffer
   size_t size; ///< Buffer size IN WORDS
   enum urpc_type type; ///< Channel type
   urpc_t epoch; ///< Next Message epoch
-} __attribute__((__packed__,  __aligned__(CACHE_LINE_SIZE)));
+}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
@@ -80,7 +81,7 @@ struct urpc_channel
  * \param       size    Size (in bytes) of buffer. Must be multiple of 64.
  * \param       type    Channel type.
  */
-static inline void urpc_new(struct urpc_channel *c, volatile void *buf,
+static inline void urpc_new(struct urpc_channel *c, void *buf,
     size_t size, enum urpc_type type)
 {
   assert(size % (URPC_MSG_WORDS * sizeof(uint64_t)) == 0);
@@ -134,11 +135,7 @@ static inline bool urpc_peek(struct urpc_channel *c, uint64_t *msg)
 
   if (urpc_havemessage(c))
   {
-    int i;
-    for (i = 0; i < URPC_MSG_WORDS; i++)
-    {
-      msg[i] = c->buf[c->pos + i];
-    }
+    memcpy(msg, (void*)&(c->buf[c->pos]), URPC_MSG_WORDS * sizeof(uint64_t));
 
     return true;
   }
@@ -213,11 +210,7 @@ static inline bool urpc_send(struct urpc_channel *c, uint64_t *msg)
 {
   assert(c->type == URPC_OUTGOING);
 
-  int i;
-  for (i = 0; i < URPC_MSG_WORDS - 1; i++)
-  {
-    c->buf[c->pos + i] = msg[i];
-  }
+  memcpy((void*) &(c->buf[c->pos]), msg, URPC_MSG_WORDS * sizeof(uint64_t));
 
 #ifndef __ARMEL__
   c->buf[c->pos + URPC_MSG_WORDS - 1] = (msg[URPC_MSG_WORDS - 1]

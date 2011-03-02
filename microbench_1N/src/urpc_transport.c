@@ -1,5 +1,6 @@
 /**
  * Our implementation of Barrelfish URPC on Linux
+ * The code comes from the 2nd release of Barrelfish, 2009
  *
  * Pierre Louis Aublin <pierre-louis.aublin@inria.fr>
  * January 2011
@@ -39,7 +40,6 @@
 void urpc_transport_create(int mon_id, void *buf, size_t buffer_size,
     size_t channel_length, struct urpc_connection *c, bool create)
 {
-
   assert(channel_length * 2 + 2 * URPC_CHANNEL_SIZE <= buffer_size);
 
   /* initialise our local instance data */
@@ -90,7 +90,7 @@ static bool cansend(struct urpc_connection *c)
 
 // send a message
 // return true if the sending has succeeded, false otherwise.
-// For now, busy waiting (with a small sleep)
+// For now, busy waiting
 bool urpc_transport_send(struct urpc_connection *c, void *msg, size_t msg_len)
 {
   uint64_t* msg_as_uint64_t = (uint64_t*) msg;
@@ -103,8 +103,9 @@ bool urpc_transport_send(struct urpc_connection *c, void *msg, size_t msg_len)
     fflush(NULL);
 #endif
 
-    //TODO: adaptive waiting time.
-    //usleep(1000);
+    // sleep
+    //usleep(50);
+    //__asm__ __volatile__("nop");
   }
 
 #ifdef URPC_TRANSPORT_DEBUG
@@ -116,7 +117,7 @@ bool urpc_transport_send(struct urpc_connection *c, void *msg, size_t msg_len)
   msg_as_uint64_t[URPC_PAYLOAD_WORDS]
       = ((uint64_t) c->seq_id << URPC_TYPE_SIZE) | c->sent_id;
   c->sent_id++;
-  urpc_send(&c->out, msg_as_uint64_t);
+  urpc_send_abstract(&c->out, msg_as_uint64_t);
 
   return true;
 }
@@ -138,13 +139,12 @@ size_t get_the_message(struct urpc_connection *c, uint64_t *msg)
 
 // receive a message
 // Return the length of the read message or 0 if there is no message
-// busy waiting (with a small sleep)
 size_t urpc_transport_recv_nonblocking(struct urpc_connection *c, void *msg,
     size_t msg_len)
 {
   uint64_t* msg_as_uint64_t = (uint64_t*) msg;
 
-  if (urpc_poll(c->in, msg_as_uint64_t))
+  if (urpc_poll_abstract(c->in, msg_as_uint64_t))
   {
     // there is a message
     return get_the_message(c, msg_as_uint64_t);
@@ -154,25 +154,25 @@ size_t urpc_transport_recv_nonblocking(struct urpc_connection *c, void *msg,
     // there is no message
     return 0;
   }
-
 }
 
 // receive a message.
 // Return the length of the read message
-// busy waiting (with a small sleep)
+// busy waiting
 size_t urpc_transport_recv(struct urpc_connection *c, void *msg, size_t msg_len)
 {
   uint64_t* msg_as_uint64_t = (uint64_t*) msg;
 
-  while (!urpc_poll(c->in, msg_as_uint64_t))
+  while (!urpc_poll_abstract(c->in, msg_as_uint64_t))
   {
 #ifdef URPC_TRANSPORT_DEBUG
     //printf("[urpc_transport_recv][%u] Trying again\n",
     //    (unsigned int) c->monitor_id);
 #endif
 
-    //TODO: adaptive waiting time. Maybe we should use mwait?
-    //usleep(1000);
+    // sleep
+    //usleep(50);
+    //__asm__ __volatile__("nop");
   }
 
   // we have received a message in msg_as_uint64_t
