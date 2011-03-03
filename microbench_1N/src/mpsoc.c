@@ -379,8 +379,6 @@ ssize_t mpsoc_recvfrom(void *buf, size_t len, int core_id)
 // destroys the shared area
 void mpsoc_destroy(void)
 {
-  int i;
-
   shmdt(reader_indexes);
   shmdt(next_write);
   shmdt(messages);
