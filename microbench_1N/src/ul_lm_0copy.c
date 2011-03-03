@@ -219,9 +219,12 @@ int IPC_receive(int msg_size, char *msg_id)
     }
     else
     {
-      //XXX sleep
-      //usleep(1);
-      __asm__ __volatile__("nop");
+#ifdef USLEEP
+    usleep(1);
+#endif
+#ifdef NOP
+    __asm__ __volatile__("nop");
+#endif
     }
   }
 

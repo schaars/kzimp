@@ -19,6 +19,11 @@
 
 #define CACHE_LINE_SIZE 64
 
+// int ALIGNED_SIZE(int sz)
+// Effects: Increases sz to the least multiple of ALIGNMENT greater
+// than size.
+#define ALIGNED_SIZE(sz) ((sz)-(sz)%CACHE_LINE_SIZE+CACHE_LINE_SIZE)
+
 #define max(a, b) (a > b ? a : b)
 #define min(a, b) (a < b ? a : b)
 
@@ -30,18 +35,26 @@ struct mpsoc_message
 
   size_t len;
   char buf[MESSAGE_MAX_SIZE];
-  char __p2[CACHE_LINE_SIZE + ((MESSAGE_MAX_SIZE + sizeof(size_t))
-      / CACHE_LINE_SIZE) * CACHE_LINE_SIZE];
+  char __p2[ALIGNED_SIZE(sizeof(size_t) + MESSAGE_MAX_SIZE)];
+}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
+
+struct mpsoc_reader_index_entry
+{
+  int v;
+  char __p[CACHE_LINE_SIZE - sizeof(int)];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 /* what is a reader index */
 struct mpsoc_reader_index
 {
   int raf; // read_at_first
+  char __p1[CACHE_LINE_SIZE - sizeof(int)];
+
   int ral; // read at last
-  int array[NB_MESSAGES];
-  char __p[CACHE_LINE_SIZE + ((MESSAGE_MAX_SIZE + 3 * sizeof(int))
-      / CACHE_LINE_SIZE) * CACHE_LINE_SIZE];
+  char __p2[CACHE_LINE_SIZE - sizeof(int)];
+
+  struct mpsoc_reader_index_entry array[NB_MESSAGES];
+  char __p[ALIGNED_SIZE(sizeof(struct mpsoc_reader_index_entry) * NB_MESSAGES)];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 /* number of messages */
@@ -166,14 +179,14 @@ int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
   /*******************************/
   /* init shared area for writer */
   /*******************************/
-  size = sizeof(int) + sizeof(lock_t);
+  size = 2 * CACHE_LINE_SIZE;
   next_write = (int*) mpsoc_init_shm(pathname, size, 'b');
   if (!next_write)
   {
     printf("Error while allocating shared memory for writer\n");
     return -1;
   }
-  writer_lock = (lock_t*) (next_write + 1);
+  writer_lock = (lock_t*) (next_write + CACHE_LINE_SIZE);
 
   *next_write = 0;
   spinlock_unlock(writer_lock);
@@ -200,7 +213,7 @@ int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
 
     for (j = 0; j < nb_msg; j++)
     {
-      reader_indexes[i].array[j] = -1;
+      reader_indexes[i].array[j].v = -1;
     }
   }
 
@@ -224,9 +237,12 @@ void* mpsoc_alloc(size_t len, int *nw)
 
   while (messages[*nw].bitmap != 0)
   {
-    //XXX sleep
-    //usleep(1);
+#ifdef USLEEP
+    usleep(1);
+#endif
+#ifdef NOP
     __asm__ __volatile__("nop");
+#endif
   }
 
   //mpsoc_rw_writerlock(*nw);
@@ -258,7 +274,7 @@ ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
     {
       readx = &reader_indexes[i];
       int new_pos = (readx->ral + 1) % nb_msg;
-      readx->array[new_pos] = nw;
+      readx->array[new_pos].v = nw;
       readx->ral = new_pos;
     }
   }
@@ -268,7 +284,7 @@ ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
 
     readx = &reader_indexes[dest];
     int new_pos = (readx->ral + 1) % nb_msg;
-    readx->array[new_pos] = nw;
+    readx->array[new_pos].v = nw;
     readx->ral = new_pos;
   }
 
@@ -339,11 +355,11 @@ ssize_t mpsoc_recvfrom(void *buf, size_t len, int core_id)
 
   readx = &reader_indexes[core_id];
 
-  int pos = readx->array[readx->raf];
+  int pos = readx->array[readx->raf].v;
 
   if (pos >= 0 && pos < nb_msg)
   {
-    readx->array[readx->raf] = -1;
+    readx->array[readx->raf].v = -1;
     readx->raf = (readx->raf + 1) % nb_msg;
 
     // we do not modify the bitmap yet. We only get its value
@@ -364,11 +380,6 @@ ssize_t mpsoc_recvfrom(void *buf, size_t len, int core_id)
 void mpsoc_destroy(void)
 {
   int i;
-
-  for (i = 0; i < nb_replicas; i++)
-  {
-    shmdt(reader_indexes[i].array);
-  }
 
   shmdt(reader_indexes);
   shmdt(next_write);
