@@ -46,7 +46,8 @@ void mpsoc_free(int pos, int core_id);
 /*
  * Copy len bytes into buf.
  * Give the id of the caller (from 0 to nb_readers-1) as an argument
- * Returns the number of bytes read or -1 for errors
+ * Returns the number of bytes read
+ * blocking call
  */
 ssize_t mpsoc_recvfrom(void *buf, size_t len, int core_id);
 

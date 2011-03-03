@@ -181,8 +181,6 @@ int IPC_receive(int msg_size, char *msg_id)
 
   int recv_size = -1;
 
-  while (1)
-  {
 #ifdef COMPUTE_CYCLES
     rdtsc(cycle_start);
 #endif
@@ -198,35 +196,21 @@ int IPC_receive(int msg_size, char *msg_id)
     nb_cycles_recv += cycle_stop - cycle_start;
 #endif
 
-    if (recv_size != -1)
-    {
-      *msg_id = msg[0];
+    *msg_id = msg[0];
 
 #ifdef ZERO_COPY
-#ifdef COMPUTE_CYCLES
-      rdtsc(cycle_start);
-#endif
-
-      mpsoc_free(pos, core_id - 1);
 
 #ifdef COMPUTE_CYCLES
-      rdtsc(cycle_stop);
-      nb_cycles_recv += cycle_stop - cycle_start;
-#endif
+    rdtsc(cycle_start);
 #endif
 
-      break;
-    }
-    else
-    {
-#ifdef USLEEP
-    usleep(1);
+    mpsoc_free(pos, core_id - 1);
+
+#ifdef COMPUTE_CYCLES
+    rdtsc(cycle_stop);
+    nb_cycles_recv += cycle_stop - cycle_start;
 #endif
-#ifdef NOP
-    __asm__ __volatile__("nop");
 #endif
-    }
-  }
 
 #ifdef COMPUTE_CYCLES
   if (nb_cycles_first_recv == 0)
