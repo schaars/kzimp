@@ -27,6 +27,9 @@
 #define min(a, b) (a < b ? a : b)
 
 /* what is a message */
+#define MPSOC_MESSAGE_SIZE ( sizeof(int) + CACHE_LINE_SIZE - sizeof(int) \
+    + sizeof(size_t) + MESSAGE_MAX_SIZE)
+
 struct mpsoc_message
 {
   int bitmap; // the bitmap is alone on a cache line in order for the writer to poll on it
@@ -34,16 +37,34 @@ struct mpsoc_message
 
   size_t len;
   char buf[MESSAGE_MAX_SIZE];
-  char __p2[ALIGNED_SIZE(sizeof(size_t) + MESSAGE_MAX_SIZE)];
+
+  char __p2[CACHE_LINE_SIZE - MPSOC_MESSAGE_SIZE % CACHE_LINE_SIZE
+      + CACHE_LINE_SIZE];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
-struct mpsoc_reader_toread
+struct mpsoc_reader_index_entry
 {
-  int nb_msg_in_transit;
+  int v;
+  char __p[CACHE_LINE_SIZE - sizeof(int)];
+}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
+
+/* what is a reader index */
+#define MPSOC_READER_INDEX_SIZE ( sizeof(int) + CACHE_LINE_SIZE - sizeof(int) \
+    + sizeof(int) + CACHE_LINE_SIZE - sizeof(int) \
+    + NB_MESSAGES * sizeof(struct mpsoc_reader_index_entry))
+
+struct mpsoc_reader_index
+{
+  int raf; // read_at_first
   char __p1[CACHE_LINE_SIZE - sizeof(int)];
 
-  int current_pos;
+  int ral; // read at last
   char __p2[CACHE_LINE_SIZE - sizeof(int)];
+
+  struct mpsoc_reader_index_entry array[NB_MESSAGES];
+
+  char __p[CACHE_LINE_SIZE - MPSOC_READER_INDEX_SIZE % CACHE_LINE_SIZE
+      + CACHE_LINE_SIZE];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 /* number of messages */
@@ -64,8 +85,8 @@ static int *next_write;
 /* writer's lock */
 static lock_t* writer_lock;
 
-/* for the readers to know they have something to read */
-static struct mpsoc_reader_toread *reader_toread;
+/* reader indexes */
+static struct mpsoc_reader_index *reader_indexes;
 
 /* init a shared area of size s with pathname p and project id i.
  * Return a pointer to it, or NULL in case of errors.
@@ -138,7 +159,7 @@ char* mpsoc_init_shm(char *p, size_t s, int i)
 int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
 {
   int i, size;
-  //int j;
+  int j;
 
   nb_msg = m;
   nb_replicas = num_replicas;
@@ -183,27 +204,32 @@ int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
 
   printf("Init shared area for writer. Address=%p, len=%i\n", next_write, size);
 
-  /**************************************/
-  /* init shared area for reader_toread */
-  /**************************************/
-  size = sizeof(struct mpsoc_reader_toread) * nb_replicas;
-  reader_toread = (struct mpsoc_reader_toread*) mpsoc_init_shm(pathname, size,
+  /***************************************/
+  /* init shared area for reader_indexes */
+  /***************************************/
+  size = sizeof(struct mpsoc_reader_index) * nb_replicas;
+  reader_indexes = (struct mpsoc_reader_index*) mpsoc_init_shm(pathname, size,
       'd');
 
-  if (!reader_toread)
+  if (!reader_indexes)
   {
-    printf("Error while allocating shared memory for reader_toread\n");
+    printf("Error while allocating shared memory for reader_indexes\n");
     return -1;
   }
 
   for (i = 0; i < nb_replicas; i++)
   {
-    reader_toread[i].current_pos = 0;
-    reader_toread[i].nb_msg_in_transit = 0;
+    reader_indexes[i].raf = 0;
+    reader_indexes[i].ral = -1;
+
+    for (j = 0; j < nb_msg; j++)
+    {
+      reader_indexes[i].array[j].v = -1;
+    }
   }
 
-  printf("Init shared area for reader_toread. Addresses=%p, len=%i\n",
-      reader_toread, size);
+  printf("Init shared area for reader_indexes. Addresses=%p, len=%i\n",
+      reader_indexes, size);
 
   return 0;
 }
@@ -243,6 +269,7 @@ void* mpsoc_alloc(size_t len, int *nw)
  */
 ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
 {
+  struct mpsoc_reader_index *readx;
   int i;
   int ret = -1;
 
@@ -250,15 +277,23 @@ ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
   if (dest == -1)
   {
     messages[nw].bitmap = multicast_bitmap_mask;
+
+    for (i = 0; i < nb_replicas; i++)
+    {
+      readx = &reader_indexes[i];
+      int new_pos = (readx->ral + 1) % nb_msg;
+      readx->array[new_pos].v = nw;
+      readx->ral = new_pos;
+    }
   }
   else
   {
     messages[nw].bitmap = (1 << dest);
-  }
 
-  for (i = 0; i < nb_replicas; i++)
-  {
-    __sync_fetch_and_add(&(reader_toread[i].nb_msg_in_transit), 1);
+    readx = &reader_indexes[dest];
+    int new_pos = (readx->ral + 1) % nb_msg;
+    readx->array[new_pos].v = nw;
+    readx->ral = new_pos;
   }
 
   return ret;
@@ -320,15 +355,20 @@ void mpsoc_free(int pos, int core_id)
  */
 ssize_t mpsoc_recvfrom(void *buf, size_t len, int core_id)
 {
-  int ret;
+  int ret, pos;
+  struct mpsoc_reader_index *readx;
 
   ret = -1;
+  readx = &reader_indexes[core_id];
 
   while (1)
   {
-    if (reader_toread[core_id].nb_msg_in_transit > 0)
+    pos = readx->array[readx->raf].v;
+
+    if (pos >= 0 && pos < nb_msg)
     {
-      int pos = reader_toread[core_id].current_pos;
+      readx->array[readx->raf].v = -1;
+      readx->raf = (readx->raf + 1) % nb_msg;
 
       // we do not modify the bitmap yet. We only get its value
       if (messages[pos].bitmap & (1 << core_id))
@@ -339,9 +379,6 @@ ssize_t mpsoc_recvfrom(void *buf, size_t len, int core_id)
 
         return ret;
       }
-
-      reader_toread[core_id].current_pos = (pos + 1) % nb_msg;
-      __sync_fetch_and_sub(&(reader_toread[core_id].nb_msg_in_transit), 1);
     }
 
 #ifdef USLEEP
@@ -360,7 +397,7 @@ ssize_t mpsoc_recvfrom(void *buf, size_t len, int core_id)
 // destroys the shared area
 void mpsoc_destroy(void)
 {
-  shmdt(reader_toread);
+  shmdt(reader_indexes);
   shmdt(next_write);
   shmdt(messages);
 }
