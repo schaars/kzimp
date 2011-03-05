@@ -12,7 +12,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "../Message.h"
 #include "ipc_interface.h"
 
 // debug macro

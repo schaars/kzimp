@@ -12,7 +12,6 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
-#include "../Message.h"
 #include "ipc_interface.h"
 
 // debug macro

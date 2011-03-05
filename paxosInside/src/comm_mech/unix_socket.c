@@ -12,7 +12,6 @@
 #include <netinet/in.h>
 #include <sys/un.h>
 
-#include "../Message.h"
 #include "ipc_interface.h"
 
 // debug macro
