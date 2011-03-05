@@ -74,6 +74,10 @@ void Client::run(void)
 #ifdef MSG_DEBUG
   printf("Client %i has finished its %lu iterations\n", client_id(), nb_iter);
 #endif
+
+  while (1) {
+    sleep(1);
+  }
 }
 
 void Client::handle_response(Response* r)

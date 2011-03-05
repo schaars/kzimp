@@ -548,5 +548,5 @@ size_t IPC_receive(void *msg, size_t length)
     s = recvMsg(fd, (void*) ((char*) msg + header_size), left);
   }
 
-  return msg_len;
+  return header_size + s;
 }

@@ -33,6 +33,7 @@ int main(int argc, char **argv)
   int nb_nodes = 3; // this counts the number of paxos nodes
   int nb_clients = 1; // this counts the number of clients
   uint64_t nb_iter = 1; // number of requests sent by each client before terminating
+
   //todo
   //we should have an array T[node_id] = core_on_which_to_run_this_node
 
