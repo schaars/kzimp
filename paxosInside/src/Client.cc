@@ -75,9 +75,7 @@ void Client::run(void)
   printf("Client %i has finished its %lu iterations\n", client_id(), nb_iter);
 #endif
 
-  while (1) {
-    sleep(1);
-  }
+  sleep(2);
 }
 
 void Client::handle_response(Response* r)
