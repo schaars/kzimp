@@ -1,6 +1,6 @@
 /* This file is part of multicore_replication_microbench.
  *
- * Communication mechanism: Inet sockets using UDP
+ * Communication mechanism: Unix domain sockets
  */
 
 #include <stdio.h>
@@ -10,7 +10,7 @@
 #include <errno.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
+#include <sys/un.h>
 
 #include "../Message.h"
 #include "ipc_interface.h"
@@ -21,12 +21,12 @@
 
 #define UDP_SEND_MAX_SIZE 65507
 
+#define UNIX_SOCKET_FILE_NAME "/tmp/multicore_replication_paxosInside"
+
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #define MIN(a, b) (((a)<(b))?(a):(b))
 
-/********** All the variables needed by UDP sockets **********/
-
-#define PORT_CORE_0 4242
+/********** All the variables needed by Unix domain sockets **********/
 
 static int node_id;
 static int nb_paxos_nodes;
@@ -35,7 +35,7 @@ static int total_nb_nodes;
 
 static int sock; // the socket
 
-struct sockaddr_in *addresses; // for each node (clients + PaxosInside nodes), its address
+struct sockaddr_un *addresses; // for each node (clients + PaxosInside nodes), its address
 
 // Initialize resources for both the node and the clients
 // First initialization function called
@@ -46,7 +46,7 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
   total_nb_nodes = nb_paxos_nodes + nb_clients;
 
   // create & fill addresses
-  addresses = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in)
+  addresses = (struct sockaddr_un*) malloc(sizeof(struct sockaddr_un)
       * total_nb_nodes);
   if (!addresses)
   {
@@ -56,16 +56,17 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
 
   for (int i = 0; i < total_nb_nodes; i++)
   {
-    addresses[i].sin_addr.s_addr = inet_addr("127.0.0.1");
-    addresses[i].sin_family = AF_INET;
-    addresses[i].sin_port = htons(PORT_CORE_0 + i);
+    bzero((char *) &addresses[i], sizeof(addresses[i]));
+    addresses[i].sun_family = AF_UNIX;
+    snprintf(addresses[i].sun_path, sizeof(char) * 108, "%s_%i",
+        UNIX_SOCKET_FILE_NAME, i);
   }
 }
 
 void initialize_one_node(void)
 {
   // create socket
-  sock = socket(AF_INET, SOCK_DGRAM, 0);
+  sock = socket(AF_UNIX, SOCK_DGRAM, 0);
   if (sock == -1)
   {
     perror("[IPC_initialize_one_node] Error while creating the socket! ");
@@ -102,7 +103,15 @@ void IPC_initialize_client(int _client_id)
 // Called by the parent process, after the death of the children.
 void IPC_clean(void)
 {
+  char filename[108];
+
   free(addresses);
+
+  for (int i = 0; i < total_nb_nodes; i++)
+  {
+    snprintf(filename, sizeof(char) * 108, "%s_%i", UNIX_SOCKET_FILE_NAME, i);
+    unlink(filename);
+  }
 }
 
 void clean_one_node(void)
@@ -131,7 +140,7 @@ void udp_send_one_node(void *msg, size_t length, int dest)
   {
     to_send = MIN(length - sent, UDP_SEND_MAX_SIZE);
 
-    sent += sendto(sock, (char*)msg + sent, to_send, 0,
+    sent += sendto(sock, (char*) msg + sent, to_send, 0,
         (struct sockaddr*) &addresses[dest], sizeof(addresses[dest]));
   }
 }
@@ -180,7 +189,8 @@ size_t IPC_receive(void *msg, size_t length)
   size_t recv_size = 0;
   while (recv_size < length)
   {
-    recv_size += recvfrom(sock, (char*)msg + recv_size, length - recv_size, 0, 0, 0);
+    recv_size += recvfrom(sock, (char*) msg + recv_size, length - recv_size, 0,
+        0, 0);
   }
 
   return recv_size;
