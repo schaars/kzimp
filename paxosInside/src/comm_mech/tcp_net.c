@@ -13,11 +13,6 @@
 #include "tcp_net.h"
 #include "time.h"
 
-#ifdef INET_SYSCALLS_MEASUREMENT
-uint64_t nb_syscalls_send;
-uint64_t nb_syscalls_recv;
-#endif
-
 int recvMsg(int s, void *buf, size_t len)
 {
   size_t len_tmp = 0;

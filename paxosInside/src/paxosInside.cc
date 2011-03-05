@@ -18,7 +18,7 @@
 
 #include "PaxosNode.h"
 #include "Client.h"
-#include "ipc_interface.h"
+#include "comm_mech/ipc_interface.h"
 
 // number of threads per core. Set it to 2 when having a hyperthreaded CPU
 #define NB_THREADS_PER_CORE 2
@@ -31,8 +31,8 @@ int main(int argc, char **argv)
 {
   // get the list of nodes to create
   int nb_nodes = 3; // this counts the number of paxos nodes
-  int nb_clients = 2; // this counts the number of clients
-  uint64_t nb_iter = 10; // number of requests sent by each client before terminating
+  int nb_clients = 1; // this counts the number of clients
+  uint64_t nb_iter = 1; // number of requests sent by each client before terminating
   //todo
   //we should have an array T[node_id] = core_on_which_to_run_this_node
 

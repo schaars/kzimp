@@ -12,7 +12,7 @@
 
 #include "MessageTag.h"
 
-const int Max_message_size = 1024;
+const int Max_message_size = 128;
 
 struct message_header
 {

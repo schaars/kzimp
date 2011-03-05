@@ -14,7 +14,7 @@
 #include "Accept_req.h"
 #include "Learn.h"
 #include "Response.h"
-#include "ipc_interface.h"
+#include "comm_mech/ipc_interface.h"
 
 // to get some debug printf
 #define MSG_DEBUG

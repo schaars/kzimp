@@ -4,7 +4,7 @@
 
 // Initialize resources for everyone
 // First initialization function called
-void IPC_initialize(int _nb_nodes, int _nb_clients);
+void IPC_initialize(int _nb_paxos_nodes, int _nb_clients);
 
 // Initialize resources for the node of id _node_id
 void IPC_initialize_node(int _node_id);

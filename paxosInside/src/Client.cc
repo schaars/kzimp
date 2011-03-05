@@ -6,12 +6,12 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include "unistd.h"
+#include <unistd.h>
 
 #include "Client.h"
 #include "Request.h"
 #include "Response.h"
-#include "ipc_interface.h"
+#include "comm_mech/ipc_interface.h"
 
 #define MSG_DEBUG
 //#undef MSG_DEBUG
@@ -33,6 +33,9 @@ Client::~Client(void)
 void Client::run(void)
 {
   Message m;
+
+  // in order to ensure that the paxos nodes are launched
+  sleep(1);
 
   //todo: compute throughput
   //todo: compute latency?

@@ -14,7 +14,7 @@
 #include <arpa/inet.h>
 #include <sys/select.h>
 
-#include "Message.h"
+#include "../Message.h"
 #include "ipc_interface.h"
 #include "tcp_net.h"
 
@@ -26,10 +26,10 @@
 
 /********** All the variables needed by TCP sockets **********/
 
-#define PORT_CORE_0 4250
+#define PORT_CORE_0 4242
 
 static int node_id;
-static int nb_nodes; // a node is a PaxosInside node
+static int nb_paxos_nodes;
 static int nb_clients;
 
 static int *node_sockets; // sockets used to communicate between the nodes
@@ -37,9 +37,9 @@ static int *client_sockets; // sockets used to communicate between the leader no
 
 // Initialize resources for both the node and the nodes
 // First initialization function called
-void IPC_initialize(int _nb_nodes, int _nb_clients)
+void IPC_initialize(int _nb_paxos_nodes, int _nb_clients)
 {
-  nb_nodes = _nb_nodes;
+  nb_paxos_nodes = _nb_paxos_nodes;
   nb_clients = _nb_clients;
 }
 
@@ -86,13 +86,13 @@ void initialize_node1(void)
   }
 
   // make the socket listening for incoming connections
-  if (listen(bootstrap_socket, nb_nodes + 1) == -1)
+  if (listen(bootstrap_socket, nb_paxos_nodes + 1) == -1)
   {
     perror("[IPC_initialize_node] Error while calling listen! ");
     exit(errno);
   }
 
-  node_sockets = (int*) malloc(sizeof(int) * (nb_nodes - 1));
+  node_sockets = (int*) malloc(sizeof(int) * (nb_paxos_nodes - 1));
   if (!node_sockets)
   {
     perror("[IPC_initialize_node] allocation error");
@@ -100,7 +100,7 @@ void initialize_node1(void)
   }
 
   // accepting connections
-  for (i = 0; i < nb_nodes - 1; i++)
+  for (i = 0; i < nb_paxos_nodes - 1; i++)
   {
     struct sockaddr_in csin;
     int sinsize = sizeof(csin);
@@ -230,7 +230,7 @@ void initialize_node0(void)
         - PORT_CORE_0);
 #endif
 
-    client_sockets[ntohs(csin.sin_port) - PORT_CORE_0 - nb_nodes] = fd;
+    client_sockets[ntohs(csin.sin_port) - PORT_CORE_0 - nb_paxos_nodes] = fd;
   }
 
   close(bootstrap_socket);
@@ -392,7 +392,7 @@ void IPC_clean_node(void)
 
   if (node_id == 1)
   {
-    for (i = 0; i < nb_nodes; i++)
+    for (i = 0; i < nb_paxos_nodes; i++)
     {
       close(node_sockets[i]);
     }
@@ -432,7 +432,7 @@ void IPC_send_node_unicast(void *msg, size_t length)
 // send the message msg of size length to all the nodes
 void IPC_send_node_multicast(void *msg, size_t length)
 {
-  for (int j = 0; j < nb_nodes - 1; j++)
+  for (int j = 0; j < nb_paxos_nodes - 1; j++)
   {
     sendMsg(node_sockets[j], msg, length);
   }
@@ -449,7 +449,7 @@ void IPC_send_client_to_node(void *msg, size_t length)
 // called by the leader
 void IPC_send_node_to_client(void *msg, size_t length, int cid)
 {
-  sendMsg(client_sockets[cid - nb_nodes], msg, length);
+  sendMsg(client_sockets[cid - nb_paxos_nodes], msg, length);
 }
 
 // select on the array of file descriptors fds of size fds_size
@@ -513,7 +513,7 @@ int get_fd_for_recv(void)
   }
   else if (node_id == 1)
   {
-    return get_fd_by_select(node_sockets, nb_nodes - 1, -1);
+    return get_fd_by_select(node_sockets, nb_paxos_nodes - 1, -1);
   }
   else
   {
