@@ -2,7 +2,9 @@ toplevel:
 	-mkdir -p bin
 	-$(MAKE) $(MLAGS) all
 
-all: inet_tcp_paxosInside inet_udp_paxosInside unix_paxosInside pipe_paxosInside ipc_msg_queue_paxosInside posix_msg_queue_paxosInside
+all: inet_tcp_paxosInside inet_udp_paxosInside unix_paxosInside \
+	 pipe_paxosInside ipc_msg_queue_paxosInside posix_msg_queue_paxosInside \
+	 barrelfish_mp_paxosInside
 
 C:=g++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
@@ -25,12 +27,16 @@ pipe_paxosInside: $(DEPS) src/comm_mech/pipe.c
 	$(C) $(CFLAGS) $(shell cat PIPE_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	
 ipc_msg_queue_paxosInside: $(DEPS) src/comm_mech/ipc_msg_queue.c
-	$(shell if [ ! -e IPC_MESSAGE_QUEUE_PROPERTIES ]; then echo "-DIPC_MSG_QUEUE -DMESSAGE_MAX_SIZE=128" > IPC_MESSAGE_QUEUE_PROPERTIES; fi)
-	$(C) $(CFLAGS) $(shell cat IPC_MESSAGE_QUEUE_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
+	$(shell if [ ! -e IPC_MSG_QUEUE_PROPERTIES ]; then echo "-DIPC_MSG_QUEUE -DMESSAGE_MAX_SIZE=128" > IPC_MSG_QUEUE_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell cat IPC_MSG_QUEUE_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	
 posix_msg_queue_paxosInside: $(DEPS) src/comm_mech/posix_msg_queue.c
-	$(shell if [ ! -e POSIX_MESSAGE_QUEUE_PROPERTIES ]; then echo "" > POSIX_MESSAGE_QUEUE_PROPERTIES; fi)
-	$(C) $(CFLAGS) $(shell cat POSIX_MESSAGE_QUEUE_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
+	$(shell if [ ! -e POSIX_MSG_QUEUE_PROPERTIES ]; then echo "" > POSIX_MSG_QUEUE_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell cat POSIX_MSG_QUEUE_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
+	
+barrelfish_mp_paxosInside: $(DEPS) src/comm_mech/barrelfish_mp.c
+	$(shell if [ ! -e BARRELFISH_MP_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DURPC_MSG_WORDS=16" > BARRELFISH_MP_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell cat BARRELFISH_MP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	
 clean:
 	-rm *.o
@@ -39,8 +45,9 @@ clean:
 	-rm INET_UDP_PROPERTIES
 	-rm UNIX_PROPERTIES
 	-rm PIPE_PROPERTIES
-	-rm IPC_MESSAGE_QUEUE_PROPERTIES
-	-rm POSIX_MESSAGE_QUEUE_PROPERTIES
+	-rm IPC_MSG_QUEUE_PROPERTIES
+	-rm POSIX_MSG_QUEUE_PROPERTIES
+	-rm BARRELFISH_MP_PROPERTIES
 
 clobber:
 	-rm *.o
@@ -51,3 +58,4 @@ clobber:
 	-rm bin/pipe_paxosInside
 	-rm bin/ipc_msg_queue_paxosInside
 	-rm bin/posix_msg_queue_paxosInside
+	-rm bin/barrelfish_mp_paxosInside
