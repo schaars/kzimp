@@ -11,6 +11,10 @@
 #include "MessageTag.h"
 #include "Message.h"
 
+#ifdef IPC_MSG_QUEUE
+#include "comm_mech/ipc_interface.h"
+#endif
+
 Message::Message(void)
 {
   init_message(Max_message_size, UNKNOWN);
@@ -33,6 +37,12 @@ Message::Message(size_t len, MessageTag tag)
 
 void Message::init_message(size_t len, MessageTag tag)
 {
+#ifdef IPC_MSG_QUEUE
+
+  msg = ipc_msg.mtext;
+
+#else
+
   msg = (char*) malloc(len);
   if (!msg)
   {
@@ -40,11 +50,15 @@ void Message::init_message(size_t len, MessageTag tag)
     exit(errno);
   }
 
+#endif
+
   rep()->len = len;
   rep()->tag = tag;
 }
 
 Message::~Message(void)
 {
+#ifndef IPC_MSG_QUEUE
   free(msg);
+#endif
 }

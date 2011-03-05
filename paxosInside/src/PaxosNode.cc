@@ -69,6 +69,8 @@ void PaxosNode::recv(void)
    delete rs;
    delete ms;
    }
+
+   return;
    */
 
   while (1)

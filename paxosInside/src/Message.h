@@ -12,6 +12,10 @@
 
 #include "MessageTag.h"
 
+#ifdef IPC_MSG_QUEUE
+#include "comm_mech/ipc_interface.h"
+#endif
+
 const int Max_message_size = 128;
 
 struct message_header
@@ -30,7 +34,11 @@ public:
   ~Message(void);
 
   // return a pointer to the content of this message
+#ifdef IPC_MSG_QUEUE
+  struct ipc_message* content(void);
+#else
   char* content(void) const;
+#endif
 
   // return the tag of this message
   MessageTag tag(void) const;
@@ -42,6 +50,10 @@ protected:
   // initialize the message
   void init_message(size_t len, MessageTag tag);
 
+#ifdef IPC_MSG_QUEUE
+  struct ipc_message ipc_msg;
+#endif
+
   char* msg;
 
 private:
@@ -50,10 +62,17 @@ private:
 };
 
 // return a pointer to the header of this message
+#ifdef IPC_MSG_QUEUE
+inline struct ipc_message* Message::content(void)
+{
+  return &ipc_msg;
+}
+#else
 inline char* Message::content(void) const
 {
   return msg;
 }
+#endif
 
 // return the tag of this message
 inline MessageTag Message::tag(void) const

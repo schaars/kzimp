@@ -131,7 +131,7 @@ void IPC_clean_client(void)
   clean_one_node();
 }
 
-void udp_send_one_node(void *msg, size_t length, int dest)
+void unix_send_one_node(void *msg, size_t length, int dest)
 {
   size_t sent, to_send;
 
@@ -149,7 +149,7 @@ void udp_send_one_node(void *msg, size_t length, int dest)
 // Indeed the only unicast is from 0 to 1
 void IPC_send_node_unicast(void *msg, size_t length)
 {
-  udp_send_one_node(msg, length, 1);
+  unix_send_one_node(msg, length, 1);
 }
 
 // send the message msg of size length to all the nodes
@@ -164,7 +164,7 @@ void IPC_send_node_multicast(void *msg, size_t length)
       continue;
     }
 
-    udp_send_one_node(msg, length, i);
+    unix_send_one_node(msg, length, i);
   }
 }
 
@@ -172,14 +172,14 @@ void IPC_send_node_multicast(void *msg, size_t length)
 // called by a client
 void IPC_send_client_to_node(void *msg, size_t length)
 {
-  udp_send_one_node(msg, length, 0);
+  unix_send_one_node(msg, length, 0);
 }
 
 // send the message msg of size length to the client of id cid
 // called by the leader
 void IPC_send_node_to_client(void *msg, size_t length, int cid)
 {
-  udp_send_one_node(msg, length, cid);
+  unix_send_one_node(msg, length, cid);
 }
 
 // receive a message and place it in msg (which is a buffer of size length).

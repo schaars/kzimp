@@ -22,6 +22,8 @@
 #define DEBUG
 #undef DEBUG
 
+// You can define TCP_NAGLE if you want to activate TCP_NODELAY
+
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
 /********** All the variables needed by TCP sockets **********/

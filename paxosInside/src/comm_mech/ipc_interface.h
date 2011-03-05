@@ -2,6 +2,18 @@
  * Communication mechanism: interface
  */
 
+#ifndef IPC_INTERFACE_H
+#define IPC_INTERFACE_H
+
+#ifdef IPC_MSG_QUEUE
+/* a message for IPC message queue */
+struct ipc_message
+{
+  long mtype;
+  char mtext[MESSAGE_MAX_SIZE]; // MESSAGE_MAX_SIZE is defined at compile time, when calling gcc
+} __attribute__((__packed__,  __aligned__(64)));
+#endif
+
 // Initialize resources for everyone
 // First initialization function called
 void IPC_initialize(int _nb_paxos_nodes, int _nb_clients);
@@ -22,6 +34,29 @@ void IPC_clean_node(void);
 // Clean resources created for the producer.
 void IPC_clean_client(void);
 
+#ifdef IPC_MSG_QUEUE
+
+// send the message msg of size length to the node 1
+// Indeed the only unicast is from 0 to 1
+void IPC_send_node_unicast(struct ipc_message *msg, size_t length);
+
+// send the message msg of size length to all the nodes
+void IPC_send_node_multicast(struct ipc_message *msg, size_t length);
+
+// send the message msg of size length to the node 0
+// called by a client
+void IPC_send_client_to_node(struct ipc_message *msg, size_t length);
+
+// send the message msg of size length to the client of id cid
+// called by the leader
+void IPC_send_node_to_client(struct ipc_message *msg, size_t length, int cid);
+
+// receive a message and place it in msg (which is a buffer of size length).
+// Return the number of read bytes.
+size_t IPC_receive(struct ipc_message *msg, size_t length);
+
+#else
+
 // send the message msg of size length to the node 1
 // Indeed the only unicast is from 0 to 1
 void IPC_send_node_unicast(void *msg, size_t length);
@@ -40,3 +75,7 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid);
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
 size_t IPC_receive(void *msg, size_t length);
+
+#endif /* IPC_MSG_QUEUE */
+
+#endif /* IPC_INTERFACE_H */
