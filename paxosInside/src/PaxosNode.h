@@ -8,11 +8,6 @@
 #define PAXOS_NODE_H_
 
 #include <stdint.h>
-#include <map>
-
-using namespace std;
-
-const int checkpoint_frequency = 10000;
 
 class Message;
 class Request;
@@ -23,6 +18,7 @@ struct proposal
 {
   uint64_t value;
   uint64_t proposal_number;
+  uint64_t instance_number;
 };
 
 class PaxosNode
@@ -46,8 +42,7 @@ private:
   int nid;
   bool iAmLeader;
   uint64_t last_instance_number;
-  map<uint64_t, struct proposal> ap;
-  int nb_iter_for_checkpoint;
+  struct proposal last_proposal;
 };
 
 inline int PaxosNode::node_id(void) const

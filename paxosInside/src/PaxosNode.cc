@@ -28,8 +28,11 @@ PaxosNode::PaxosNode(int _node_id, bool _iAmLeader)
 {
   nid = _node_id;
   iAmLeader = _iAmLeader;
-  last_instance_number = -1;
-  nb_iter_for_checkpoint = 0;
+  last_instance_number = 0;
+
+  last_proposal.instance_number = 0;
+  last_proposal.proposal_number = 0;
+  last_proposal.value = 0;
 
   printf("PaxosNode %i has been created. Is this node a leader? %s\n", nid,
       (iAmLeader ? "true" : "false"));
@@ -37,7 +40,6 @@ PaxosNode::PaxosNode(int _node_id, bool _iAmLeader)
 
 PaxosNode::~PaxosNode(void)
 {
-  ap.clear();
 }
 
 // main loop. Receives messages
@@ -122,7 +124,6 @@ void PaxosNode::handle_request(Request *request)
 
 void PaxosNode::handle_accept_req(Accept_req *ar)
 {
-  struct proposal prop;
   int cid = ar->cid();
   uint64_t value = ar->value();
   uint64_t in = ar->instance_number();
@@ -138,22 +139,11 @@ void PaxosNode::handle_accept_req(Accept_req *ar)
     return;
   }
 
-  if (ap[in].proposal_number != 0 && ap[in].value != 0)
-  {
-    // there is already a proposal accepted with this instance number
-    prop = ap[in];
-  }
-  else
-  {
-    prop.proposal_number = pn;
-    prop.value = value;
-    ap[in] = prop;
-  }
+  last_proposal.instance_number = in;
+  last_proposal.proposal_number = pn;
+  last_proposal.value = value;
 
-  prop.proposal_number = pn;
-  prop.value = value;
-
-  Learn learn(cid, prop.proposal_number, in, prop.value);
+  Learn learn(cid, pn, in, value);
 
   IPC_send_node_multicast(learn.content(), learn.length());
   handle_learn(&learn);
@@ -164,23 +154,21 @@ void PaxosNode::handle_accept_req(Accept_req *ar)
 void PaxosNode::handle_learn(Learn *learn)
 {
   int cid = learn->cid();
-
-#ifdef MSG_DEBUG
   uint64_t value = learn->value();
   uint64_t in = learn->instance_number();
   uint64_t pn = learn->proposal_number();
 
+#ifdef MSG_DEBUG
   printf("PaxosNode %i handles a learn (%i, %lu, %lu, %lu)\n", nid, cid, in,
       pn, value);
 #endif
 
-  // periodically empty ap, in order to simulate checkpointing on disk
-  // and not to use the whole system memory
-  nb_iter_for_checkpoint++;
-  if (nb_iter_for_checkpoint == checkpoint_frequency)
+  // node 1 is the acceptor. It has already accepted and saved the last proposal
+  if (node_id() != 1)
   {
-    ap.clear();
-    nb_iter_for_checkpoint = 0;
+    last_proposal.instance_number = in;
+    last_proposal.proposal_number = pn;
+    last_proposal.value = value;
   }
 
   if (iAmLeader)
