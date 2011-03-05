@@ -14,6 +14,7 @@
 #include <arpa/inet.h>
 #include <sys/select.h>
 
+#include "Message.h"
 #include "ipc_interface.h"
 #include "tcp_net.h"
 
@@ -25,13 +26,14 @@
 
 /********** All the variables needed by TCP sockets **********/
 
-#define PORT_CORE_0 4242
+#define PORT_CORE_0 4250
 
-static int core_id;
+static int node_id;
 static int nb_nodes; // a node is a PaxosInside node
 static int nb_clients;
 
 static int *node_sockets; // sockets used to communicate between the nodes
+static int *client_sockets; // sockets used to communicate between the leader node and the clients
 
 // Initialize resources for both the node and the nodes
 // First initialization function called
@@ -74,7 +76,7 @@ void initialize_node1(void)
   // bind
   bootstrap_sin.sin_addr.s_addr = htonl(INADDR_ANY);
   bootstrap_sin.sin_family = AF_INET;
-  bootstrap_sin.sin_port = htons(PORT_CORE_0);
+  bootstrap_sin.sin_port = htons(PORT_CORE_0 + 1);
 
   if (bind(bootstrap_socket, (struct sockaddr*) &bootstrap_sin,
       sizeof(bootstrap_sin)) == -1)
@@ -125,9 +127,110 @@ void initialize_node1(void)
 
 #ifdef DEBUG
     // print some information about the accepted connection
-    printf("[node] A connection has been accepted from %s:%i\n", inet_ntoa(
-            csin.sin_addr), ntohs(csin.sin_port));
+    printf("[node %i] A connection has been accepted from %s:%i\n", node_id,
+        inet_ntoa(csin.sin_addr), ntohs(csin.sin_port));
 #endif
+  }
+
+  close(bootstrap_socket);
+}
+
+// initialize node 0 (the leader)
+// waits for connections from the clients
+void initialize_node0(void)
+{
+  int bootstrap_socket;
+  struct sockaddr_in bootstrap_sin;
+  int i;
+
+#ifdef TCP_NAGLE
+  int flag;
+#endif
+
+  // create bootstrap socket
+  bootstrap_socket = socket(AF_INET, SOCK_STREAM, 0);
+  if (bootstrap_socket == -1)
+  {
+    perror("[initialize_node0] Error while creating the socket! ");
+    exit(errno);
+  }
+
+  // TCP NO DELAY
+#ifdef TCP_NAGLE
+  flag = 1;
+  int result = setsockopt(bootstrap_socket, IPPROTO_TCP, TCP_NODELAY,
+      (char*) &flag, sizeof(int));
+  if (result == -1)
+  {
+    perror("[initialize_node0] Error while setting TCP NO DELAY! ");
+  }
+#endif
+
+  // bind
+  bootstrap_sin.sin_addr.s_addr = htonl(INADDR_ANY);
+  bootstrap_sin.sin_family = AF_INET;
+  bootstrap_sin.sin_port = htons(PORT_CORE_0);
+
+  if (bind(bootstrap_socket, (struct sockaddr*) &bootstrap_sin,
+      sizeof(bootstrap_sin)) == -1)
+  {
+    perror("[initialize_node0] Error while binding to the socket! ");
+    exit(errno);
+  }
+
+  // make the socket listening for incoming connections
+  if (listen(bootstrap_socket, nb_clients + 1) == -1)
+  {
+    perror("[initialize_node0] Error while calling listen! ");
+    exit(errno);
+  }
+
+  client_sockets = (int*) malloc(sizeof(int) * (nb_clients));
+  if (!client_sockets)
+  {
+    perror("[initialize_node0] allocation error");
+    exit(errno);
+  }
+
+#ifdef DEBUG
+  printf("[node0] Waiting for %i clients\n", nb_clients);
+#endif
+
+  // accepting connections
+  for (i = 0; i < nb_clients; i++)
+  {
+    struct sockaddr_in csin;
+    int sinsize = sizeof(csin);
+    int fd = accept(bootstrap_socket, (struct sockaddr*) &csin,
+        (socklen_t*) &sinsize);
+
+    if (fd == -1)
+    {
+      perror("[initialize_node0] An invalid socket has been accepted! ");
+      continue;
+    }
+
+    // TCP NO DELAY
+#ifdef TCP_NAGLE
+    int flag = 1;
+    int result = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY,
+        (char *) &flag, sizeof(int));
+    if (result == -1)
+    {
+      perror(
+          "[initialize_node0] Error while setting TCP NO DELAY for accepted socket! ");
+    }
+#endif
+
+#ifdef DEBUG
+    // print some information about the accepted connection
+    printf("[node0] A connection has been accepted from %s:%i\n", inet_ntoa(
+            csin.sin_addr), ntohs(csin.sin_port));
+    printf("[node0] This should be client %i\n", ntohs(csin.sin_port)
+        - PORT_CORE_0);
+#endif
+
+    client_sockets[ntohs(csin.sin_port) - PORT_CORE_0 - nb_nodes] = fd;
   }
 
   close(bootstrap_socket);
@@ -136,8 +239,6 @@ void initialize_node1(void)
 // initialize a node that is not the node 1
 void initialize_nodei(void)
 {
-  //todo: if core_id is 0 then initialize everything for comm with the clients
-
   // we need only 1 socket: the one to connect to the node
   node_sockets = (int*) malloc(sizeof(int) * 1);
   if (!node_sockets)
@@ -169,7 +270,7 @@ void initialize_nodei(void)
   struct sockaddr_in addr;
   addr.sin_addr.s_addr = inet_addr("127.0.0.1");
   addr.sin_family = AF_INET;
-  addr.sin_port = htons(PORT_CORE_0);
+  addr.sin_port = htons(PORT_CORE_0 + 1);
 
   while (1)
   {
@@ -181,8 +282,8 @@ void initialize_nodei(void)
     else
     {
 #ifdef DEBUG
-      printf("[node %i] Connection successful from %i to node 1!\n", core_id,
-          core_id);
+      printf("[node %i] Connection successful from %i to node 1!\n", node_id,
+          node_id);
 #endif
       break;
     }
@@ -190,17 +291,91 @@ void initialize_nodei(void)
 }
 
 // Initialize resources for the node
-void IPC_initialize_node(int _core_id)
+void IPC_initialize_node(int _node_id)
 {
-  core_id = _core_id;
+  node_id = _node_id;
 
-  if (core_id == 1)
+  if (node_id == 1)
   {
     initialize_node1();
   }
   else
   {
+    if (node_id == 0)
+    {
+      initialize_node0();
+    }
+
     initialize_nodei();
+  }
+}
+
+// Initialize resources for the client of id _client_id
+void IPC_initialize_client(int _client_id)
+{
+  node_id = _client_id;
+
+  // we need only 1 socket: the one to connect to the node
+  node_sockets = (int*) malloc(sizeof(int) * 1);
+  if (!node_sockets)
+  {
+    perror("[IPC_initialize_client] allocation error");
+    exit(errno);
+  }
+
+  // create socket
+  node_sockets[0] = socket(AF_INET, SOCK_STREAM, 0);
+  if (node_sockets[0] == -1)
+  {
+    perror("[IPC_initialize_client] Error while creating the socket! ");
+    exit(errno);
+  }
+
+  // TCP NO DELAY
+#ifdef TCP_NAGLE
+  int flag = 1;
+  int result = setsockopt(node_sockets[0], IPPROTO_TCP, TCP_NODELAY, (char*) &flag,
+      sizeof(int));
+  if (result == -1)
+  {
+    perror("[IPC_initialize_client] Error while setting TCP NO DELAY! ");
+  }
+#endif
+
+  //bind
+  struct sockaddr_in client_sin;
+  client_sin.sin_addr.s_addr = htonl(INADDR_ANY);
+  client_sin.sin_family = AF_INET;
+  client_sin.sin_port = htons(PORT_CORE_0 + node_id);
+
+  if (bind(node_sockets[0], (struct sockaddr*) &client_sin, sizeof(client_sin))
+      == -1)
+  {
+    perror("[initialize_node0] Error while binding to the socket! ");
+    exit(errno);
+  }
+
+  // connect to node
+  struct sockaddr_in addr;
+  addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(PORT_CORE_0);
+
+  while (1)
+  {
+    if (connect(node_sockets[0], (struct sockaddr *) &(addr), sizeof(addr)) < 0)
+    {
+      perror("[IPC_initialize_client] Cannot connect");
+      sleep(1);
+    }
+    else
+    {
+#ifdef DEBUG
+      printf("[node %i] Connection successful from %i to node 1!\n", node_id,
+          node_id);
+#endif
+      break;
+    }
   }
 }
 
@@ -210,38 +385,41 @@ void IPC_clean(void)
 {
 }
 
-// clean resources allocated for node 1
-void clean_node1(void)
+// Clean resources created for the (paxos) node.
+void IPC_clean_node(void)
 {
   int i;
 
-  for (i = 0; i < nb_nodes; i++)
+  if (node_id == 1)
   {
-    close(node_sockets[i]);
+    for (i = 0; i < nb_nodes; i++)
+    {
+      close(node_sockets[i]);
+    }
+  }
+  else if (node_id == 0)
+  {
+    for (i = 0; i < nb_clients; i++)
+    {
+      close(client_sockets[i]);
+    }
+
+    free(client_sockets);
+  }
+  else
+  {
+    close(node_sockets[0]);
   }
 
   free(node_sockets);
 }
 
-// clean resources allocated for a node different than 1
-void clean_nodei(void)
+// Clean resources created for the client.
+void IPC_clean_client(void)
 {
   close(node_sockets[0]);
 
   free(node_sockets);
-}
-
-// Clean resources created for the node.
-void IPC_clean_node(void)
-{
-  if (core_id == 1)
-  {
-    clean_node1();
-  }
-  else
-  {
-    clean_nodei();
-  }
 }
 
 // send the message msg of size length to the node 1
@@ -260,30 +438,48 @@ void IPC_send_node_multicast(void *msg, size_t length)
   }
 }
 
-// get a file descriptor on which there is something to receive
-int get_fd_for_recv(void)
+// send the message msg of size length to the node 0
+// called by a client
+void IPC_send_client_to_node(void *msg, size_t length)
+{
+  sendMsg(node_sockets[0], msg, length);
+}
+
+// send the message msg of size length to the client of id cid
+// called by the leader
+void IPC_send_node_to_client(void *msg, size_t length, int cid)
+{
+  sendMsg(client_sockets[cid - nb_nodes], msg, length);
+}
+
+// select on the array of file descriptors fds of size fds_size
+// if add_fd is not -1, then this is an additionnal fd on which
+// select is called
+int get_fd_by_select(int *fds, int fds_size, int add_fd)
 {
   fd_set file_descriptors;
   struct timeval listen_time;
   int maxsock;
-
-  if (core_id != 1)
-  {
-    return node_sockets[0];
-  }
 
   while (1)
   {
     // select
     FD_ZERO(&file_descriptors); //initialize file descriptor set
 
-    maxsock = node_sockets[0];
-    FD_SET(node_sockets[0], &file_descriptors);
+    maxsock = fds[0];
+    FD_SET(fds[0], &file_descriptors);
 
-    for (int j = 1; j < nb_nodes - 1; j++)
+    for (int j = 1; j < fds_size; j++)
     {
-      FD_SET(node_sockets[j], &file_descriptors);
-      maxsock = MAX(maxsock, node_sockets[j]);
+      FD_SET(fds[j], &file_descriptors);
+      maxsock = MAX(maxsock, fds[j]);
+    }
+
+    // additionnal file descriptor?
+    if (add_fd != -1)
+    {
+      FD_SET(add_fd, &file_descriptors);
+      maxsock = MAX(maxsock, add_fd);
     }
 
     listen_time.tv_sec = 1;
@@ -291,14 +487,38 @@ int get_fd_for_recv(void)
 
     select(maxsock + 1, &file_descriptors, NULL, NULL, &listen_time);
 
-    for (int j = 0; j < nb_nodes - 1; j++)
+    for (int j = 0; j < fds_size; j++)
     {
       //I want to listen at this replica
-      if (FD_ISSET(node_sockets[j], &file_descriptors))
+      if (FD_ISSET(fds[j], &file_descriptors))
       {
-        return node_sockets[j];
+        return fds[j];
       }
     }
+
+    // additionnal file descriptor
+    if (add_fd != -1 && FD_ISSET(add_fd, &file_descriptors))
+    {
+      return add_fd;
+    }
+  }
+}
+
+// get a file descriptor on which there is something to receive
+int get_fd_for_recv(void)
+{
+  if (node_id == 0)
+  {
+    return get_fd_by_select(client_sockets, nb_clients, node_sockets[0]);
+  }
+  else if (node_id == 1)
+  {
+    return get_fd_by_select(node_sockets, nb_nodes - 1, -1);
+  }
+  else
+  {
+    // either this node is neither 0 nor 1, or this is a client
+    return node_sockets[0];
   }
 }
 
@@ -312,7 +532,7 @@ size_t IPC_receive(void *msg, size_t length)
   fd = get_fd_for_recv();
 
 #ifdef DEBUG
-  printf("Node %i is receiving a message with fd=%i\n", core_id, fd);
+  printf("Node %i is receiving a message with fd=%i\n", node_id, fd);
 #endif
 
   // receive the message_header
@@ -323,7 +543,7 @@ size_t IPC_receive(void *msg, size_t length)
   left = msg_len - header_size;
   if (left > 0)
   {
-    s = recvMsg(fd, (void*) ((char*)msg + header_size), left);
+    s = recvMsg(fd, (void*) ((char*) msg + header_size), left);
   }
 
   return msg_len;

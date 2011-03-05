@@ -13,6 +13,7 @@
 #include "Request.h"
 #include "Accept_req.h"
 #include "Learn.h"
+#include "Response.h"
 #include "ipc_interface.h"
 
 // to get some debug printf
@@ -39,48 +40,34 @@ PaxosNode::~PaxosNode(void)
   ap.clear();
 }
 
-//fixme
-// will be removed when we will have the clients
-int __cid = 42;
-uint64_t __v = 1337;
-
 // main loop. Receives messages
 void PaxosNode::recv(void)
 {
   Message m;
 
-  if (node_id() == 0)
-  {
-    Message *ms = new Message();
-    Request *rs = new Request();
-    Accept_req *as = new Accept_req();
-    Learn *ls = new Learn();
+  /* Display the size of the different messages
+   if (node_id() == 0)
+   {
+   Message *ms = new Message();
+   Request *rs = new Request();
+   Accept_req *as = new Accept_req();
+   Learn *ls = new Learn();
 
-    printf("Size of Message (%i) = %lu, addr%%64 = %lu\n", ms->tag(),
-        ms->length(), (unsigned long) ms->content() % 64);
-    printf("Size of Request (%i) = %lu, addr%%64 = %lu\n", rs->tag(),
-        rs->length(), (unsigned long) rs->content() % 64);
-    printf("Size of Accept_req (%i) = %lu, addr%%64 = %lu\n", as->tag(),
-        as->length(), (unsigned long) as->content() % 64);
-    printf("Size of Learn (%i) = %lu, addr%%64 = %lu\n", ls->tag(),
-        ls->length(), (unsigned long) ls->content() % 64);
+   printf("Size of Message (%i) = %lu, addr%%64 = %lu\n", ms->tag(),
+   ms->length(), (unsigned long) ms->content() % 64);
+   printf("Size of Request (%i) = %lu, addr%%64 = %lu\n", rs->tag(),
+   rs->length(), (unsigned long) rs->content() % 64);
+   printf("Size of Accept_req (%i) = %lu, addr%%64 = %lu\n", as->tag(),
+   as->length(), (unsigned long) as->content() % 64);
+   printf("Size of Learn (%i) = %lu, addr%%64 = %lu\n", ls->tag(),
+   ls->length(), (unsigned long) ls->content() % 64);
 
-    delete ls;
-    delete as;
-    delete rs;
-    delete ms;
-  }
-
-  //return;
-
-  //fixme
-  // will be removed when we will have the clients
-  // the leader starts the run by proposing a value
-  if (iAmLeader)
-  {
-    Request r(__cid, __v);
-    handle_request(&r);
-  }
+   delete ls;
+   delete as;
+   delete rs;
+   delete ms;
+   }
+   */
 
   while (1)
   {
@@ -121,8 +108,8 @@ void PaxosNode::handle_request(Request *request)
   uint64_t value = request->value();
 
 #ifdef MSG_DEBUG
-  printf("PaxosNode %i handles request %i from client %lu\n", node_id(), cid,
-      value);
+  printf("PaxosNode %i handles request %lu from client %i\n", node_id(), value,
+      cid);
 #endif
 
   uint64_t in = next_instance_number();
@@ -167,8 +154,8 @@ void PaxosNode::handle_accept_req(Accept_req *ar)
   prop.value = value;
 
   Learn learn(cid, prop.proposal_number, in, prop.value);
-  IPC_send_node_multicast(learn.content(), learn.length());
 
+  IPC_send_node_multicast(learn.content(), learn.length());
   handle_learn(&learn);
 
   return;
@@ -177,12 +164,15 @@ void PaxosNode::handle_accept_req(Accept_req *ar)
 void PaxosNode::handle_learn(Learn *learn)
 {
   int cid = learn->cid();
+
+#ifdef MSG_DEBUG
   uint64_t value = learn->value();
   uint64_t in = learn->instance_number();
   uint64_t pn = learn->proposal_number();
 
-  //fixme
-  pn = in = value = cid;
+  printf("PaxosNode %i handles a learn (%i, %lu, %lu, %lu)\n", nid, cid, in,
+      pn, value);
+#endif
 
   // periodically empty ap, in order to simulate checkpointing on disk
   // and not to use the whole system memory
@@ -193,24 +183,10 @@ void PaxosNode::handle_learn(Learn *learn)
     nb_iter_for_checkpoint = 0;
   }
 
-#ifdef MSG_DEBUG
-  printf("PaxosNode %i handles a learn (%i, %lu, %lu, %lu)\n", nid, cid, in,
-      pn, value);
-#endif
-
   if (iAmLeader)
   {
-    //todo
-    //send response to client
-    //for now, send a new request
+    Response r(value);
 
-    //sleep(1);
-
-    //fixme
-    // will be removed when we will have the clients
-    __cid++;
-    __v++;
-    Request r(__cid, __v);
-    handle_request(&r);
+    IPC_send_node_to_client(r.content(), r.length(), cid);
   }
 }

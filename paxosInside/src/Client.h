@@ -9,6 +9,8 @@
 
 #include <stdint.h>
 
+class Response;
+
 class Client
 {
 public:
@@ -22,6 +24,8 @@ public:
   void run(void);
 
 private:
+  void handle_response(Response* r);
+
   uint64_t next_value(void);
 
   int cid; // the client id

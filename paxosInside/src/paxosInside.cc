@@ -24,15 +24,15 @@
 #define NB_THREADS_PER_CORE 2
 
 // do not modify this value, otherwise you need to modify
-// to which the communication means sends unicast messages between nodes.
-const int leader_core_id = 0;
+// who is the leader in the communication mechanism
+const int leader_node_id = 0;
 
 int main(int argc, char **argv)
 {
   // get the list of nodes to create
   int nb_nodes = 3; // this counts the number of paxos nodes
-  int nb_clients = 1; // this counts the number of clients
-  uint64_t nb_iter = 1; // number of requests sent by each client before terminating
+  int nb_clients = 2; // this counts the number of clients
+  uint64_t nb_iter = 10; // number of requests sent by each client before terminating
   //todo
   //we should have an array T[node_id] = core_on_which_to_run_this_node
 
@@ -68,7 +68,7 @@ int main(int argc, char **argv)
 
     // create the node
     PaxosNode *paxosNode;
-    if (core_id == leader_core_id)
+    if (core_id == leader_node_id)
     {
       paxosNode = new PaxosNode(core_id, true);
     }
@@ -86,8 +86,7 @@ int main(int argc, char **argv)
   }
   else
   {
-    //todo
-    // IPC_initialize_client(core_id)
+    IPC_initialize_client(core_id);
 
     Client *c = new Client(core_id, nb_iter);
 
@@ -95,8 +94,7 @@ int main(int argc, char **argv)
 
     delete c;
 
-    //todo
-    //IPC_clean_client()
+    IPC_clean_client();
   }
 
   // wait for my children
