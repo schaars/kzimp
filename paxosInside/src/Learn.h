@@ -27,47 +27,47 @@ public:
   ~Learn(void);
 
   // client id
-  int cid(void);
+  int cid(void) const;
 
   // proposal number
-  uint64_t proposal_number(void);
+  uint64_t proposal_number(void) const;
 
   // instance number
-  uint64_t instance_number(void);
+  uint64_t instance_number(void) const;
 
   // value
-  uint64_t value(void);
+  uint64_t value(void) const;
 
 private:
   // cast content to a struct message_learn*
-  struct message_learn *rep(void);
+  struct message_learn *rep(void) const;
 };
 
-inline int Learn::cid(void)
+inline int Learn::cid(void) const
 {
   return rep()->cid;
 }
 
 // proposal number
-inline uint64_t Learn::proposal_number(void)
+inline uint64_t Learn::proposal_number(void) const
 {
   return rep()->proposal_number;
 }
 
 // instance number
-inline uint64_t Learn::instance_number(void)
+inline uint64_t Learn::instance_number(void) const
 {
   return rep()->instance_number;
 }
 
 // value
-inline uint64_t Learn::value(void)
+inline uint64_t Learn::value(void) const
 {
   return rep()->value;
 }
 
 // cast content to a struct message_request*
-inline struct message_learn *Learn::rep(void)
+inline struct message_learn *Learn::rep(void) const
 {
   return (struct message_learn *) msg;
 }

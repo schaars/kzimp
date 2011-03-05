@@ -31,4 +31,4 @@ void IPC_send_node_multicast(void *msg, size_t length);
 
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
-size_t IPC_receive(struct message_header *msg, size_t length);
+size_t IPC_receive(void *msg, size_t length);

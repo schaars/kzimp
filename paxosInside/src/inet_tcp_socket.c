@@ -42,7 +42,7 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
 }
 
 // initialize the sockets of node 1
-void initialize_node1()
+void initialize_node1(void)
 {
   int bootstrap_socket;
   struct sockaddr_in bootstrap_sin;
@@ -134,7 +134,7 @@ void initialize_node1()
 }
 
 // initialize a node that is not the node 1
-void initialize_nodei()
+void initialize_nodei(void)
 {
   //todo: if core_id is 0 then initialize everything for comm with the clients
 
@@ -210,13 +210,8 @@ void IPC_clean(void)
 {
 }
 
-// Clean resources created for the node.
-void IPC_clean_node_node(void)
-{
-}
-
 // clean resources allocated for node 1
-void clean_node1()
+void clean_node1(void)
 {
   int i;
 
@@ -229,7 +224,7 @@ void clean_node1()
 }
 
 // clean resources allocated for a node different than 1
-void clean_nodei()
+void clean_nodei(void)
 {
   close(node_sockets[0]);
 
@@ -239,7 +234,6 @@ void clean_nodei()
 // Clean resources created for the node.
 void IPC_clean_node(void)
 {
-
   if (core_id == 1)
   {
     clean_node1();
@@ -267,7 +261,7 @@ void IPC_send_node_multicast(void *msg, size_t length)
 }
 
 // get a file descriptor on which there is something to receive
-int get_fd_for_recv()
+int get_fd_for_recv(void)
 {
   fd_set file_descriptors;
   struct timeval listen_time;
@@ -310,9 +304,9 @@ int get_fd_for_recv()
 
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
-size_t IPC_receive(struct message_header *msg, size_t length)
+size_t IPC_receive(void *msg, size_t length)
 {
-  size_t header_size, s, left;
+  size_t header_size, s, left, msg_len;
   int fd;
 
   fd = get_fd_for_recv();
@@ -325,11 +319,12 @@ size_t IPC_receive(struct message_header *msg, size_t length)
   header_size = recvMsg(fd, (void*) msg, sizeof(struct message_header));
 
   // receive the message content
-  left = msg->len - header_size;
+  msg_len = ((struct message_header*) msg)->len;
+  left = msg_len - header_size;
   if (left > 0)
   {
-    s = recvMsg(fd, (void*) (msg + header_size), left);
+    s = recvMsg(fd, (void*) ((char*)msg + header_size), left);
   }
 
-  return msg->len;
+  return msg_len;
 }

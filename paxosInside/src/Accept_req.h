@@ -27,47 +27,47 @@ public:
   ~Accept_req(void);
 
   // client id
-  int cid(void);
+  int cid(void) const;
 
   // proposal number
-  uint64_t proposal_number(void);
+  uint64_t proposal_number(void) const;
 
   // instance number
-  uint64_t instance_number(void);
+  uint64_t instance_number(void) const;
 
   // value
-  uint64_t value(void);
+  uint64_t value(void) const;
 
 private:
   // cast content to a struct message_accept_req*
-  struct message_accept_req *rep(void);
+  struct message_accept_req *rep(void) const;
 };
 
-inline int Accept_req::cid(void)
+inline int Accept_req::cid(void) const
 {
   return rep()->cid;
 }
 
 // proposal number
-inline uint64_t Accept_req::proposal_number(void)
+inline uint64_t Accept_req::proposal_number(void) const
 {
   return rep()->proposal_number;
 }
 
 // instance number
-inline uint64_t Accept_req::instance_number(void)
+inline uint64_t Accept_req::instance_number(void) const
 {
   return rep()->instance_number;
 }
 
 // value
-inline uint64_t Accept_req::value(void)
+inline uint64_t Accept_req::value(void) const
 {
   return rep()->value;
 }
 
 // cast content to a struct message_accept_req*
-inline struct message_accept_req *Accept_req::rep(void)
+inline struct message_accept_req *Accept_req::rep(void) const
 {
   return (struct message_accept_req *) msg;
 }

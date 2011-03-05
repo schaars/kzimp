@@ -11,26 +11,40 @@
 #include "MessageTag.h"
 #include "Message.h"
 
-Message::Message(int len, MessageTag tag)
+Message::Message(void)
 {
-  //XXX: when usign ULM we need not to call malloc for sending a message.
-  // Instead we call mpsoc_alloc().
-  // We call malloc for receiving a message.
-  msg = (struct message_header*) malloc(len);
+  init_message(Max_message_size, UNKNOWN);
+}
+
+Message::Message(MessageTag tag)
+{
+  init_message(Max_message_size, tag);
+}
+
+Message::Message(size_t len)
+{
+  init_message(len, UNKNOWN);
+}
+
+Message::Message(size_t len, MessageTag tag)
+{
+  init_message(len, tag);
+}
+
+void Message::init_message(size_t len, MessageTag tag)
+{
+  msg = (char*) malloc(len);
   if (!msg)
   {
     perror("Message creation failed! ");
-    exit( errno);
+    exit(errno);
   }
 
-  msg->len = len;
-  msg->tag = tag;
-
-  printf("New message of size %i and tag %i has been created.\n", msg->len,
-      msg->tag);
+  rep()->len = len;
+  rep()->tag = tag;
 }
 
-Message::~Message()
+Message::~Message(void)
 {
   free(msg);
 }
