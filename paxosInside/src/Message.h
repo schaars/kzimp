@@ -29,7 +29,6 @@ class Message
 public:
   Message(void);
   Message(MessageTag tag);
-  Message(size_t len);
   Message(size_t len, MessageTag tag);
   ~Message(void);
 
@@ -40,21 +39,31 @@ public:
   char* content(void) const;
 #endif
 
+#ifdef ULM
+  // return the position of the message in the shared buffer of ULM
+  int get_msg_pos(void);
+#endif
+
   // return the tag of this message
   MessageTag tag(void) const;
 
   // return the length of this message
   size_t length(void) const;
 
-protected:
   // initialize the message
-  void init_message(size_t len, MessageTag tag);
+  void init_message(size_t len, MessageTag tag, bool ulm_alloc = false);
+
+protected:
 
 #ifdef IPC_MSG_QUEUE
   struct ipc_message ipc_msg;
 #endif
 
   char* msg;
+
+#ifdef ULM
+  int msg_pos_in_ring_buffer;
+#endif
 
 private:
   // cast content to a struct message_header*
@@ -91,5 +100,12 @@ inline struct message_header *Message::rep(void) const
 {
   return (struct message_header *) msg;
 }
+
+#ifdef ULM
+inline int Message::get_msg_pos(void)
+{
+  return msg_pos_in_ring_buffer;
+}
+#endif
 
 #endif /* MESSAGE_H_ */

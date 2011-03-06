@@ -34,7 +34,7 @@ void IPC_clean_node(void);
 // Clean resources created for the producer.
 void IPC_clean_client(void);
 
-#ifdef IPC_MSG_QUEUE
+#if defined(IPC_MSG_QUEUE)
 
 // send the message msg of size length to the node 1
 // Indeed the only unicast is from 0 to 1
@@ -54,6 +54,30 @@ void IPC_send_node_to_client(struct ipc_message *msg, size_t length, int cid);
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
 size_t IPC_receive(struct ipc_message *msg, size_t length);
+
+#elif defined(ULM)
+
+// allocate a new message in the shared memory
+void* IPC_ulm_alloc(size_t len, int *msg_pos_in_ring_buffer);
+
+// send the message msg of size length to the node 1
+// Indeed the only unicast is from 0 to 1
+void IPC_send_node_unicast(void *msg, size_t length, int msg_pos_in_ring_buffer);
+
+// send the message msg of size length to all the nodes
+void IPC_send_node_multicast(void *msg, size_t length, int msg_pos_in_ring_buffer);
+
+// send the message msg of size length to the node 0
+// called by a client
+void IPC_send_client_to_node(void *msg, size_t length, int msg_pos_in_ring_buffer);
+
+// send the message msg of size length to the client of id cid
+// called by the leader
+void IPC_send_node_to_client(void *msg, size_t length, int cid, int msg_pos_in_ring_buffer);
+
+// receive a message and place it in msg (which is a buffer of size length).
+// Return the number of read bytes.
+size_t IPC_receive(void *msg, size_t length);
 
 #else
 

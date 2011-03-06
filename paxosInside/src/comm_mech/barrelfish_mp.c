@@ -22,6 +22,8 @@
 #define DEBUG
 //#undef DEBUG
 
+// Define NB_MESSAGES as the max number of messages in the channel
+// Define URPC_MSG_WORDS as the size of the messages in uint64_t
 // You can define USLEEP if you want to add a usleep(1) when busy waiting
 // You can define NOP if you want to add a nop when busy waiting
 

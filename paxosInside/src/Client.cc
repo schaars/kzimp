@@ -49,7 +49,11 @@ void Client::run(void)
         r.value());
 #endif
 
+#ifdef ULM
+    IPC_send_client_to_node(r.content(), r.length(), r.get_msg_pos());
+#else
     IPC_send_client_to_node(r.content(), r.length());
+#endif
 
     size_t s = IPC_receive(m.content(), m.length());
 

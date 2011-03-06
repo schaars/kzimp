@@ -121,7 +121,12 @@ void PaxosNode::handle_request(Request *request)
 
   Accept_req ar(cid, pn, in, value);
 
+#ifdef ULM
+  IPC_send_node_unicast(ar.content(), ar.length(), ar.get_msg_pos());
+#else
   IPC_send_node_unicast(ar.content(), ar.length());
+#endif
+
 }
 
 void PaxosNode::handle_accept_req(Accept_req *ar)
@@ -147,8 +152,12 @@ void PaxosNode::handle_accept_req(Accept_req *ar)
 
   Learn learn(cid, pn, in, value);
 
+#ifdef ULM
+  IPC_send_node_multicast(learn.content(), learn.length(), learn.get_msg_pos());
+#else
   IPC_send_node_multicast(learn.content(), learn.length());
   handle_learn(&learn);
+#endif
 
   return;
 }
@@ -177,6 +186,10 @@ void PaxosNode::handle_learn(Learn *learn)
   {
     Response r(value);
 
+#ifdef ULM
+    IPC_send_node_to_client(r.content(), r.length(), cid, r.get_msg_pos());
+#else
     IPC_send_node_to_client(r.content(), r.length(), cid);
+#endif
   }
 }

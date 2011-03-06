@@ -4,7 +4,7 @@ toplevel:
 
 all: inet_tcp_paxosInside inet_udp_paxosInside unix_paxosInside \
 	 pipe_paxosInside ipc_msg_queue_paxosInside posix_msg_queue_paxosInside \
-	 barrelfish_mp_paxosInside
+	 barrelfish_mp_paxosInside ulm_mp_paxosInside
 
 C:=g++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
@@ -38,6 +38,10 @@ barrelfish_mp_paxosInside: $(DEPS) src/comm_mech/urpc.h src/comm_mech/urpc_trans
 	$(shell if [ ! -e BARRELFISH_MP_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DURPC_MSG_WORDS=16" > BARRELFISH_MP_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat BARRELFISH_MP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	
+ulm_mp_paxosInside: $(DEPS) src/comm_mech/mpsoc.c src/comm_mech/ulm.c
+	$(shell if [ ! -e ULM_PROPERTIES ]; then echo "-DULM -DMESSAGE_MAX_SIZE=128 -DNB_MESSAGES=10" > ULM_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell cat ULM_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
+	
 clean:
 	-rm *.o
 	-rm *~
@@ -48,6 +52,7 @@ clean:
 	-rm IPC_MSG_QUEUE_PROPERTIES
 	-rm POSIX_MSG_QUEUE_PROPERTIES
 	-rm BARRELFISH_MP_PROPERTIES
+	-rm ULM_PROPERTIES
 
 clobber:
 	-rm *.o
@@ -59,3 +64,4 @@ clobber:
 	-rm bin/ipc_msg_queue_paxosInside
 	-rm bin/posix_msg_queue_paxosInside
 	-rm bin/barrelfish_mp_paxosInside
+	-rm bin/ulm_mp_paxosInside
