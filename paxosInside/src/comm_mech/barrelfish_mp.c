@@ -22,7 +22,8 @@
 #define DEBUG
 //#undef DEBUG
 
-// You can define ONE_QUEUE if you want to have only 1 queue shared by all the nodes (clients + paxos nodes).
+// You can define USLEEP if you want to add a usleep(1) when busy waiting
+// You can define NOP if you want to add a nop when busy waiting
 
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #define MIN(a, b) (((a)<(b))?(a):(b))
@@ -323,6 +324,14 @@ size_t recv_for_node0(void *msg, size_t length)
         return recv_size;
       }
     }
+
+    // sleep
+#ifdef USLEEP
+    usleep(1);
+#endif
+#ifdef NOP
+    __asm__ __volatile__("nop");
+#endif
   }
 }
 

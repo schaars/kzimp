@@ -108,8 +108,12 @@ bool urpc_transport_send(struct urpc_connection *c, void *msg, size_t msg_len)
 #endif
 
     // sleep
-    //usleep(50);
-    //__asm__ __volatile__("nop");
+#ifdef USLEEP
+    usleep(1);
+#endif
+#ifdef NOP
+    __asm__ __volatile__("nop");
+#endif
   }
 
 #ifdef URPC_TRANSPORT_DEBUG
@@ -175,8 +179,12 @@ size_t urpc_transport_recv(struct urpc_connection *c, void *msg, size_t msg_len)
 #endif
 
     // sleep
-    //usleep(50);
-    //__asm__ __volatile__("nop");
+#ifdef USLEEP
+    usleep(1);
+#endif
+#ifdef NOP
+    __asm__ __volatile__("nop");
+#endif
   }
 
   // we have received a message in msg_as_uint64_t
