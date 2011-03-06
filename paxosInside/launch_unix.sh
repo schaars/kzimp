@@ -53,4 +53,5 @@ done
 
 # save results
 ./stop_all.sh
+rm -f /tmp/multicore_replication_paxosInside_*
 mv results.txt unix_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER_PER_CLIENT}iter_${LEADER_ACCEPTOR}_${NB_DGRAMS}channelSize.txt
