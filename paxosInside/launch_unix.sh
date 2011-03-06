@@ -30,6 +30,7 @@ rm -f /tmp/paxosInside_client_*_finished
 ./create_config.sh $NB_PAXOS_NODES $NB_CLIENTS $NB_ITER_PER_CLIENT $LEADER_ACCEPTOR > $CONFIG_FILE
 
 # Unix domain specific
+rm -f /tmp/multicore_replication_paxosInside_*
 sudo ./root_set_value.sh $NB_DGRAMS /proc/sys/net/unix/max_dgram_qlen
 
 # launch
