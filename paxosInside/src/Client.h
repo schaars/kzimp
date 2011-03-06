@@ -9,6 +9,8 @@
 
 #include <stdint.h>
 
+#define LOG_FILE "results.txt"
+
 class Response;
 
 class Client

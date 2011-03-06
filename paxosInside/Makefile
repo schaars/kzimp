@@ -8,7 +8,7 @@ all: inet_tcp_paxosInside inet_udp_paxosInside unix_paxosInside \
 
 C:=g++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
-DEPS:=src/paxosInside.cc src/Message.cc src/Request.cc src/Accept_req.cc src/Learn.cc src/Response.cc src/PaxosNode.cc src/Client.cc
+DEPS:=src/time.h src/paxosInside.cc src/Message.cc src/Request.cc src/Accept_req.cc src/Learn.cc src/Response.cc src/PaxosNode.cc src/Client.cc
 
 	
 inet_tcp_paxosInside: $(DEPS) src/comm_mech/tcp_net.c src/comm_mech/inet_tcp_socket.c
@@ -21,6 +21,7 @@ inet_udp_paxosInside: $(DEPS) src/comm_mech/inet_udp_socket.c
 	
 unix_paxosInside: $(DEPS) src/comm_mech/unix_socket.c
 	$(shell if [ ! -e UNIX_PROPERTIES ]; then echo "" > UNIX_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell cat INET_UDP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	
 pipe_paxosInside: $(DEPS) src/comm_mech/pipe.c
 	$(shell if [ ! -e PIPE_PROPERTIES ]; then echo "" > PIPE_PROPERTIES; fi)
