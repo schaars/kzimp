@@ -94,8 +94,8 @@ void Client::run(void)
   // compute throughput
   // thr_elapsed_time is in usec
   uint64_t thr_elapsed_time = diffTime(thr_stop_time, thr_start_time);
-  double throughput = ((double) nb_iter) / ((double) thr_elapsed_time
-      / 1000000.0);
+  double elapsed_time_sec = (double) thr_elapsed_time / 1000000.0;
+  double throughput = ((double) nb_iter) / elapsed_time_sec;
 
   FILE *results_file = fopen(LOG_FILE, "a");
   if (!results_file)
@@ -104,12 +104,13 @@ void Client::run(void)
         client_id(), LOG_FILE);
   }
 
-  printf("Client= %i\tthr= %f prop/sec\n", client_id(), throughput);
+  printf("Client= %i\tthr= %f prop/sec\ttime= %f sec\n", client_id(),
+      throughput, elapsed_time_sec);
 
   if (results_file)
   {
-    fprintf(results_file, "Client= %i\tthr= %f prop/sec\n", client_id(),
-        throughput);
+    fprintf(results_file, "Client= %i\tthr= %f prop/sec\ttime= %f sec\n", client_id(),
+        throughput, elapsed_time_sec);
   }
 
   fclose(results_file);
