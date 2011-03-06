@@ -17,20 +17,23 @@ if [ $# -eq 5 ]; then
    NB_CLIENTS=$2
    NB_ITER_PER_CLIENT=$3
    LEADER_ACCEPTOR=$4
-   NB_MSG_CHANNEL=$5
+   MSG_CHANNEL=$5
  
 else
    echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_clients> <nb_iter_per_client> <same_proc|different_proc> <channel_size>"
    exit 0
 fi
 
-./stop_all.sh
-rm -f /tmp/paxosInside_client_*_finished
+sudo ./stop_all.sh
+sudo rm -f /tmp/paxosInside_client_*_finished
 
 # create config file
 ./create_config.sh $NB_PAXOS_NODES $NB_CLIENTS $NB_ITER_PER_CLIENT $LEADER_ACCEPTOR > $CONFIG_FILE
 
 # POSIX MQ specific
+# rm old queues
+sudo rm /dev/mqueue/posix_message_queue_paxosInside*
+
 #set new parameters
 sudo ./root_set_value.sh 32 /proc/sys/fs/mqueue/queues_max
 sudo ./root_set_value.sh $MSG_CHANNEL /proc/sys/fs/mqueue/msg_max
@@ -55,5 +58,6 @@ while [ $nbc -ne $NB_CLIENTS ]; do
 done
 
 # save results
-./stop_all.sh
+sudo ./stop_all.sh
+sudo chown bft:bft results.txt
 mv results.txt posix_msg_queue_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER_PER_CLIENT}iter_${LEADER_ACCEPTOR}_${NB_DGRAMS}channelSize.txt
