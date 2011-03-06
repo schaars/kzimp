@@ -69,4 +69,4 @@ done
 
 # save results
 ./stop_all.sh
-mv results.txt ipc_msg_queue_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER_PER_CLIENT}iter_${LEADER_ACCEPTOR}_${NB_DGRAMS}channelSize.txt
+mv results.txt ipc_msg_queue_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER_PER_CLIENT}iter_${LEADER_ACCEPTOR}_${NB_QUEUES}queues_${MESSAGE_MAX_SIZE}BmsgMaxSize.txt

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Launch a PaxosInside XP with POSIX msg queue
+# Launch a PaxosInside XP with Barrelfish MP
 # Args:
 #   $1: nb paxos nodes
 #   $2: nb clients
@@ -24,23 +24,26 @@ else
    exit 0
 fi
 
-sudo ./stop_all.sh
-sudo rm -f /tmp/paxosInside_client_*_finished
+./stop_all.sh
+rm -f /tmp/paxosInside_client_*_finished
 
 # create config file
 ./create_config.sh $NB_PAXOS_NODES $NB_CLIENTS $NB_ITER_PER_CLIENT $LEADER_ACCEPTOR > $CONFIG_FILE
 
-# POSIX MQ specific
-# rm old queues
-sudo rm /dev/mqueue/posix_message_queue_paxosInside*
+# Barrelfish specific
+# used by ftok
+touch /tmp/barrelfish_message_passing_microbench
 
 #set new parameters
-sudo ./root_set_value.sh 32 /proc/sys/fs/mqueue/queues_max
-sudo ./root_set_value.sh $MSG_CHANNEL /proc/sys/fs/mqueue/msg_max
-sudo ./root_set_value.sh 128 /proc/sys/fs/mqueue/msgsize_max
+sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmall
+sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmmax
+
+# compile
+echo "-DNB_MESSAGES=${MSG_CHANNEL} -DURPC_MSG_WORDS=16" > BARRELFISH_MP_PROPERTIES
+make barrelfish_mp_paxosInside
 
 # launch
-sudo ./bin/posix_msg_queue_paxosInside $CONFIG_FILE &
+./bin/barrelfish_mp_paxosInside $CONFIG_FILE &
 
 # wait for the end
 nbc=0
@@ -58,6 +61,5 @@ while [ $nbc -ne $NB_CLIENTS ]; do
 done
 
 # save results
-sudo ./stop_all.sh
-sudo chown bft:bft results.txt
-mv results.txt posix_msg_queue_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER_PER_CLIENT}iter_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
+./stop_all.sh
+mv results.txt barrelfish_mp_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER_PER_CLIENT}iter_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
