@@ -37,12 +37,20 @@ rm -f /tmp/paxosInside_client_*_finished
 # create config file
 ./create_config.sh $NB_PAXOS_NODES $NB_CLIENTS $NB_ITER_PER_CLIENT $LEADER_ACCEPTOR > $CONFIG_FILE
 
-# Unix domain specific
-rm -f /tmp/multicore_replication_paxosInside_*
-sudo ./root_set_value.sh $NB_DGRAMS /proc/sys/net/unix/max_dgram_qlen
+# IPC MQ specific
+# used by ftok
+touch /tmp/ipc_msg_queue_paxosInside
+
+# kenel parameters
+sudo ./root_set_value.sh $MESSAGE_MAX_SIZE /proc/sys/kernel/msgmax
+sudo ./root_set_value.sh 100000000 /proc/sys/kernel/msgmnb
+
+# compile
+echo "$ONE_QUEUE -DMESSAGE_MAX_SIZE=$MESSAGE_MAX_SIZE" > IPC_MSG_QUEUE_PROPERTIES
+make ipc_msg_queue_paxosInside
 
 # launch
-./bin/unix_paxosInside $CONFIG_FILE &
+./bin/ipc_msg_queue_paxosInside $CONFIG_FILE &
 
 # wait for the end
 nbc=0
@@ -61,4 +69,4 @@ done
 
 # save results
 ./stop_all.sh
-mv results.txt unix_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER_PER_CLIENT}iter_${LEADER_ACCEPTOR}_${NB_DGRAMS}channelSize.txt
+mv results.txt ipc_msg_queue_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER_PER_CLIENT}iter_${LEADER_ACCEPTOR}_${NB_DGRAMS}channelSize.txt
