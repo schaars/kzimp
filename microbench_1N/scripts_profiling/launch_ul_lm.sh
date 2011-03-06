@@ -42,7 +42,8 @@ sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmall
 sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmmax
 
 # recompile with message size
-echo "-DNB_MESSAGES=$MAX_NB_MSG -DMESSAGE_MAX_SIZE=$MSG_SIZE" > UL_LM_0COPY_PROPERTIES
+echo "-DCOMPUTE_CYCLES -DUSLEEP -DNB_MESSAGES=$MAX_NB_MSG -DMESSAGE_MAX_SIZE=$MSG_SIZE" > UL_LM_0COPY_PROPERTIES
+#echo "-DNB_MESSAGES=$MAX_NB_MSG -DMESSAGE_MAX_SIZE=$MSG_SIZE" > UL_LM_0COPY_PROPERTIES
 make ul_lm_0copy_microbench
 
 # launch XP
