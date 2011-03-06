@@ -46,7 +46,7 @@ sudo ./root_set_value.sh $MESSAGE_MAX_SIZE /proc/sys/kernel/msgmax
 sudo ./root_set_value.sh 100000000 /proc/sys/kernel/msgmnb
 
 # compile
-echo "$ONE_QUEUE -DMESSAGE_MAX_SIZE=$MESSAGE_MAX_SIZE" > IPC_MSG_QUEUE_PROPERTIES
+echo "-DIPC_MSG_QUEUE $ONE_QUEUE -DMESSAGE_MAX_SIZE=$MESSAGE_MAX_SIZE" > IPC_MSG_QUEUE_PROPERTIES
 make ipc_msg_queue_paxosInside
 
 # launch
