@@ -26,6 +26,7 @@ fi
 
 ./stop_all.sh
 rm -f /tmp/paxosInside_client_*_finished
+./remove_shared_segment.pl
 
 # create config file
 ./create_config.sh $NB_PAXOS_NODES $NB_CLIENTS $NB_ITER_PER_CLIENT $LEADER_ACCEPTOR > $CONFIG_FILE
@@ -62,4 +63,5 @@ done
 
 # save results
 ./stop_all.sh
+./remove_shared_segment.pl
 mv results.txt barrelfish_mp_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER_PER_CLIENT}iter_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
