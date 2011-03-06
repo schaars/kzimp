@@ -31,7 +31,7 @@ struct ipc_message
 {
   long mtype;
   char mtext[MESSAGE_MAX_SIZE]; // MESSAGE_MAX_SIZE is defined at compile time, when calling gcc
-} __attribute__((__packed__,  __aligned__(CACHE_LINE_SIZE)));
+}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 static int core_id; // 0 is the producer. The others are children
 static int nb_receivers;
@@ -162,7 +162,7 @@ uint64_t get_cycles_recv()
 void IPC_sendToAll(int msg_size, char msg_id)
 {
   uint64_t cycle_start, cycle_stop;
-  struct ipc_message ipc_msg;
+  struct ipc_message *ipc_msg;
   int i;
 
   if (msg_size < MIN_MSG_SIZE)
@@ -170,11 +170,19 @@ void IPC_sendToAll(int msg_size, char msg_id)
     msg_size = MIN_MSG_SIZE;
   }
 
-  ipc_msg.mtype = 1;
+  ipc_msg = (struct ipc_message*) malloc(
+      GET_MALLOC_SIZE(sizeof(struct ipc_message)));
+  if (!ipc_msg)
+  {
+    perror("IPC_sendToAll allocation error! ");
+    exit(errno);
+  }
 
-  bzero(ipc_msg.mtext, msg_size);
+  ipc_msg->mtype = 1;
 
-  ipc_msg.mtext[0] = msg_id;
+  bzero(ipc_msg->mtext, msg_size);
+
+  ipc_msg->mtext[0] = msg_id;
 
 #ifdef DEBUG
   printf(
@@ -186,7 +194,7 @@ void IPC_sendToAll(int msg_size, char msg_id)
   {
     // writing the content
 #ifdef ONE_QUEUE
-    ipc_msg.mtype = i+1;
+    ipc_msg->mtype = i+1;
 
     rdtsc(cycle_start);
     msgsnd(consumers[0], &ipc_msg, msg_size, 0);
@@ -206,11 +214,19 @@ void IPC_sendToAll(int msg_size, char msg_id)
 int IPC_receive(int msg_size, char *msg_id)
 {
   uint64_t cycle_start, cycle_stop;
-  struct ipc_message ipc_msg;
+  struct ipc_message* ipc_msg;
 
   if (msg_size < MIN_MSG_SIZE)
   {
     msg_size = MIN_MSG_SIZE;
+  }
+
+  ipc_msg = (struct ipc_message*) malloc(
+      GET_MALLOC_SIZE(sizeof(struct ipc_message)));
+  if (!ipc_msg)
+  {
+    perror("IPC_sendToAll allocation error! ");
+    exit(errno);
   }
 
 #ifdef DEBUG
@@ -219,9 +235,10 @@ int IPC_receive(int msg_size, char *msg_id)
 
   rdtsc(cycle_start);
 #ifdef ONE_QUEUE
-  int recv_size = msgrcv(consumer_queue, &ipc_msg, sizeof(ipc_msg.mtext), core_id, 0);
+  int recv_size = msgrcv(consumer_queue, &ipc_msg, sizeof(ipc_msg->mtext), core_id, 0);
 #else
-  int recv_size = msgrcv(consumer_queue, &ipc_msg, sizeof(ipc_msg.mtext), 0, 0);
+  int recv_size =
+      msgrcv(consumer_queue, &ipc_msg, sizeof(ipc_msg->mtext), 0, 0);
 #endif
   rdtsc(cycle_stop);
 
@@ -233,14 +250,14 @@ int IPC_receive(int msg_size, char *msg_id)
   }
 
 #ifdef ONE_QUEUE
-  if (ipc_msg.mtype != core_id)
+  if (ipc_msg->mtype != core_id)
   {
-    printf("[consumer %i] Ooops, wrong message: %li instead of %i\n", core_id, ipc_msg.mtype, core_id);
+    printf("[consumer %i] Ooops, wrong message: %li instead of %i\n", core_id, ipc_msg->mtype, core_id);
   }
 #endif
 
   // get the id of the message
-  *msg_id = ipc_msg.mtext[0];
+  *msg_id = ipc_msg->mtext[0];
 
 #ifdef DEBUG
   printf(
