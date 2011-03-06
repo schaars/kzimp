@@ -62,10 +62,12 @@ void* init_shared_memory_segment(char *p, size_t s, int i)
   if (key == -1)
   {
     perror("ftok error: ");
+    printf("Did you touch %s?\n", p);
     return ret;
   }
 
-  printf("Size of the shared memory segment to create: %qu\n", (unsigned long long) s);
+  printf("Size of the shared memory segment to create: %qu\n",
+      (unsigned long long) s);
 
   shmid = shmget(key, s, IPC_CREAT | 0666);
   if (shmid == -1)
