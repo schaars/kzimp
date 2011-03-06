@@ -1,23 +1,25 @@
 #!/bin/bash
 #
-# Launch a PaxosInside XP with UDP
+# Launch a PaxosInside XP with Unix domain sockets
 # Args:
 #   $1: nb paxos nodes
 #   $2: nb clients
 #   $3: nb iter per client
 #   $4: same_proc or different_proc
+#   $5: max number of datagrams
 
 
 CONFIG_FILE=config
 
 
-if [ $# -eq 4 ]; then
+if [ $# -eq 5 ]; then
    NB_PAXOS_NODES=$1
    NB_CLIENTS=$2
    NB_ITER_PER_CLIENT=$3
    LEADER_ACCEPTOR=$4
+   NB_DGRAMS=$5
 else
-   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_clients> <nb_iter_per_client> <same_proc|different_proc>"
+   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_clients> <nb_iter_per_client> <same_proc|different_proc> <nb_dgrams>"
    exit 0
 fi
 
@@ -27,11 +29,11 @@ rm -f /tmp/paxosInside_client_*_finished
 # create config file
 ./create_config.sh $NB_PAXOS_NODES $NB_CLIENTS $NB_ITER_PER_CLIENT $LEADER_ACCEPTOR > $CONFIG_FILE
 
-# Inet specific
-sudo sysctl -p inet_sysctl.conf
+# Unix domain specific
+sudo ./root_set_value.sh $NB_DGRAMS /proc/sys/net/unix/max_dgram_qlen
 
 # launch
-./bin/inet_udp_paxosInside $CONFIG_FILE &
+./bin/unix_paxosInside $CONFIG_FILE &
 
 # wait for the end
 nbc=0
@@ -50,4 +52,4 @@ done
 
 # save results
 ./stop_all.sh
-mv results.txt inet_udp_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER_PER_CLIENT}iter_${LEADER_ACCEPTOR}.txt
+mv results.txt unix_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER_PER_CLIENT}iter_${LEADER_ACCEPTOR}.txt
