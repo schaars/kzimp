@@ -165,7 +165,20 @@ int IPC_receive(int msg_size, char *msg_id)
   char *msg;
   int pos;
 #else
-  char msg[MESSAGE_MAX_SIZE];
+  //char msg[MESSAGE_MAX_SIZE];
+  char *msg;
+
+  if (msg_size < MIN_MSG_SIZE)
+  {
+    msg_size = MIN_MSG_SIZE;
+  }
+
+  msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
+  if (!msg)
+  {
+    perror("IPC_receive allocation error! ");
+    exit(errno);
+  }
 #endif
 
 #ifdef DEBUG
@@ -223,6 +236,10 @@ int IPC_receive(int msg_size, char *msg_id)
   printf(
       "[consumer %i] received message %i of size %i, should be %i\n",
       core_id, *msg_id, recv_size, msg_size);
+#endif
+
+#ifndef ZERO_COPY
+  free(msg);
 #endif
 
   if (recv_size == msg_size)
