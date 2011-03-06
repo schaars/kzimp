@@ -81,8 +81,8 @@ struct urpc_channel
  * \param       size    Size (in bytes) of buffer. Must be multiple of 64.
  * \param       type    Channel type.
  */
-static inline void urpc_new(struct urpc_channel *c, void *buf,
-    size_t size, enum urpc_type type)
+static inline void urpc_new(struct urpc_channel *c, void *buf, size_t size,
+    enum urpc_type type)
 {
   assert(size % (URPC_MSG_WORDS * sizeof(uint64_t)) == 0);
   assert((uintptr_t) buf % sizeof(uint64_t) == 0);
@@ -135,7 +135,7 @@ static inline bool urpc_peek(struct urpc_channel *c, uint64_t *msg)
 
   if (urpc_havemessage(c))
   {
-    memcpy(msg, (void*)&(c->buf[c->pos]), URPC_MSG_WORDS * sizeof(uint64_t));
+    memcpy(msg, (void*) &(c->buf[c->pos]), URPC_MSG_WORDS * sizeof(uint64_t));
 
     return true;
   }

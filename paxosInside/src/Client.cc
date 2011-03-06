@@ -75,7 +75,13 @@ void Client::run(void)
   printf("Client %i has finished its %lu iterations\n", client_id(), nb_iter);
 #endif
 
-  sleep(2);
+  //todo: create a temporary file, so that we know that the client have finished
+  // when all the files exist
+
+  while (1)
+  {
+    sleep(1);
+  }
 }
 
 void Client::handle_response(Response* r)

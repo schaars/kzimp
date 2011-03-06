@@ -34,7 +34,7 @@ posix_msg_queue_paxosInside: $(DEPS) src/comm_mech/posix_msg_queue.c
 	$(shell if [ ! -e POSIX_MSG_QUEUE_PROPERTIES ]; then echo "" > POSIX_MSG_QUEUE_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat POSIX_MSG_QUEUE_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
 	
-barrelfish_mp_paxosInside: $(DEPS) src/comm_mech/barrelfish_mp.c
+barrelfish_mp_paxosInside: $(DEPS) src/comm_mech/urpc.h src/comm_mech/urpc_transport.c src/comm_mech/barrelfish_mp.c
 	$(shell if [ ! -e BARRELFISH_MP_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DURPC_MSG_WORDS=16" > BARRELFISH_MP_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat BARRELFISH_MP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	

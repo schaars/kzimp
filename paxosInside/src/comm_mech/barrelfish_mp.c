@@ -15,6 +15,8 @@
 #include "ipc_interface.h"
 #include "urpc.h"
 #include "urpc_transport.h"
+#include "../MessageTag.h"
+#include "../Message.h"
 
 // debug macro
 #define DEBUG
@@ -38,8 +40,8 @@ static size_t connection_size;
 
 static void* *shared_areas; // all the pieces of shared area
 
-static struct urpc_connection **client_leader; // connection between client i and the leader
-static struct urpc_connection **acceptor_node; // connection between the acceptor and node i
+static struct urpc_connection *client_leader; // connection between client i and the leader
+static struct urpc_connection *acceptor_node; // connection between the acceptor and node i
 
 /* init a shared area of size s with pathname p and project id i.
  * Return a pointer to it, or NULL in case of errors.
@@ -55,6 +57,7 @@ void* init_shared_memory_segment(char *p, size_t s, int i)
   key = ftok(p, i);
   if (key == -1)
   {
+    printf("Did you touch %s?\n", p);
     perror("ftok error: ");
     return ret;
   }
@@ -116,6 +119,7 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
   size_t urpc_msg_word = URPC_MSG_WORDS;
   size_t nb_messages = NB_MESSAGES;
   buffer_size = urpc_msg_word * 8 * nb_messages;
+  connection_size = buffer_size * 2 + 2 * URPC_CHANNEL_SIZE;
   nb_messages_in_transit = 0;
 
   shared_areas = (void**) malloc(sizeof(void*) * total_nb_nodes);
@@ -127,7 +131,7 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
 
   for (int i = 0; i < total_nb_nodes; i++)
   {
-    // do not create a shared area for the acceptor
+    // the acceptor uses the shared area of the leader to communicate with him
     if (i == 1)
     {
       shared_areas[i] = NULL;
@@ -135,7 +139,8 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
     }
 
     shared_areas[i] = init_shared_memory_segment(
-        "/tmp/barrelfish_message_passing_microbench", connection_size, 'a' + i);
+        (char*) "/tmp/barrelfish_message_passing_microbench", connection_size,
+        'a' + i);
   }
 }
 
@@ -144,10 +149,61 @@ void IPC_initialize_node(int _node_id)
 {
   node_id = _node_id;
 
-  //todo
-  static struct urpc_connection **client_leader; // connection between client i and the leader
-  static struct urpc_connection **acceptor_node; // connection between the acceptor and node i
+  if (node_id == 0)
+  {
+    client_leader = (struct urpc_connection*) malloc(
+        sizeof(struct urpc_connection) * nb_clients);
+    if (!client_leader)
+    {
+      perror("Clients connections allocation error");
+      exit(errno);
+    }
 
+    for (int i = 0; i < nb_clients; i++)
+    {
+      urpc_transport_create(0, shared_areas[nb_paxos_nodes + i],
+          connection_size, buffer_size, &client_leader[i], true);
+    }
+  }
+  else
+  {
+    client_leader = NULL;
+  }
+
+  if (node_id == 1)
+  {
+    acceptor_node = (struct urpc_connection*) malloc(
+        sizeof(struct urpc_connection) * nb_paxos_nodes);
+    if (!acceptor_node)
+    {
+      perror("Acceptor connections allocation error");
+      exit(errno);
+    }
+
+    for (int i = 0; i < nb_paxos_nodes; i++)
+    {
+      if (i == 1)
+      {
+        continue;
+      }
+
+      urpc_transport_create(1, shared_areas[i], connection_size, buffer_size,
+          &acceptor_node[i], true);
+    }
+  }
+  else
+  {
+    acceptor_node = (struct urpc_connection*) malloc(
+        sizeof(struct urpc_connection) * 1);
+    if (!acceptor_node)
+    {
+      perror("Acceptor connection allocation error");
+      exit(errno);
+    }
+
+    urpc_transport_create(node_id, shared_areas[node_id], connection_size,
+        buffer_size, &acceptor_node[0], false);
+  }
 }
 
 // Initialize resources for the client of id _client_id
@@ -155,49 +211,65 @@ void IPC_initialize_client(int _client_id)
 {
   node_id = _client_id;
 
-  //todo
+  // clients use client_leader[0] only
+  acceptor_node = NULL;
+
+  client_leader = (struct urpc_connection*) malloc(
+      sizeof(struct urpc_connection) * 1);
+  if (!client_leader)
+  {
+    perror("Clients connection allocation error");
+    exit(errno);
+  }
+
+  urpc_transport_create(node_id, shared_areas[node_id], connection_size,
+      buffer_size, &client_leader[0], false);
 }
 
 // Clean resources
 // Called by the parent process, after the death of the children.
 void IPC_clean(void)
 {
-  for (int i = 0; i < total_nb_nodes; i++)
-  {
-    msgctl(ipc_queues[i], IPC_RMID, NULL);
-
-#ifdef ONE_QUEUE
-    break;
-#endif
-  }
 }
 
 // Clean resources created for the (paxos) node.
 void IPC_clean_node(void)
 {
+  if (node_id == 0)
+  {
+    free(client_leader);
+    free(acceptor_node);
+
+    for (int i = 0; i < total_nb_nodes; i++)
+    {
+      shmdt(shared_areas[i]);
+    }
+  }
 }
 
 // Clean resources created for the client.
 void IPC_clean_client(void)
 {
+  free(client_leader);
+
+  for (int i = 0; i < total_nb_nodes; i++)
+  {
+    shmdt(shared_areas[i]);
+  }
 }
 
 // send the message msg of size length to the node 1
 // Indeed the only unicast is from 0 to 1
-void IPC_send_node_unicast(struct ipc_message *msg, size_t length)
+void IPC_send_node_unicast(void *msg, size_t length)
 {
-#ifdef ONE_QUEUE
-  msg->mtype = 1 + 1;
-  msgsnd(ipc_queues[0], msg, length, 0);
-#else
-  msg->mtype = 1;
-  msgsnd(ipc_queues[1], msg, length, 0);
-#endif
+  urpc_transport_send(&acceptor_node[0], msg, URPC_MSG_WORDS);
 }
 
 // send the message msg of size length to all the nodes
-void IPC_send_node_multicast(struct ipc_message *msg, size_t length)
+void IPC_send_node_multicast(void *msg, size_t length)
 {
+  nb_messages_in_transit++;
+
   for (int i = 0; i < nb_paxos_nodes; i++)
   {
     if (i == 1)
@@ -205,49 +277,104 @@ void IPC_send_node_multicast(struct ipc_message *msg, size_t length)
       continue;
     }
 
-#ifdef ONE_QUEUE
-    msg->mtype = i + 1;
-    msgsnd(ipc_queues[0], msg, length, 0);
-#else
-    msg->mtype = 1;
-    msgsnd(ipc_queues[i], msg, length, 0);
-#endif
+    urpc_transport_send(&acceptor_node[i], msg, URPC_MSG_WORDS);
   }
 }
 
 // send the message msg of size length to the node 0
 // called by a client
-void IPC_send_client_to_node(struct ipc_message *msg, size_t length)
+void IPC_send_client_to_node(void *msg, size_t length)
 {
-#ifdef ONE_QUEUE
-  msg->mtype = 0 + 1;
-  msgsnd(ipc_queues[0], msg, length, 0);
-#else
-  msg->mtype = 1;
-  msgsnd(ipc_queues[0], msg, length, 0);
-#endif
+  urpc_transport_send(&client_leader[0], msg, URPC_MSG_WORDS);
 }
 
 // send the message msg of size length to the client of id cid
 // called by the leader
-void IPC_send_node_to_client(struct ipc_message *msg, size_t length, int cid)
+void IPC_send_node_to_client(void *msg, size_t length, int cid)
 {
-#ifdef ONE_QUEUE
-  msg->mtype = cid + 1;
-  msgsnd(ipc_queues[0], msg, length, 0);
-#else
-  msg->mtype = 1;
-  msgsnd(ipc_queues[cid], msg, length, 0);
-#endif
+  urpc_transport_send(&client_leader[cid - nb_paxos_nodes], msg, URPC_MSG_WORDS);
+}
+
+// return the size in uint64_t
+size_t recv_for_node0(void *msg, size_t length)
+{
+  size_t recv_size;
+  while (1)
+  {
+    // recv from the acceptor
+    recv_size = urpc_transport_recv_nonblocking(&acceptor_node[0], (void*) msg,
+        URPC_MSG_WORDS);
+
+    // there is a message from this client
+    if (recv_size > 0)
+    {
+      return recv_size;
+    }
+
+    // recv from the clients
+    for (int i = 0; i < nb_clients; i++)
+    {
+      recv_size = urpc_transport_recv_nonblocking(&client_leader[i],
+          (void*) msg, URPC_MSG_WORDS);
+
+      // there is a message from this client
+      if (recv_size > 0)
+      {
+        return recv_size;
+      }
+    }
+  }
 }
 
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
-size_t IPC_receive(struct ipc_message *msg, size_t length)
+size_t IPC_receive(void *msg, size_t length)
 {
-#ifdef ONE_QUEUE
-  return msgrcv(ipc_queues[0], msg, length, node_id + 1, 0);
-#else
-  return msgrcv(ipc_queues[node_id], msg, length, 0, 0);
-#endif
+  size_t recv_size;
+
+  if (node_id == 0)
+  {
+    recv_size = recv_for_node0(msg, length);
+  }
+  else if (node_id == 1)
+  {
+    recv_size = urpc_transport_recv(&acceptor_node[0], (void*) msg,
+        URPC_MSG_WORDS);
+
+    // periodically check for BARRELFISH_ACK messages in order to decrease
+    // the number of messages in transit
+    if (nb_messages_in_transit == NB_MESSAGES)
+    {
+      Message m;
+
+      for (int i = 2; i < nb_paxos_nodes; i++)
+      {
+        urpc_transport_recv_nonblocking(&acceptor_node[i], (void*) m.content(),
+            URPC_MSG_WORDS);
+      }
+
+      nb_messages_in_transit = 0;
+    }
+  }
+  else if (node_id < nb_paxos_nodes)
+  {
+    recv_size = urpc_transport_recv(&acceptor_node[0], (void*) msg,
+        URPC_MSG_WORDS);
+
+    nb_messages_in_transit++;
+    if (nb_messages_in_transit == NB_MESSAGES)
+    {
+      // send a message
+      Message m( BARRELFISH_ACK);
+      urpc_transport_send(&acceptor_node[0], m.content(), URPC_MSG_WORDS);
+      nb_messages_in_transit = 0;
+    }
+  }
+  else
+  {
+    recv_size = urpc_transport_recv(&client_leader[0], (void*) msg,
+        URPC_MSG_WORDS);
+  }
+
+  return recv_size * sizeof(uint64_t);
 }

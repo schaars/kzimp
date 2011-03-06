@@ -20,6 +20,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -36,7 +37,7 @@
 
 // initialize the urpc_connection structure.
 // If called the first time, create must be true: the other end of the connection
-// will call this method with false (but with the same piece shared memory)
+// will call this method with false (but with the same piece of shared memory)
 void urpc_transport_create(int mon_id, void *buf, size_t buffer_size,
     size_t channel_length, struct urpc_connection *c, bool create)
 {
@@ -52,34 +53,37 @@ void urpc_transport_create(int mon_id, void *buf, size_t buffer_size,
   assert(tmp_max_msgs > 0);
   c->max_msgs = tmp_max_msgs;
 
+  char *buf_as_char_ptr = (char*) buf;
+
 #ifdef URPC_TRANSPORT_DEBUG
   printf("[urpc_transport_create][%u] create=%s, @buf=%p\n",
-      (unsigned int) c->monitor_id, (create ? "true" : "false"), buf);
+      (unsigned int) c->monitor_id, (create ? "true" : "false"),
+      buf_as_char_ptr);
 #endif
 
   if (create)
   {
-    c->in = buf;
-    buf += 2 * URPC_CHANNEL_SIZE;
-    urpc_new(c->in, buf, channel_length, URPC_INCOMING);
-    buf += channel_length;
-    urpc_new(&(c->out), buf, channel_length, URPC_OUTGOING);
+    c->in = (struct urpc_channel*) buf_as_char_ptr;
+    buf_as_char_ptr += 2 * URPC_CHANNEL_SIZE;
+    urpc_new(c->in, buf_as_char_ptr, channel_length, URPC_INCOMING);
+    buf_as_char_ptr += channel_length;
+    urpc_new(&(c->out), buf_as_char_ptr, channel_length, URPC_OUTGOING);
   }
   else
   {
-    buf += URPC_CHANNEL_SIZE;
-    c->in = buf;
-    buf += URPC_CHANNEL_SIZE;
-    urpc_new(&(c->out), buf, channel_length, URPC_OUTGOING);
-    buf += channel_length;
-    urpc_new(c->in, buf, channel_length, URPC_INCOMING);
+    buf_as_char_ptr += URPC_CHANNEL_SIZE;
+    c->in = (struct urpc_channel*) buf_as_char_ptr;
+    buf_as_char_ptr += URPC_CHANNEL_SIZE;
+    urpc_new(&(c->out), buf_as_char_ptr, channel_length, URPC_OUTGOING);
+    buf_as_char_ptr += channel_length;
+    urpc_new(c->in, buf_as_char_ptr, channel_length, URPC_INCOMING);
   }
 
 #ifdef URPC_TRANSPORT_DEBUG
   printf(
       "[urpc_transport_create][%u] create=%s, @buf=%p, @c->in=%p, @c.out=%p, @c->in->buf=%p, @(c->out).buf=%p\n",
-      (unsigned int) c->monitor_id, (create ? "true" : "false"), buf, c->in,
-      &c->out, c->in->buf, (c->out).buf);
+      (unsigned int) c->monitor_id, (create ? "true" : "false"),
+      buf_as_char_ptr, c->in, &c->out, c->in->buf, (c->out).buf);
 #endif
 }
 
@@ -138,7 +142,7 @@ size_t get_the_message(struct urpc_connection *c, uint64_t *msg)
 }
 
 // receive a message
-// Return the length of the read message or 0 if there is no message
+// Return the length of the read message (in number of uint64_t) or 0 if there is no message
 size_t urpc_transport_recv_nonblocking(struct urpc_connection *c, void *msg,
     size_t msg_len)
 {
