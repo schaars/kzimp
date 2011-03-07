@@ -89,6 +89,16 @@ void urpc_transport_create(int mon_id, void *buf, size_t buffer_size,
 
 static bool cansend(struct urpc_connection *c)
 {
+#ifdef URPC_TRANSPORT_DEBUG
+  if ((c->sent_id - c->ack_id) > c->max_msgs) {
+    printf("Monitor %u is blocked: %u - %u > %u\n", (unsigned int)c->monitor_id, c->sent_id, c->ack_id, c->max_msgs);
+    while (1)
+    {
+      sleep(1);
+    }
+  }
+#endif
+
   return (urpc_t) (c->sent_id - c->ack_id) <= c->max_msgs;
 }
 

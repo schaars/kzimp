@@ -20,7 +20,7 @@
 
 // debug macro
 #define DEBUG
-//#undef DEBUG
+#undef DEBUG
 
 // Define NB_MESSAGES as the max number of messages in the channel
 // Define URPC_MSG_WORDS as the size of the messages in uint64_t
@@ -271,25 +271,9 @@ void IPC_send_node_unicast(void *msg, size_t length)
 // send the message msg of size length to all the nodes
 void IPC_send_node_multicast(void *msg, size_t length)
 {
-  nb_messages_in_transit++;
+  Message m;
 
-  // periodically check for BARRELFISH_ACK messages in order to decrease
-  // the number of messages in transit
-  if (nb_messages_in_transit == NB_MESSAGES)
-  {
-    Message m;
-
-    // the leader (node 0) does not send acks
-    // the acceptor (this node, node 1) does not send messages to himself
-    for (int i = 2; i < nb_paxos_nodes; i++)
-    {
-      urpc_transport_recv_nonblocking(&acceptor_node[i], (void*) m.content(),
-          URPC_MSG_WORDS);
-    }
-
-    nb_messages_in_transit = 0;
-  }
-
+    
   for (int i = 0; i < nb_paxos_nodes; i++)
   {
     if (i == 1)
@@ -297,7 +281,27 @@ void IPC_send_node_multicast(void *msg, size_t length)
       continue;
     }
 
+#ifdef DEBUG
+    printf("Node %i is going to send to %i\n", node_id, i);
+#endif
+
     urpc_transport_send(&acceptor_node[i], msg, URPC_MSG_WORDS);
+  }
+
+#ifdef DEBUG
+  printf("Node %i is going to receive acks from the learners\n", node_id);
+#endif
+
+  // the leader (node 0) does not send acks
+  // the acceptor (this node, node 1) does not send messages to himself
+  for (int i = 2; i < nb_paxos_nodes; i++)
+  {
+    urpc_transport_recv(&acceptor_node[i], (void*) m.content(),
+		    URPC_MSG_WORDS);
+
+#ifdef DEBUG
+    printf("Node %i has received an ack from %i\n", node_id, i); 
+#endif
   }
 }
 
@@ -374,14 +378,14 @@ size_t IPC_receive(void *msg, size_t length)
     recv_size = urpc_transport_recv(&acceptor_node[0], (void*) msg,
         URPC_MSG_WORDS);
 
-    nb_messages_in_transit++;
-    if (nb_messages_in_transit == NB_MESSAGES)
-    {
-      // send a message
-      Message m( BARRELFISH_ACK);
-      urpc_transport_send(&acceptor_node[0], m.content(), URPC_MSG_WORDS);
-      nb_messages_in_transit = 0;
-    }
+    // send a message
+    Message m( BARRELFISH_ACK);
+
+#ifdef DEBUG
+    printf("Node %i is sending an ack to the acceptor\n", node_id);
+#endif
+
+    urpc_transport_send(&acceptor_node[0], m.content(), URPC_MSG_WORDS);
   }
   else
   {

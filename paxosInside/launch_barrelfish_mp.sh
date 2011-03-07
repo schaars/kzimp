@@ -40,6 +40,7 @@ sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmall
 sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmmax
 
 # compile
+#echo "-DUSLEEP -DNB_MESSAGES=${MSG_CHANNEL} -DURPC_MSG_WORDS=16" > BARRELFISH_MP_PROPERTIES
 echo "-DNB_MESSAGES=${MSG_CHANNEL} -DURPC_MSG_WORDS=16" > BARRELFISH_MP_PROPERTIES
 make barrelfish_mp_paxosInside
 
