@@ -284,7 +284,6 @@ ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
 {
   struct mpsoc_reader_index *readx;
   int i;
-  int new_pos;
   int ret = -1;
 
   //update bitmap & add message to reader_array_indexes
@@ -300,9 +299,8 @@ ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
         readx = &reader_indexes[i];
 
         spinlock_lock(&readx->reader_index_lock);
-        new_pos = (readx->ral + 1) % nb_msg;
-        readx->array[new_pos].v = nw;
-        readx->ral = new_pos;
+        readx->ral = (readx->ral + 1) % nb_msg;
+        readx->array[readx->ral].v = nw;
         spinlock_unlock(&readx->reader_index_lock);
       }
     }
@@ -315,9 +313,8 @@ ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
     readx = &reader_indexes[dest];
 
     spinlock_lock(&readx->reader_index_lock);
-    new_pos = (readx->ral + 1) % nb_msg;
-    readx->array[new_pos].v = nw;
-    readx->ral = new_pos;
+    readx->ral = (readx->ral + 1) % nb_msg;
+    readx->array[readx->ral].v = nw;
     spinlock_unlock(&readx->reader_index_lock);
   }
 

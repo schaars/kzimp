@@ -59,7 +59,8 @@ struct mpsoc_reader_index
   char __p1[CACHE_LINE_SIZE - sizeof(int)];
 
   int ral; // read at last
-  char __p2[CACHE_LINE_SIZE - sizeof(int)];
+  lock_t reader_index_lock;
+  char __p2[CACHE_LINE_SIZE - sizeof(int) - sizeof(lock_t)];
 
   struct mpsoc_reader_index_entry array[NB_MESSAGES];
 
@@ -221,6 +222,7 @@ int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
   {
     reader_indexes[i].raf = 0;
     reader_indexes[i].ral = -1;
+    spinlock_unlock(&reader_indexes[i].reader_index_lock);
 
     for (j = 0; j < nb_msg; j++)
     {
@@ -240,14 +242,25 @@ int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
  */
 void* mpsoc_alloc(size_t len, int *nw)
 {
-  // this lock is mandatory, otherwise we cannot apply the modulo operator in an atomic way
-  spinlock_lock(writer_lock);
-  *nw = *next_write;
-  *next_write = (*next_write + 1) % nb_msg;
-  spinlock_unlock(writer_lock);
-
-  while (messages[*nw].bitmap != 0)
+  while (1)
   {
+    // this lock is mandatory, otherwise we cannot apply the modulo operator in an atomic way
+    spinlock_lock(writer_lock);
+    *nw = *next_write;
+    *next_write = (*next_write + 1) % nb_msg;
+
+    if (messages[*nw].bitmap == 0)
+    {
+      // we modify the bitmap so that another writer cannot get the same position.
+      // this is safe: the bitmap is currently 0, meaning that all the readers have read it.
+      messages[*nw].bitmap = 0xdeadbeef;
+      spinlock_unlock(writer_lock);
+
+      break;
+    }
+
+    spinlock_unlock(writer_lock);
+
 #ifdef USLEEP
     usleep(1);
 #endif
@@ -280,20 +293,29 @@ ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
 
     for (i = 0; i < nb_replicas; i++)
     {
-      readx = &reader_indexes[i];
-      int new_pos = (readx->ral + 1) % nb_msg;
-      readx->array[new_pos].v = nw;
-      readx->ral = new_pos;
+      if (multicast_bitmap_mask & (1 << i))
+      {
+        // we need a lock on that since multiple writers can modify concurrently this value
+        readx = &reader_indexes[i];
+
+        spinlock_lock(&readx->reader_index_lock);
+        readx->ral = (readx->ral + 1) % nb_msg;
+        readx->array[readx->ral].v = nw;
+        spinlock_unlock(&readx->reader_index_lock);
+      }
     }
   }
   else
   {
     messages[nw].bitmap = (1 << dest);
 
+    // we need a lock on that since multiple writers can modify concurrently this value
     readx = &reader_indexes[dest];
-    int new_pos = (readx->ral + 1) % nb_msg;
-    readx->array[new_pos].v = nw;
-    readx->ral = new_pos;
+
+    spinlock_lock(&readx->reader_index_lock);
+    readx->ral = (readx->ral + 1) % nb_msg;
+    readx->array[readx->ral].v = nw;
+    spinlock_unlock(&readx->reader_index_lock);
   }
 
   return ret;
