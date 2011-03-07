@@ -273,6 +273,23 @@ void IPC_send_node_multicast(void *msg, size_t length)
 {
   nb_messages_in_transit++;
 
+  // periodically check for BARRELFISH_ACK messages in order to decrease
+  // the number of messages in transit
+  if (nb_messages_in_transit == NB_MESSAGES)
+  {
+    Message m;
+
+    // the leader (node 0) does not send acks
+    // the acceptor (this node, node 1) does not send messages to himself
+    for (int i = 2; i < nb_paxos_nodes; i++)
+    {
+      urpc_transport_recv_nonblocking(&acceptor_node[i], (void*) m.content(),
+          URPC_MSG_WORDS);
+    }
+
+    nb_messages_in_transit = 0;
+  }
+
   for (int i = 0; i < nb_paxos_nodes; i++)
   {
     if (i == 1)
@@ -351,21 +368,6 @@ size_t IPC_receive(void *msg, size_t length)
   {
     recv_size = urpc_transport_recv(&acceptor_node[0], (void*) msg,
         URPC_MSG_WORDS);
-
-    // periodically check for BARRELFISH_ACK messages in order to decrease
-    // the number of messages in transit
-    if (nb_messages_in_transit == NB_MESSAGES)
-    {
-      Message m;
-
-      for (int i = 2; i < nb_paxos_nodes; i++)
-      {
-        urpc_transport_recv_nonblocking(&acceptor_node[i], (void*) m.content(),
-            URPC_MSG_WORDS);
-      }
-
-      nb_messages_in_transit = 0;
-    }
   }
   else if (node_id < nb_paxos_nodes)
   {
