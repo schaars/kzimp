@@ -234,6 +234,9 @@ int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
   return 0;
 }
 
+
+// original version. It can no longer make progress if the position contains a message for the caller
+#if 0
 /* Allocate a message of size len in shared mem.
  * Return the address of the message and (in nw variable)
  * the position of the message in the ring buffer
@@ -261,6 +264,42 @@ void* mpsoc_alloc(size_t len, int *nw)
 
   return (void*) (messages[*nw].buf);
 }
+#endif
+
+/* Allocate a message of size len in shared mem.
+ * Return the address of the message and (in nw variable)
+ * the position of the message in the ring buffer
+ */
+void* mpsoc_alloc(size_t len, int *nw)
+{
+ spinlock_lock(writer_lock);
+
+  while (1)
+  {
+    // this lock is mandatory, otherwise we cannot apply the modulo operator in an atomic way
+    *nw = *next_write;
+    *next_write = (*next_write + 1) % nb_msg;
+
+    if (messages[*nw].bitmap == 0)
+    {
+      break;
+    }
+
+#ifdef USLEEP
+    usleep(1);
+#endif
+#ifdef NOP
+    __asm__ __volatile__("nop");
+#endif
+  }
+
+  //add message
+  messages[*nw].len = min(len, MESSAGE_MAX_SIZE);
+
+  return (void*) (messages[*nw].buf);
+}
+
+
 
 /* Send len bytes of buf to a (or more) replicas.
  * nw is the position of the message in the ring buffer
@@ -280,21 +319,30 @@ ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
 
     for (i = 0; i < nb_replicas; i++)
     {
-      readx = &reader_indexes[i];
-      int new_pos = (readx->ral + 1) % nb_msg;
-      readx->array[new_pos].v = nw;
-      readx->ral = new_pos;
+      if (multicast_bitmap_mask & (1 << i))
+      {
+        // we need a lock on that since multiple writers can modify concurrently this value
+        // we no longer need new_pos
+        readx = &reader_indexes[i];
+        int new_pos = (readx->ral + 1) % nb_msg;
+        readx->array[new_pos].v = nw;
+        readx->ral = new_pos;
+      }
     }
   }
   else
   {
     messages[nw].bitmap = (1 << dest);
 
+    // we need a lock on that since multiple writers can modify concurrently this value
+    // we no longer need new_pos
     readx = &reader_indexes[dest];
     int new_pos = (readx->ral + 1) % nb_msg;
     readx->array[new_pos].v = nw;
     readx->ral = new_pos;
   }
+
+  spinlock_unlock(writer_lock);
 
   return ret;
 }

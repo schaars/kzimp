@@ -20,6 +20,10 @@
 #define MSG_DEBUG
 #undef MSG_DEBUG
 
+// does the leader sends the response directly, without involving the other nodes?
+#define LEADER_ONLY
+#undef LEADER_ONLY
+
 // current proposal number. Since we do not change the leader
 // this value is fixed
 #define PROPOSAL_NUMBER 1
@@ -116,6 +120,18 @@ void PaxosNode::handle_request(Request *request)
       cid);
 #endif
 
+#ifdef LEADER_ONLY
+
+    Response r(value);
+
+#ifdef ULM
+    IPC_send_node_to_client(r.content(), r.length(), cid, r.get_msg_pos());
+#else
+    IPC_send_node_to_client(r.content(), r.length(), cid);
+#endif
+
+#else
+
   uint64_t in = next_instance_number();
   uint64_t pn = PROPOSAL_NUMBER;
 
@@ -127,6 +143,7 @@ void PaxosNode::handle_request(Request *request)
   IPC_send_node_unicast(ar.content(), ar.length());
 #endif
 
+#endif
 }
 
 void PaxosNode::handle_accept_req(Accept_req *ar)

@@ -41,6 +41,7 @@ sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmmax
 
 # compile
 echo "-DULM -DMESSAGE_MAX_SIZE=128 -DNB_MESSAGES=${MSG_CHANNEL}" > ULM_PROPERTIES
+#echo "-DUSLEEP -DULM -DMESSAGE_MAX_SIZE=128 -DNB_MESSAGES=${MSG_CHANNEL}" > ULM_PROPERTIES
 make ulm_paxosInside
 
 # launch
