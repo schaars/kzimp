@@ -248,12 +248,18 @@ void* mpsoc_alloc(size_t len, int *nw)
     spinlock_lock(writer_lock);
     *nw = *next_write;
     *next_write = (*next_write + 1) % nb_msg;
-    spinlock_unlock(writer_lock);
 
     if (messages[*nw].bitmap == 0)
     {
+      // we modify the bitmap so that another writer cannot get the same position.
+      // this is safe: the bitmap is currently 0, meaning that all the readers have read it.
+      messages[*nw].bitmap = 0xdeadbeef;
+      spinlock_unlock(writer_lock);
+
       break;
     }
+
+    spinlock_unlock(writer_lock);
 
 #ifdef USLEEP
     usleep(1);
