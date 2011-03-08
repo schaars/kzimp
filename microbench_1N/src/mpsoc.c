@@ -42,30 +42,10 @@ struct mpsoc_message
       + CACHE_LINE_SIZE];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
-struct mpsoc_reader_index_entry
-{
-  int v;
-  char __p[CACHE_LINE_SIZE - sizeof(int)];
-}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
-
-/* what is a reader index */
-#define MPSOC_READER_INDEX_SIZE ( sizeof(int) + CACHE_LINE_SIZE - sizeof(int) \
-    + sizeof(int) + CACHE_LINE_SIZE - sizeof(int) \
-    + NB_MESSAGES * sizeof(struct mpsoc_reader_index_entry))
-
 struct mpsoc_reader_index
 {
-  int raf; // read_at_first
+  int next_read; // the next position to read in the shared buffer
   char __p1[CACHE_LINE_SIZE - sizeof(int)];
-
-  int ral; // read at last
-  lock_t reader_index_lock;
-  char __p2[CACHE_LINE_SIZE - sizeof(int) - sizeof(lock_t)];
-
-  struct mpsoc_reader_index_entry array[NB_MESSAGES];
-
-  char __p[CACHE_LINE_SIZE - MPSOC_READER_INDEX_SIZE % CACHE_LINE_SIZE
-      + CACHE_LINE_SIZE];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 /* number of messages */
@@ -160,7 +140,6 @@ char* mpsoc_init_shm(char *p, size_t s, int i)
 int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
 {
   int i, size;
-  int j;
 
   nb_msg = m;
   nb_replicas = num_replicas;
@@ -220,14 +199,7 @@ int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
 
   for (i = 0; i < nb_replicas; i++)
   {
-    reader_indexes[i].raf = 0;
-    reader_indexes[i].ral = -1;
-    spinlock_unlock(&reader_indexes[i].reader_index_lock);
-
-    for (j = 0; j < nb_msg; j++)
-    {
-      reader_indexes[i].array[j].v = -1;
-    }
+    reader_indexes[i].next_read = 0;
   }
 
   printf("Init shared area for reader_indexes. Addresses=%p, len=%i\n",
@@ -242,25 +214,16 @@ int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
  */
 void* mpsoc_alloc(size_t len, int *nw)
 {
-  while (1)
+  // the sender does not send messages to himself
+  // get the current value of next_write and then update it
+  spinlock_lock(writer_lock);
+  *nw = *next_write;
+  *next_write = (*next_write + 1) % nb_msg;
+  spinlock_unlock(writer_lock);
+
+  // wait for the bitmap to become 0
+  while (messages[*nw].bitmap != 0)
   {
-    // this lock is mandatory, otherwise we cannot apply the modulo operator in an atomic way
-    spinlock_lock(writer_lock);
-    *nw = *next_write;
-    *next_write = (*next_write + 1) % nb_msg;
-
-    if (messages[*nw].bitmap == 0)
-    {
-      // we modify the bitmap so that another writer cannot get the same position.
-      // this is safe: the bitmap is currently 0, meaning that all the readers have read it.
-      messages[*nw].bitmap = 0xdeadbeef;
-      spinlock_unlock(writer_lock);
-
-      break;
-    }
-
-    spinlock_unlock(writer_lock);
-
 #ifdef USLEEP
     usleep(1);
 #endif
@@ -282,40 +245,16 @@ void* mpsoc_alloc(size_t len, int *nw)
  */
 ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
 {
-  struct mpsoc_reader_index *readx;
-  int i;
   int ret = -1;
 
-  //update bitmap & add message to reader_array_indexes
+  //update bitmap
   if (dest == -1)
   {
     messages[nw].bitmap = multicast_bitmap_mask;
-
-    for (i = 0; i < nb_replicas; i++)
-    {
-      if (multicast_bitmap_mask & (1 << i))
-      {
-        // we need a lock on that since multiple writers can modify concurrently this value
-        readx = &reader_indexes[i];
-
-        spinlock_lock(&readx->reader_index_lock);
-        readx->ral = (readx->ral + 1) % nb_msg;
-        readx->array[readx->ral].v = nw;
-        spinlock_unlock(&readx->reader_index_lock);
-      }
-    }
   }
   else
   {
     messages[nw].bitmap = (1 << dest);
-
-    // we need a lock on that since multiple writers can modify concurrently this value
-    readx = &reader_indexes[dest];
-
-    spinlock_lock(&readx->reader_index_lock);
-    readx->ral = (readx->ral + 1) % nb_msg;
-    readx->array[readx->ral].v = nw;
-    spinlock_unlock(&readx->reader_index_lock);
   }
 
   return ret;
@@ -378,29 +317,23 @@ void mpsoc_free(int pos, int core_id)
 ssize_t mpsoc_recvfrom(void *buf, size_t len, int core_id)
 {
   int ret, pos;
-  struct mpsoc_reader_index *readx;
 
   ret = -1;
-  readx = &reader_indexes[core_id];
+  pos = reader_indexes[core_id].next_read;
 
   while (1)
   {
-    pos = readx->array[readx->raf].v;
-
-    if (pos >= 0 && pos < nb_msg)
+    // we do not modify the bitmap yet. We only get its value
+    if (messages[pos].bitmap & (1 << core_id))
     {
-      readx->array[readx->raf].v = -1;
-      readx->raf = (readx->raf + 1) % nb_msg;
+      ret = min(messages[pos].len, len);
+      memcpy(buf, messages[pos].buf, ret);
+      __sync_fetch_and_and(&(messages[pos].bitmap), ~(1 << core_id));
 
-      // we do not modify the bitmap yet. We only get its value
-      if (messages[pos].bitmap & (1 << core_id))
-      {
-        ret = min(messages[pos].len, len);
-        memcpy(buf, messages[pos].buf, ret);
-        __sync_fetch_and_and(&(messages[pos].bitmap), ~(1 << core_id));
+      reader_indexes[core_id].next_read = (reader_indexes[core_id].next_read
+          + 1) % nb_msg;
 
-        return ret;
-      }
+      return ret;
     }
 
 #ifdef USLEEP
