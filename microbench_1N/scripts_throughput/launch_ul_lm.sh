@@ -7,9 +7,6 @@
 #  $4: max nb of messages in the circular buffer
 
 
-NB_THREADS_PER_CORE=2
-
-
 # get arguments
 if [ $# -eq 4 ]; then
    NB_CONSUMERS=$1

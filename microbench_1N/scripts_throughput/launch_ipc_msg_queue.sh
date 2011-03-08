@@ -9,9 +9,6 @@
 #  $6: optional. Set it if you do not want the script to compile the program
 
 
-NB_THREADS_PER_CORE=2
-
-
 # get arguments
 if [ $# -eq 6 ]; then
    NB_CONSUMERS=$1

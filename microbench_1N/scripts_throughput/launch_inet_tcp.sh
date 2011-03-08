@@ -6,9 +6,6 @@
 #  $3: duration of the experiment in seconds
 
 
-NB_THREADS_PER_CORE=2
-
-
 # get arguments
 if [ $# -eq 3 ]; then
    NB_CONSUMERS=$1

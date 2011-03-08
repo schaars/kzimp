@@ -7,9 +7,6 @@
 #  $4: optional. Set multicast if you want udp multicast
 
 
-NB_THREADS_PER_CORE=2
-
-
 # get arguments
 if [ $# -eq 3 ]; then
    NB_CONSUMERS=$1

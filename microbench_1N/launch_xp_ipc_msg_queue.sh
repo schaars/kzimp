@@ -1,13 +1,14 @@
 #!/bin/bash
 
-NUM_QUEUES_ARRAY=( 1 N )
+#NUM_QUEUES_ARRAY=( 1 N )
+NUM_QUEUES_ARRAY=( 1 )
 NUM_CONSUMERS_ARRAY=( 1 3 5 7 )
 MSG_SIZE_ARRAY=( 1 64 128 512 1024 4096 10240 102400 1048576 )
 
 XP_DURATION=$((2*60))   # 2 minutes
 
-for MSG_MAX_SIZE in 0 1; do
-#for MSG_MAX_SIZE in 0; do
+#for MSG_MAX_SIZE in 0 1; do
+for MSG_MAX_SIZE in 0; do
 
 for num_queues in ${NUM_QUEUES_ARRAY[@]}; do
 
