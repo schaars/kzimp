@@ -7,13 +7,13 @@
 #   $3: nb iter per client
 #   $4: same_proc or different_proc
 #   $5: do you want 1 or N queues?
-#   $6: message max size
 
 
 CONFIG_FILE=config
+MESSAGE_MAX_SIZE=128
 
 
-if [ $# -eq 6 ]; then
+if [ $# -eq 5 ]; then
    NB_PAXOS_NODES=$1
    NB_CLIENTS=$2
    NB_ITER_PER_CLIENT=$3
@@ -24,7 +24,6 @@ if [ $# -eq 6 ]; then
    else
      ONE_QUEUE=
    fi
-   MESSAGE_MAX_SIZE=$6
  
 else
    echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_clients> <nb_iter_per_client> <same_proc|different_proc> <nb_queues> <msg_max_size>"
@@ -71,4 +70,4 @@ done
 # save results
 ./stop_all.sh
 ./remove_shared_segment.pl
-mv results.txt ipc_msg_queue_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER_PER_CLIENT}iter_${LEADER_ACCEPTOR}_${NB_QUEUES}queues_${MESSAGE_MAX_SIZE}BmsgMaxSize.txt
+mv results.txt ipc_msg_queue_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER_PER_CLIENT}iter_${LEADER_ACCEPTOR}_${NB_QUEUES}queues.txt
