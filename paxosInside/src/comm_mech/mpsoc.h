@@ -65,6 +65,8 @@ struct mpsoc_ctrl
  * at most at the same time for n processes. pathname is the name of an
  * existing file, required by ftok. Returns 0 on success, -1 for errors
  * mmask is the mask to apply on multicast messages.
+ * Note: the size of the ring buffer should be > the maximal number of concurrent writers
+ * otherwise 2 writers can be on the same message.
  */
 int mpsoc_init(struct mpsoc_ctrl *c, char* pathname, int num_replicas, int m,
     unsigned int mmask);
