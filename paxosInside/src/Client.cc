@@ -18,7 +18,7 @@
 #include "time.h"
 
 #define MSG_DEBUG
-//#undef MSG_DEBUG
+#undef MSG_DEBUG
 
 Client::Client(int client_id, uint64_t nbi)
 {

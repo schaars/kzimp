@@ -18,7 +18,7 @@
 
 // to get some debug printf
 #define MSG_DEBUG
-//#undef MSG_DEBUG
+#undef MSG_DEBUG
 
 // does the leader sends the response directly, without involving the other nodes?
 #define LEADER_ONLY
@@ -50,6 +50,7 @@ PaxosNode::~PaxosNode(void)
 void PaxosNode::recv(void)
 {
   Message m;
+
 
   /* Display the size of the different messages
    if (node_id() == 0)
@@ -202,12 +203,9 @@ void PaxosNode::handle_learn(Learn *learn)
 
   if (iAmLeader)
   {
-    printf("Creating the response\n");
     Response r(value, cid);
-    printf("Response created\n");
 
 #ifdef ULM
-    printf("Leader going to send message to client %i\n", cid);
     IPC_send_node_to_client(r.content(), r.length(), cid, r.get_msg_pos());
 #else
     IPC_send_node_to_client(r.content(), r.length(), cid);

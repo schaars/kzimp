@@ -140,8 +140,6 @@ void IPC_clean_client(void)
 //  node i >= nb_paxos_node -> clients_to_leader
 void* IPC_ulm_alloc(size_t len, int *msg_pos_in_ring_buffer, int dest)
 {
-  printf("Node %i, dest %i\n", node_id, dest);
-
   if (node_id == 0)
   {
     if (dest == 1)
@@ -160,7 +158,6 @@ void* IPC_ulm_alloc(size_t len, int *msg_pos_in_ring_buffer, int dest)
   }
   else if (node_id >= nb_paxos_nodes)
   {
-    printf("Node %i is allocating in clients_to_leader\n", node_id);
     return mpsoc_alloc(&clients_to_leader, len, msg_pos_in_ring_buffer);
   }
   else
@@ -191,9 +188,7 @@ void IPC_send_node_multicast(void *msg, size_t length,
 void IPC_send_client_to_node(void *msg, size_t length,
     int msg_pos_in_ring_buffer)
 {
-  printf("Client %i is calling send\n", node_id);
   mpsoc_sendto(&clients_to_leader, msg, length, msg_pos_in_ring_buffer, 0);
-  printf("Client %i has called send\n", node_id);
 }
 
 // send the message msg of size length to the client of id cid
@@ -248,7 +243,7 @@ size_t IPC_receive(void *msg, size_t length)
   {
     return (size_t) mpsoc_recvfrom(&leader_to_acceptor, msg, length, 0);
   }
-  else if (node_id > nb_paxos_nodes)
+  else if (node_id >= nb_paxos_nodes)
   {
     return (size_t) mpsoc_recvfrom(&leader_to_client[node_id - nb_paxos_nodes],
         msg, length, 0);
