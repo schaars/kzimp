@@ -18,7 +18,7 @@
 
 // to get some debug printf
 #define MSG_DEBUG
-#undef MSG_DEBUG
+//#undef MSG_DEBUG
 
 // does the leader sends the response directly, without involving the other nodes?
 #define LEADER_ONLY
@@ -122,12 +122,12 @@ void PaxosNode::handle_request(Request *request)
 
 #ifdef LEADER_ONLY
 
-    Response r(value);
+  Response r(value);
 
 #ifdef ULM
-    IPC_send_node_to_client(r.content(), r.length(), cid, r.get_msg_pos());
+  IPC_send_node_to_client(r.content(), r.length(), cid, r.get_msg_pos());
 #else
-    IPC_send_node_to_client(r.content(), r.length(), cid);
+  IPC_send_node_to_client(r.content(), r.length(), cid);
 #endif
 
 #else
@@ -171,6 +171,7 @@ void PaxosNode::handle_accept_req(Accept_req *ar)
 
 #ifdef ULM
   IPC_send_node_multicast(learn.content(), learn.length(), learn.get_msg_pos());
+  handle_learn(cid, pn, in, value);
 #else
   IPC_send_node_multicast(learn.content(), learn.length());
   handle_learn(&learn);
@@ -204,9 +205,28 @@ void PaxosNode::handle_learn(Learn *learn)
     Response r(value);
 
 #ifdef ULM
+    printf("Leader going to send message to client %i\n", cid);
     IPC_send_node_to_client(r.content(), r.length(), cid, r.get_msg_pos());
 #else
     IPC_send_node_to_client(r.content(), r.length(), cid);
 #endif
   }
 }
+
+#ifdef ULM
+void PaxosNode::handle_learn(int cid, uint64_t value, uint64_t in, uint64_t pn)
+{
+#ifdef MSG_DEBUG
+  printf("PaxosNode %i handles a learn (%i, %lu, %lu, %lu)\n", nid, cid, in,
+      pn, value);
+#endif
+
+  // node 1 is the acceptor. It has already accepted and saved the last proposal
+  if (node_id() != 1)
+  {
+    last_proposal.instance_number = in;
+    last_proposal.proposal_number = pn;
+    last_proposal.value = value;
+  }
+}
+#endif

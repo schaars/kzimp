@@ -48,7 +48,14 @@ void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc)
 
   if (ulm_alloc)
   {
-    msg = (char*)IPC_ulm_alloc(len, &msg_pos_in_ring_buffer);
+    if (tag == ACCEPT_REQ)
+    {
+      msg = (char*) IPC_ulm_alloc(len, &msg_pos_in_ring_buffer, 1);
+    }
+    else
+    {
+      msg = (char*) IPC_ulm_alloc(len, &msg_pos_in_ring_buffer, 0);
+    }
   }
   else
   {
@@ -84,9 +91,9 @@ Message::~Message(void)
   if (msg_pos_in_ring_buffer == -1)
   {
 #endif
-  free(msg);
+    free(msg);
 #ifdef ULM
-}
+  }
 #endif
 #endif
 }

@@ -58,7 +58,7 @@ size_t IPC_receive(struct ipc_message *msg, size_t length);
 #elif defined(ULM)
 
 // allocate a new message in the shared memory
-void* IPC_ulm_alloc(size_t len, int *msg_pos_in_ring_buffer);
+void* IPC_ulm_alloc(size_t len, int *msg_pos_in_ring_buffer, int dest);
 
 // send the message msg of size length to the node 1
 // Indeed the only unicast is from 0 to 1

@@ -37,6 +37,11 @@ private:
   void handle_request(Request *request);
   void handle_accept_req(Accept_req *accept_req);
   void handle_learn(Learn *learn);
+
+#ifdef ULM
+  void handle_learn(int cid, uint64_t value, uint64_t in, uint64_t pn);
+#endif
+
   uint64_t next_instance_number(void);
 
   int nid;
