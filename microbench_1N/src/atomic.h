@@ -5,7 +5,7 @@
 
 typedef volatile unsigned int lock_t;
 
-inline unsigned int test_and_set(lock_t *addr) {
+static inline unsigned int test_and_set(lock_t *addr) {
   /*
     register unsigned int _res = 1;
 
@@ -19,11 +19,11 @@ inline unsigned int test_and_set(lock_t *addr) {
     return __sync_lock_test_and_set(addr, 1);
 }
 
-inline void spinlock_lock(lock_t *addr) {
+static inline void spinlock_lock(lock_t *addr) {
     while (*addr || test_and_set(addr));
 }
 
-inline void spinlock_unlock(lock_t *addr) {
+static inline void spinlock_unlock(lock_t *addr) {
     *addr = 0;
 }
 

@@ -36,6 +36,8 @@ static uint64_t nb_cycles_send;
 static uint64_t nb_cycles_recv;
 static uint64_t nb_cycles_first_recv;
 
+static struct mpsoc_ctrl ulm_ctrl;
+
 #define MIN(a, b) ((a < b) ? a : b)
 
 // Initialize resources for both the producer and the consumers
@@ -61,8 +63,8 @@ void IPC_initialize(int _nb_receivers, int _request_size)
     multicast_bitmap_mask = multicast_bitmap_mask | (1 << i);
   }
 
-  mpsoc_init("/tmp/ul_lm_0copy_microbenchmark", nb_receivers, NB_MESSAGES,
-      multicast_bitmap_mask);
+  mpsoc_init(&ulm_ctrl, "/tmp/ul_lm_0copy_microbenchmark", nb_receivers,
+      NB_MESSAGES, multicast_bitmap_mask);
 }
 
 // Initialize resources for the producer
@@ -90,13 +92,13 @@ void IPC_clean(void)
 // Clean ressources created for the producer.
 void IPC_clean_producer(void)
 {
-  mpsoc_destroy();
+  mpsoc_destroy(&ulm_ctrl);
 }
 
 // Clean ressources created for the consumer.
 void IPC_clean_consumer(void)
 {
-  mpsoc_destroy();
+  mpsoc_destroy(&ulm_ctrl);
 }
 
 // Return the number of cycles spent in the send() operation
@@ -127,7 +129,7 @@ void IPC_sendToAll(int msg_size, char msg_id)
     msg_size = MIN_MSG_SIZE;
   }
 
-  msg = mpsoc_alloc(msg_size, &msg_pos_in_ring_buffer);
+  msg = mpsoc_alloc(&ulm_ctrl, msg_size, &msg_pos_in_ring_buffer);
   if (!msg)
   {
     perror("mpsoc_alloc error! ");
@@ -148,7 +150,7 @@ void IPC_sendToAll(int msg_size, char msg_id)
   rdtsc(cycle_start);
 #endif
 
-  mpsoc_sendto(msg, msg_size, msg_pos_in_ring_buffer, -1);
+  mpsoc_sendto(&ulm_ctrl, msg, msg_size, msg_pos_in_ring_buffer, -1);
 
 #ifdef COMPUTE_CYCLES
   rdtsc(cycle_stop);
@@ -161,10 +163,6 @@ void IPC_sendToAll(int msg_size, char msg_id)
 // Place in *msg_id the id of this message
 int IPC_receive(int msg_size, char *msg_id)
 {
-#ifdef ZERO_COPY
-  char *msg;
-  int pos;
-#else
   //char msg[MESSAGE_MAX_SIZE];
   char *msg;
 
@@ -179,7 +177,6 @@ int IPC_receive(int msg_size, char *msg_id)
     perror("IPC_receive allocation error! ");
     exit(errno);
   }
-#endif
 
 #ifdef DEBUG
   printf("Waiting for a new message\n");
@@ -195,35 +192,17 @@ int IPC_receive(int msg_size, char *msg_id)
   int recv_size = -1;
 
 #ifdef COMPUTE_CYCLES
-    rdtsc(cycle_start);
+  rdtsc(cycle_start);
 #endif
 
-#ifdef ZERO_COPY
-    recv_size = mpsoc_recvfrom((void**) &msg, msg_size, &pos, core_id - 1);
-#else
-    recv_size = mpsoc_recvfrom(msg, msg_size, core_id - 1);
-#endif
+  recv_size = mpsoc_recvfrom(&ulm_ctrl, msg, msg_size, core_id - 1);
 
 #ifdef COMPUTE_CYCLES
-    rdtsc(cycle_stop);
-    nb_cycles_recv += cycle_stop - cycle_start;
+  rdtsc(cycle_stop);
+  nb_cycles_recv += cycle_stop - cycle_start;
 #endif
 
-    *msg_id = msg[0];
-
-#ifdef ZERO_COPY
-
-#ifdef COMPUTE_CYCLES
-    rdtsc(cycle_start);
-#endif
-
-    mpsoc_free(pos, core_id - 1);
-
-#ifdef COMPUTE_CYCLES
-    rdtsc(cycle_stop);
-    nb_cycles_recv += cycle_stop - cycle_start;
-#endif
-#endif
+  *msg_id = msg[0];
 
 #ifdef COMPUTE_CYCLES
   if (nb_cycles_first_recv == 0)
@@ -238,9 +217,7 @@ int IPC_receive(int msg_size, char *msg_id)
       core_id, *msg_id, recv_size, msg_size);
 #endif
 
-#ifndef ZERO_COPY
   free(msg);
-#endif
 
   if (recv_size == msg_size)
   {

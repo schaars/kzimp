@@ -12,62 +12,11 @@
 #include <sys/shm.h>
 #include <sys/sem.h>
 #include <sys/mman.h>
-#include <semaphore.h>
 
 #include "mpsoc.h"
-#include "atomic.h"
-
-#define CACHE_LINE_SIZE 64
-
-// Effects: Increases sz to the least multiple of ALIGNMENT greater
-// than size.
-#define ALIGNED_SIZE(sz) ((sz)-(sz)%CACHE_LINE_SIZE+CACHE_LINE_SIZE)
 
 #define max(a, b) (a > b ? a : b)
 #define min(a, b) (a < b ? a : b)
-
-/* what is a message */
-#define MPSOC_MESSAGE_SIZE ( sizeof(int) + CACHE_LINE_SIZE - sizeof(int) \
-    + sizeof(size_t) + MESSAGE_MAX_SIZE)
-
-struct mpsoc_message
-{
-  int bitmap; // the bitmap is alone on a cache line in order for the writer to poll on it
-  char __p1[CACHE_LINE_SIZE - sizeof(int)];
-
-  size_t len;
-  char buf[MESSAGE_MAX_SIZE];
-
-  char __p2[CACHE_LINE_SIZE - MPSOC_MESSAGE_SIZE % CACHE_LINE_SIZE
-      + CACHE_LINE_SIZE];
-}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
-
-struct mpsoc_reader_index
-{
-  int next_read; // the next position to read in the shared buffer
-  char __p1[CACHE_LINE_SIZE - sizeof(int)];
-}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
-
-/* number of messages */
-static int nb_msg;
-
-/* number of replicas */
-static int nb_replicas;
-
-/* special netmask for multicast */
-static unsigned int multicast_bitmap_mask;
-
-/* pointer to the first message */
-static struct mpsoc_message* messages;
-
-/* writer's next_write */
-static int *next_write;
-
-/* writer's lock */
-static lock_t* writer_lock;
-
-/* reader indexes */
-static struct mpsoc_reader_index *reader_indexes;
 
 /* init a shared area of size s with pathname p and project id i.
  * Return a pointer to it, or NULL in case of errors.
@@ -137,73 +86,76 @@ char* mpsoc_init_shm(char *p, size_t s, int i)
  * existing file, required by ftok. Returns 0 on success, -1 for errors
  * mmask is the mask to apply on multicast messages.
  */
-int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
+int mpsoc_init(struct mpsoc_ctrl *c, char* pathname, int num_replicas, int m,
+    unsigned int mmask)
 {
   int i, size;
 
-  nb_msg = m;
-  nb_replicas = num_replicas;
+  c->nb_msg = m;
+  c->nb_replicas = num_replicas;
 
   /*********************************/
   /* init shared area for messages */
   /*********************************/
-  size = nb_msg * sizeof(struct mpsoc_message);
+  size = c->nb_msg * sizeof(struct mpsoc_message);
 
-  messages = (struct mpsoc_message*) mpsoc_init_shm(pathname, size, 'a');
-  if (!messages)
+  c->messages = (struct mpsoc_message*) mpsoc_init_shm(pathname, size, 'a');
+  if (!c->messages)
   {
     printf("Error while allocating shared memory for message\n");
     return -1;
   }
 
-  for (i = 0; i < nb_msg; i++)
+  for (i = 0; i < c->nb_msg; i++)
   {
-    messages[i].bitmap = 0;
-    messages[i].len = 0;
+    c->messages[i].bitmap = 0;
+    c->messages[i].len = 0;
   }
 
-  printf("Init shared area for messages. Address=%p, len=%i\n", messages, size);
+  printf("Init shared area for messages. Address=%p, len=%i\n", c->messages,
+      size);
 
   // a special mask to apply for multicast
-  multicast_bitmap_mask = mmask;
+  c->multicast_bitmap_mask = mmask;
 
   /*******************************/
   /* init shared area for writer */
   /*******************************/
   size = 2 * CACHE_LINE_SIZE;
-  next_write = (int*) mpsoc_init_shm(pathname, size, 'b');
-  if (!next_write)
+  c->next_write = (int*) mpsoc_init_shm(pathname, size, 'b');
+  if (!c->next_write)
   {
     printf("Error while allocating shared memory for writer\n");
     return -1;
   }
-  writer_lock = (lock_t*) (next_write + CACHE_LINE_SIZE);
+  c->writer_lock = (lock_t*) (c->next_write + CACHE_LINE_SIZE);
 
-  *next_write = 0;
-  spinlock_unlock(writer_lock);
+  *c->next_write = 0;
+  spinlock_unlock(c->writer_lock);
 
-  printf("Init shared area for writer. Address=%p, len=%i\n", next_write, size);
+  printf("Init shared area for writer. Address=%p, len=%i\n", c->next_write,
+      size);
 
   /***************************************/
   /* init shared area for reader_indexes */
   /***************************************/
-  size = sizeof(struct mpsoc_reader_index) * nb_replicas;
-  reader_indexes = (struct mpsoc_reader_index*) mpsoc_init_shm(pathname, size,
-      'd');
+  size = sizeof(struct mpsoc_reader_index) * c->nb_replicas;
+  c->reader_indexes = (struct mpsoc_reader_index*) mpsoc_init_shm(pathname,
+      size, 'd');
 
-  if (!reader_indexes)
+  if (!c->reader_indexes)
   {
     printf("Error while allocating shared memory for reader_indexes\n");
     return -1;
   }
 
-  for (i = 0; i < nb_replicas; i++)
+  for (i = 0; i < c->nb_replicas; i++)
   {
-    reader_indexes[i].next_read = 0;
+    c->reader_indexes[i].next_read = 0;
   }
 
   printf("Init shared area for reader_indexes. Addresses=%p, len=%i\n",
-      reader_indexes, size);
+      c->reader_indexes, size);
 
   return 0;
 }
@@ -212,17 +164,17 @@ int mpsoc_init(char* pathname, int num_replicas, int m, unsigned int mmask)
  * Return the address of the message and (in nw variable)
  * the position of the message in the ring buffer
  */
-void* mpsoc_alloc(size_t len, int *nw)
+void* mpsoc_alloc(struct mpsoc_ctrl *c, size_t len, int *nw)
 {
   // the sender does not send messages to himself
   // get the current value of next_write and then update it
-  spinlock_lock(writer_lock);
-  *nw = *next_write;
-  *next_write = (*next_write + 1) % nb_msg;
-  spinlock_unlock(writer_lock);
+  spinlock_lock(c->writer_lock);
+  *nw = *c->next_write;
+  *c->next_write = (*c->next_write + 1) % c->nb_msg;
+  spinlock_unlock(c->writer_lock);
 
   // wait for the bitmap to become 0
-  while (messages[*nw].bitmap != 0)
+  while (c->messages[*nw].bitmap != 0)
   {
 #ifdef USLEEP
     usleep(1);
@@ -233,9 +185,9 @@ void* mpsoc_alloc(size_t len, int *nw)
   }
 
   //add message
-  messages[*nw].len = min(len, MESSAGE_MAX_SIZE);
+  c->messages[*nw].len = min(len, MESSAGE_MAX_SIZE);
 
-  return (void*) (messages[*nw].buf);
+  return (void*) (c->messages[*nw].buf);
 }
 
 /* Send len bytes of buf to a (or more) replicas.
@@ -243,18 +195,19 @@ void* mpsoc_alloc(size_t len, int *nw)
  * If dest = -1 then send to all replicas, else send to replica dest
  * Returns the number sent, or -1 for errors.
  */
-ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
+ssize_t mpsoc_sendto(struct mpsoc_ctrl *c, const void *buf, size_t len, int nw,
+    int dest)
 {
   int ret = -1;
 
   //update bitmap
   if (dest == -1)
   {
-    messages[nw].bitmap = multicast_bitmap_mask;
+    c->messages[nw].bitmap = c->multicast_bitmap_mask;
   }
   else
   {
-    messages[nw].bitmap = (1 << dest);
+    c->messages[nw].bitmap = (1 << dest);
   }
 
   return ret;
@@ -266,24 +219,23 @@ ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
  * Returns the number of bytes read
  * blocking call
  */
-ssize_t mpsoc_recvfrom(void *buf, size_t len, int core_id)
+ssize_t mpsoc_recvfrom(struct mpsoc_ctrl *c, void *buf, size_t len, int core_id)
 {
   int ret, pos;
 
   ret = -1;
-  pos = reader_indexes[core_id].next_read;
+  pos = c->reader_indexes[core_id].next_read;
 
   while (1)
   {
     // we do not modify the bitmap yet. We only get its value
-    if (messages[pos].bitmap & (1 << core_id))
+    if (c->messages[pos].bitmap & (1 << core_id))
     {
-      ret = min(messages[pos].len, len);
-      memcpy(buf, messages[pos].buf, ret);
-      __sync_fetch_and_and(&(messages[pos].bitmap), ~(1 << core_id));
+      ret = min(c->messages[pos].len, len);
+      memcpy(buf, c->messages[pos].buf, ret);
+      __sync_fetch_and_and(&(c->messages[pos].bitmap), ~(1 << core_id));
 
-      reader_indexes[core_id].next_read = (reader_indexes[core_id].next_read
-          + 1) % nb_msg;
+      c->reader_indexes[core_id].next_read = (pos + 1) % c->nb_msg;
 
       return ret;
     }
@@ -300,9 +252,9 @@ ssize_t mpsoc_recvfrom(void *buf, size_t len, int core_id)
 }
 
 // destroys the shared area
-void mpsoc_destroy(void)
+void mpsoc_destroy(struct mpsoc_ctrl *c)
 {
-  shmdt(reader_indexes);
-  shmdt(next_write);
-  shmdt(messages);
+  shmdt(c->reader_indexes);
+  shmdt(c->next_write);
+  shmdt(c->messages);
 }
