@@ -187,7 +187,7 @@ void IPC_sendToAll(int msg_size, char msg_id)
 #ifdef DEBUG
   printf(
       "[producer %i] going to send message %i of size %i to %i recipients\n",
-      core_id, msg[0], msg_size, nb_receivers);
+      core_id, ipc_msg->mtext[0], msg_size, nb_receivers);
 #endif
 
   for (i = 0; i < nb_receivers; i++)
@@ -197,15 +197,17 @@ void IPC_sendToAll(int msg_size, char msg_id)
     ipc_msg->mtype = i+1;
 
     rdtsc(cycle_start);
-    msgsnd(consumers[0], &ipc_msg, msg_size, 0);
+    msgsnd(consumers[0], ipc_msg, msg_size, 0);
 #else
     rdtsc(cycle_start);
-    msgsnd(consumers[i], &ipc_msg, msg_size, 0);
+    msgsnd(consumers[i], ipc_msg, msg_size, 0);
 #endif
     rdtsc(cycle_stop);
 
     nb_cycles_send += cycle_stop - cycle_start;
   }
+
+  free(ipc_msg);
 }
 
 // Get a message for this core
@@ -235,10 +237,10 @@ int IPC_receive(int msg_size, char *msg_id)
 
   rdtsc(cycle_start);
 #ifdef ONE_QUEUE
-  int recv_size = msgrcv(consumer_queue, &ipc_msg, sizeof(ipc_msg->mtext), core_id, 0);
+  int recv_size = msgrcv(consumer_queue, ipc_msg, sizeof(ipc_msg->mtext), core_id, 0);
 #else
   int recv_size =
-      msgrcv(consumer_queue, &ipc_msg, sizeof(ipc_msg->mtext), 0, 0);
+      msgrcv(consumer_queue, ipc_msg, sizeof(ipc_msg->mtext), 0, 0);
 #endif
   rdtsc(cycle_stop);
 
@@ -264,6 +266,8 @@ int IPC_receive(int msg_size, char *msg_id)
       "[consumer %i] received message %i of size %i, should be %i\n",
       core_id, *msg_id, recv_size, msg_size);
 #endif
+
+  free(ipc_msg);
 
   if (recv_size == msg_size)
   {
