@@ -123,7 +123,7 @@ void PaxosNode::handle_request(Request *request)
 
 #ifdef LEADER_ONLY
 
-  Response r(value);
+  Response r(value, cid);
 
 #ifdef ULM
   IPC_send_node_to_client(r.content(), r.length(), cid, r.get_msg_pos());
