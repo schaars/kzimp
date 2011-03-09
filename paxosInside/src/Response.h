@@ -21,6 +21,11 @@ class Response: public Message
 public:
   Response(void);
   Response(uint64_t value);
+
+#ifdef ULM
+  Response(uint64_t value, int cid);
+#endif
+
   ~Response(void);
 
   // value

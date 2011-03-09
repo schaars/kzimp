@@ -29,6 +29,11 @@ class Message
 public:
   Message(void);
   Message(MessageTag tag);
+
+#ifdef ULM
+  Message(size_t len, MessageTag tag, int cid);
+#endif
+
   Message(size_t len, MessageTag tag);
   ~Message(void);
 
@@ -51,7 +56,7 @@ public:
   size_t length(void) const;
 
   // initialize the message
-  void init_message(size_t len, MessageTag tag, bool ulm_alloc = false);
+  void init_message(size_t len, MessageTag tag, bool ulm_alloc = false, int cid = 0);
 
 protected:
 

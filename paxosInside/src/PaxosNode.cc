@@ -202,7 +202,9 @@ void PaxosNode::handle_learn(Learn *learn)
 
   if (iAmLeader)
   {
-    Response r(value);
+    printf("Creating the response\n");
+    Response r(value, cid);
+    printf("Response created\n");
 
 #ifdef ULM
     printf("Leader going to send message to client %i\n", cid);

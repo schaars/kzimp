@@ -140,6 +140,8 @@ void IPC_clean_client(void)
 //  node i >= nb_paxos_node -> clients_to_leader
 void* IPC_ulm_alloc(size_t len, int *msg_pos_in_ring_buffer, int dest)
 {
+  printf("Node %i, dest %i\n", node_id, dest);
+
   if (node_id == 0)
   {
     if (dest == 1)
@@ -158,6 +160,7 @@ void* IPC_ulm_alloc(size_t len, int *msg_pos_in_ring_buffer, int dest)
   }
   else if (node_id >= nb_paxos_nodes)
   {
+    printf("Node %i is allocating in clients_to_leader\n", node_id);
     return mpsoc_alloc(&clients_to_leader, len, msg_pos_in_ring_buffer);
   }
   else
@@ -180,9 +183,7 @@ void IPC_send_node_unicast(void *msg, size_t length, int msg_pos_in_ring_buffer)
 void IPC_send_node_multicast(void *msg, size_t length,
     int msg_pos_in_ring_buffer)
 {
-  printf("Acceptor going to multicast a messag\n");
   mpsoc_sendto(&acceptor_multicast, msg, length, msg_pos_in_ring_buffer, -1);
-  printf("Acceptor has sent a multicast message\n");
 }
 
 // send the message msg of size length to the node 0
@@ -190,7 +191,9 @@ void IPC_send_node_multicast(void *msg, size_t length,
 void IPC_send_client_to_node(void *msg, size_t length,
     int msg_pos_in_ring_buffer)
 {
+  printf("Client %i is calling send\n", node_id);
   mpsoc_sendto(&clients_to_leader, msg, length, msg_pos_in_ring_buffer, 0);
+  printf("Client %i has called send\n", node_id);
 }
 
 // send the message msg of size length to the client of id cid
@@ -198,7 +201,6 @@ void IPC_send_client_to_node(void *msg, size_t length,
 void IPC_send_node_to_client(void *msg, size_t length, int cid,
     int msg_pos_in_ring_buffer)
 {
-  printf("Leader is going to send a message to client %i\n", cid);
   mpsoc_sendto(&leader_to_client[cid - nb_paxos_nodes], msg, length,
       msg_pos_in_ring_buffer, 0);
 }
@@ -210,7 +212,7 @@ size_t recv_for_node0(void *msg, size_t length)
   while (1)
   {
     // recv from the clients
-    ret = mpsoc_recvfrom_nonblocking(&clients_to_leader, msg, length, node_id);
+    ret = mpsoc_recvfrom_nonblocking(&clients_to_leader, msg, length, 0);
     if (ret > 0)
     {
       break;
@@ -244,18 +246,15 @@ size_t IPC_receive(void *msg, size_t length)
   }
   else if (node_id == 1)
   {
-    printf("Acceptor (node %i) waiting for a response\n", node_id);
     return (size_t) mpsoc_recvfrom(&leader_to_acceptor, msg, length, 0);
   }
   else if (node_id > nb_paxos_nodes)
   {
-    printf("Client %i waiting for a response\n", node_id);
     return (size_t) mpsoc_recvfrom(&leader_to_client[node_id - nb_paxos_nodes],
         msg, length, 0);
   }
   else
   {
-    printf("Node %i waiting for a Learn\n", node_id);
     return (size_t) mpsoc_recvfrom(&acceptor_multicast, msg, length, node_id);
   }
 }
