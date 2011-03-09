@@ -27,6 +27,8 @@
 // You can define USLEEP if you want to add a usleep(1) when busy waiting
 // You can define NOP if you want to add a nop when busy waiting
 
+#define NB_MSG_MAX_IN_TRANSIT NB_MESSAGES
+
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #define MIN(a, b) (((a)<(b))?(a):(b))
 
@@ -273,7 +275,6 @@ void IPC_send_node_multicast(void *msg, size_t length)
 {
   Message m;
 
-    
   for (int i = 0; i < nb_paxos_nodes; i++)
   {
     if (i == 1)
@@ -288,20 +289,27 @@ void IPC_send_node_multicast(void *msg, size_t length)
     urpc_transport_send(&acceptor_node[i], msg, URPC_MSG_WORDS);
   }
 
-#ifdef DEBUG
-  printf("Node %i is going to receive acks from the learners\n", node_id);
-#endif
+  nb_messages_in_transit++;
 
-  // the leader (node 0) does not send acks
-  // the acceptor (this node, node 1) does not send messages to himself
-  for (int i = 2; i < nb_paxos_nodes; i++)
+  if (nb_messages_in_transit == NB_MSG_MAX_IN_TRANSIT)
   {
-    urpc_transport_recv(&acceptor_node[i], (void*) m.content(),
-		    URPC_MSG_WORDS);
+#ifdef DEBUG
+    printf("Node %i is going to receive acks from the learners\n", node_id);
+#endif
+
+    // the leader (node 0) does not send acks
+    // the acceptor (this node, node 1) does not send messages to himself
+    for (int i = 2; i < nb_paxos_nodes; i++)
+    {
+      urpc_transport_recv(&acceptor_node[i], (void*) m.content(),
+          URPC_MSG_WORDS);
 
 #ifdef DEBUG
-    printf("Node %i has received an ack from %i\n", node_id, i); 
+      printf("Node %i has received an ack from %i\n", node_id, i);
 #endif
+    }
+
+    nb_messages_in_transit = 0;
   }
 }
 
@@ -378,14 +386,21 @@ size_t IPC_receive(void *msg, size_t length)
     recv_size = urpc_transport_recv(&acceptor_node[0], (void*) msg,
         URPC_MSG_WORDS);
 
-    // send a message
-    Message m( BARRELFISH_ACK);
+    nb_messages_in_transit++;
+
+    if (nb_messages_in_transit == NB_MSG_MAX_IN_TRANSIT)
+    {
+      // send a message
+      Message m( BARRELFISH_ACK);
 
 #ifdef DEBUG
-    printf("Node %i is sending an ack to the acceptor\n", node_id);
+      printf("Node %i is sending an ack to the acceptor\n", node_id);
 #endif
 
-    urpc_transport_send(&acceptor_node[0], m.content(), URPC_MSG_WORDS);
+      urpc_transport_send(&acceptor_node[0], m.content(), URPC_MSG_WORDS);
+
+      nb_messages_in_transit = 0;
+    }
   }
   else
   {
