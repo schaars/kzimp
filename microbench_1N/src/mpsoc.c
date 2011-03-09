@@ -260,54 +260,6 @@ ssize_t mpsoc_sendto(const void *buf, size_t len, int nw, int dest)
   return ret;
 }
 
-#ifdef ZERO_COPY
-
-/*
- * Read len bytes into *buf.
- * Give the id of the caller (from 0 to nb_readers-1) as an argument
- * Returns the number of bytes read or -1 for errors
- * pos will contain the position of the message in the circular buffer.
- */
-ssize_t mpsoc_recvfrom(void **buf, size_t len, int *pos, int core_id)
-{
-  int ret;
-  struct mpsoc_reader_index *readx;
-
-  ret = -1;
-
-  readx = &reader_indexes[core_id];
-
-  *pos = readx->array[readx->raf];
-
-  if (*pos >= 0 && *pos < nb_msg)
-  {
-    readx->array[readx->raf] = -1;
-    readx->raf = (readx->raf + 1) % nb_msg;
-
-    // we do not modify the bitmap yet. We only get its value
-    if (messages[*pos].bitmap & (1 << core_id))
-    {
-      ret = min(messages[*pos].len, len);
-      *buf = messages[*pos].buf;
-    }
-  }
-
-  return ret;
-}
-
-/*
- * say that reader core_id has read the message at position pos
- */
-void mpsoc_free(int pos, int core_id)
-{
-  if (pos >= 0 && pos < nb_msg)
-  {
-    __sync_fetch_and_and(&(messages[pos].bitmap), ~(1 << core_id));
-  }
-}
-
-#else
-
 /*
  * Copy len bytes into buf.
  * Give the id of the caller (from 0 to nb_readers-1) as an argument
@@ -346,8 +298,6 @@ ssize_t mpsoc_recvfrom(void *buf, size_t len, int core_id)
 
   return ret;
 }
-
-#endif
 
 // destroys the shared area
 void mpsoc_destroy(void)
