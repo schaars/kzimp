@@ -39,7 +39,7 @@ sudo rm /dev/mqueue/posix_message_queue_paxosInside*
 #set new parameters
 sudo ./root_set_value.sh 32 /proc/sys/fs/mqueue/queues_max
 sudo ./root_set_value.sh $MSG_CHANNEL /proc/sys/fs/mqueue/msg_max
-sudo ./root_set_value.sh 128 /proc/sys/fs/mqueue/msgsize_max
+sudo ./root_set_value.sh ${MESSAGE_MAX_SIZE} /proc/sys/fs/mqueue/msgsize_max
 
 # compile
 echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > POSIX_MSG_QUEUE_PROPERTIES
