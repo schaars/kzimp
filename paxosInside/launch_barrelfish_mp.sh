@@ -20,7 +20,7 @@ if [ $# -eq 6 ]; then
    NB_ITER_PER_CLIENT=$3
    LEADER_ACCEPTOR=$4
    MESSAGE_MAX_SIZE=$5
-   MSG_CHANNEL=$5
+   MSG_CHANNEL=$6
  
 else
    echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_clients> <nb_iter_per_client> <same_proc|different_proc> <msg_max_size> <channel_size>"
@@ -44,7 +44,7 @@ sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmmax
 
 # compile
 #echo "-DUSLEEP -DNB_MESSAGES=${MSG_CHANNEL} -DURPC_MSG_WORDS=$(( ${MESSAGE_MAX_SIZE}/8 ))" > BARRELFISH_MP_PROPERTIES
-echo "-DNB_MESSAGES=${MSG_CHANNEL} -DURPC_MSG_WORDS=$(( ${MESSAGE_MAX_SIZE}/8 ))" > BARRELFISH_MP_PROPERTIES
+echo "-DNB_MESSAGES=${MSG_CHANNEL} -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DURPC_MSG_WORDS=$(( ${MESSAGE_MAX_SIZE}/8 ))" > BARRELFISH_MP_PROPERTIES
 make barrelfish_mp_paxosInside
 
 # launch
