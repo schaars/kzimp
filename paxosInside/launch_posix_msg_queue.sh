@@ -65,5 +65,6 @@ done
 
 # save results
 sudo ./stop_all.sh
+sudo rm -f /tmp/paxosInside_client_*_finished
 sudo chown bft:bft results.txt
 mv results.txt posix_msg_queue_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER_PER_CLIENT}iter_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
