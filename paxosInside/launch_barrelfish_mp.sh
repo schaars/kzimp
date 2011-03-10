@@ -6,21 +6,24 @@
 #   $2: nb clients
 #   $3: nb iter per client
 #   $4: same_proc or different_proc
-#   $5: number of messages in the channel
+#   $5: message max size
+#   $6: number of messages in the channel
 
 
 CONFIG_FILE=config
+MESSAGE_MAX_SIZE=128
 
 
-if [ $# -eq 5 ]; then
+if [ $# -eq 6 ]; then
    NB_PAXOS_NODES=$1
    NB_CLIENTS=$2
    NB_ITER_PER_CLIENT=$3
    LEADER_ACCEPTOR=$4
+   MESSAGE_MAX_SIZE=$5
    MSG_CHANNEL=$5
  
 else
-   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_clients> <nb_iter_per_client> <same_proc|different_proc> <channel_size>"
+   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_clients> <nb_iter_per_client> <same_proc|different_proc> <msg_max_size> <channel_size>"
    exit 0
 fi
 
@@ -40,8 +43,8 @@ sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmall
 sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmmax
 
 # compile
-#echo "-DUSLEEP -DNB_MESSAGES=${MSG_CHANNEL} -DURPC_MSG_WORDS=16" > BARRELFISH_MP_PROPERTIES
-echo "-DNB_MESSAGES=${MSG_CHANNEL} -DURPC_MSG_WORDS=16" > BARRELFISH_MP_PROPERTIES
+#echo "-DUSLEEP -DNB_MESSAGES=${MSG_CHANNEL} -DURPC_MSG_WORDS=$(( ${MESSAGE_MAX_SIZE}/8 ))" > BARRELFISH_MP_PROPERTIES
+echo "-DNB_MESSAGES=${MSG_CHANNEL} -DURPC_MSG_WORDS=$(( ${MESSAGE_MAX_SIZE}/8 ))" > BARRELFISH_MP_PROPERTIES
 make barrelfish_mp_paxosInside
 
 # launch

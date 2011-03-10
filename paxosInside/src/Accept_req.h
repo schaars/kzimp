@@ -11,13 +11,18 @@
 
 #include "Message.h"
 
-struct message_accept_req: public message_header
+#define MESSAGE_ACCEPT_REQ_SIZE (MESSAGE_HEADER_SIZE + sizeof(int) + 3*sizeof(uint64_t))
+struct message_accept_req
 {
+  MessageTag tag;
+  size_t len; // total length of the message, including this header
   int cid; // client id
   uint64_t proposal_number;
   uint64_t instance_number;
   uint64_t value;
-};
+
+  char __p[MESSAGE_MAX_SIZE - MESSAGE_ACCEPT_REQ_SIZE];
+}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 class Accept_req: public Message
 {

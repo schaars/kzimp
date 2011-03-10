@@ -6,18 +6,20 @@
 #   $2: nb clients
 #   $3: nb iter per client
 #   $4: same_proc or different_proc
+#   $5: message max size
 
 
 CONFIG_FILE=config
 
 
-if [ $# -eq 4 ]; then
+if [ $# -eq 5 ]; then
    NB_PAXOS_NODES=$1
    NB_CLIENTS=$2
    NB_ITER_PER_CLIENT=$3
    LEADER_ACCEPTOR=$4
+   MESSAGE_MAX_SIZE=$5
 else
-   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_clients> <nb_iter_per_client> <same_proc|different_proc>"
+   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_clients> <nb_iter_per_client> <same_proc|different_proc> <msg_max_size>"
    exit 0
 fi
 
@@ -26,6 +28,10 @@ rm -f /tmp/paxosInside_client_*_finished
 
 # create config file
 ./create_config.sh $NB_PAXOS_NODES $NB_CLIENTS $NB_ITER_PER_CLIENT $LEADER_ACCEPTOR > $CONFIG_FILE
+
+# compile
+echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > PIPE_PROPERTIES
+make pipe_paxosInside
 
 # launch
 ./bin/pipe_paxosInside $CONFIG_FILE &

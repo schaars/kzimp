@@ -6,19 +6,20 @@
 #   $2: nb clients
 #   $3: nb iter per client
 #   $4: same_proc or different_proc
-#   $5: do you want 1 or N queues?
+#   $5: message max size
+#   $6: do you want 1 or N queues?
 
 
 CONFIG_FILE=config
-MESSAGE_MAX_SIZE=128
 
 
-if [ $# -eq 5 ]; then
+if [ $# -eq 6 ]; then
    NB_PAXOS_NODES=$1
    NB_CLIENTS=$2
    NB_ITER_PER_CLIENT=$3
    LEADER_ACCEPTOR=$4
-   NB_QUEUES=$5
+   MESSAGE_MAX_SIZE=$5
+   NB_QUEUES=$6
    if [ $NB_QUEUES == "1" ]; then
      ONE_QUEUE=-DONE_QUEUE
    else
@@ -26,7 +27,7 @@ if [ $# -eq 5 ]; then
    fi
  
 else
-   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_clients> <nb_iter_per_client> <same_proc|different_proc> <nb_queues> <msg_max_size>"
+   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_clients> <nb_iter_per_client> <same_proc|different_proc> <msg_max_size> <nb_queues>"
    exit 0
 fi
 

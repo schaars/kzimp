@@ -11,11 +11,16 @@
 
 #include "Message.h"
 
-struct message_request: public message_header
+#define MESSAGE_REQUEST_SIZE (MESSAGE_HEADER_SIZE + sizeof(int) + sizeof(uint64_t))
+struct message_request
 {
+  MessageTag tag;
+  size_t len; // total length of the message, including this header
   int cid; // client id
   uint64_t value;
-};
+
+  char __p[MESSAGE_MAX_SIZE - MESSAGE_REQUEST_SIZE];
+}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 class Request: public Message
 {

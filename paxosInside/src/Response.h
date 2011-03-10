@@ -11,10 +11,15 @@
 
 #include "Message.h"
 
-struct message_response: public message_header
+#define MESSAGE_RESPONSE_SIZE (MESSAGE_HEADER_SIZE + sizeof(uint64_t))
+struct message_response
 {
+  MessageTag tag;
+  size_t len; // total length of the message, including this header
   uint64_t value;
-};
+
+  char __p[MESSAGE_MAX_SIZE - MESSAGE_RESPONSE_SIZE];
+}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 class Response: public Message
 {

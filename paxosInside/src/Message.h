@@ -16,13 +16,20 @@
 #include "comm_mech/ipc_interface.h"
 #endif
 
-const int Max_message_size = 128;
+#define CACHE_LINE_SIZE 64
 
+// Effects: Increases sz to the least multiple of ALIGNMENT greater
+// than size.
+#define ALIGNED_SIZE(sz) ((sz)-(sz)%CACHE_LINE_SIZE+CACHE_LINE_SIZE)
+
+const int Max_message_size = MESSAGE_MAX_SIZE;
+
+#define MESSAGE_HEADER_SIZE (sizeof(MessageTag) + sizeof(size_t))
 struct message_header
 {
   MessageTag tag;
   size_t len; // total length of the message, including this header
-}__attribute__((__packed__, __aligned__(64)));
+}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 class Message
 {

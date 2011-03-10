@@ -6,21 +6,23 @@
 #   $2: nb clients
 #   $3: nb iter per client
 #   $4: same_proc or different_proc
-#   $5: number of messages in the channel
+#   $5: message max size
+#   $6: number of messages in the channel
 
 
 CONFIG_FILE=config
 
 
-if [ $# -eq 5 ]; then
+if [ $# -eq 6 ]; then
    NB_PAXOS_NODES=$1
    NB_CLIENTS=$2
    NB_ITER_PER_CLIENT=$3
    LEADER_ACCEPTOR=$4
-   MSG_CHANNEL=$5
+   MESSAGE_MAX_SIZE=$5
+   MSG_CHANNEL=$6
  
 else
-   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_clients> <nb_iter_per_client> <same_proc|different_proc> <channel_size>"
+   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_clients> <nb_iter_per_client> <same_proc|different_proc> <msg_max_size> <channel_size>"
    exit 0
 fi
 
@@ -45,8 +47,8 @@ sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmall
 sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmmax
 
 # compile
-echo "-DULM -DMESSAGE_MAX_SIZE=128 -DNB_MESSAGES=${MSG_CHANNEL}" > ULM_PROPERTIES
-#echo "-DUSLEEP -DULM -DMESSAGE_MAX_SIZE=128 -DNB_MESSAGES=${MSG_CHANNEL}" > ULM_PROPERTIES
+echo "-DULM -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DNB_MESSAGES=${MSG_CHANNEL}" > ULM_PROPERTIES
+#echo "-DUSLEEP -DULM -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DNB_MESSAGES=${MSG_CHANNEL}" > ULM_PROPERTIES
 make ulm_paxosInside
 
 # launch

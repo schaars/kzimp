@@ -52,7 +52,7 @@ void PaxosNode::recv(void)
   Message m;
 
 
-  /* Display the size of the different messages
+  /* Display the size of the different messages */
    if (node_id() == 0)
    {
    Message *ms = new Message();
@@ -75,8 +75,8 @@ void PaxosNode::recv(void)
    delete ms;
    }
 
-   return;
-   */
+   //return;
+   /**/
 
   while (1)
   {

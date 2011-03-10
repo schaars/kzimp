@@ -6,21 +6,23 @@
 #   $2: nb clients
 #   $3: nb iter per client
 #   $4: same_proc or different_proc
-#   $5: number of messages in the channel
+#   $5: message max size
+#   $6: number of messages in the channel
 
 
 CONFIG_FILE=config
 
 
-if [ $# -eq 5 ]; then
+if [ $# -eq 6 ]; then
    NB_PAXOS_NODES=$1
    NB_CLIENTS=$2
    NB_ITER_PER_CLIENT=$3
    LEADER_ACCEPTOR=$4
-   MSG_CHANNEL=$5
+   MESSAGE_MAX_SIZE=$5
+   MSG_CHANNEL=$6
  
 else
-   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_clients> <nb_iter_per_client> <same_proc|different_proc> <channel_size>"
+   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_clients> <nb_iter_per_client> <same_proc|different_proc> <msg_max_size> <channel_size>"
    exit 0
 fi
 
@@ -38,6 +40,10 @@ sudo rm /dev/mqueue/posix_message_queue_paxosInside*
 sudo ./root_set_value.sh 32 /proc/sys/fs/mqueue/queues_max
 sudo ./root_set_value.sh $MSG_CHANNEL /proc/sys/fs/mqueue/msg_max
 sudo ./root_set_value.sh 128 /proc/sys/fs/mqueue/msgsize_max
+
+# compile
+echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > POSIX_MSG_QUEUE_PROPERTIES
+make posix_msg_queue_paxosInside
 
 # launch
 sudo ./bin/posix_msg_queue_paxosInside $CONFIG_FILE &
