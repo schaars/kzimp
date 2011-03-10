@@ -1,0 +1,11 @@
+=== PaxosInside ===
+
+Nodes are not colocated, i.e. if you want 1 client, 1 leader, 1 acceptor and 3 learners then you need 6 cores.
+You can vary the size of the messages.
+We have implemented ULM and Barrelfish MP.
+
+A client sends a request to the leader (node 0)
+The leader sends an accept_req to the acceptor (node 1)
+The acceptor sends a learn to all the learners (nodes > 1)
+When a learner receives a learn message, it sends a response to the client.
+The client waits for 1 response before issuing the next request.
