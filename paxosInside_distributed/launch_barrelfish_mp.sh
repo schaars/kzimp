@@ -36,7 +36,15 @@ rm -f /tmp/paxosInside_client_*_finished
 
 # Barrelfish specific
 # used by ftok
-touch /tmp/barrelfish_message_passing_microbench
+touch /tmp/paxosInside_barrelfish_mp_clients_to_leader_shmem
+touch /tmp/paxosInside_barrelfish_mp_leader_to_acceptor_shmem
+touch /tmp/paxosInside_barrelfish_mp_acceptor_to_learners_shmem
+
+for l in $(seq 0 $(($NB_PAXOS_NODES--2-1))); do
+for c in $(seq 0 $(($NB_CLIENTS-1))); do
+touch /tmp/paxosInside_barrelfish_mp_learner_${l}_to_client_${c}_shmem
+done
+done
 
 #set new parameters
 sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmall
