@@ -473,6 +473,8 @@ void send_ack(struct urpc_connection *c, int other, int *nb_msg_in_transit)
 {
   Message m;
 
+  *nb_msg_in_transit = *nb_msg_in_transit + 1;
+
   if (*nb_msg_in_transit == NB_MSG_MAX_IN_TRANSIT)
   {
 #ifdef DEBUG
@@ -480,10 +482,11 @@ void send_ack(struct urpc_connection *c, int other, int *nb_msg_in_transit)
 #endif
 
     urpc_transport_send(c, m.content(), URPC_MSG_WORDS);
-  }
 
-  *nb_msg_in_transit = *nb_msg_in_transit + 1;
+    *nb_msg_in_transit = 0;
+  }
 }
+
 // return a message received by node 0
 // This is the leader. It receives messages from the clients
 size_t recv_for_node0(void *msg, size_t length)
@@ -495,13 +498,13 @@ size_t recv_for_node0(void *msg, size_t length)
   {
     for (int i = 0; i < nb_clients; i++)
     {
-      send_ack(&clients_to_leader[i], i, &nb_messages_in_transit_multi[i]);
-
       recv_size = urpc_transport_recv_nonblocking(&clients_to_leader[i],
           (void*) msg, URPC_MSG_WORDS);
 
       if (recv_size > 0)
       {
+        send_ack(&clients_to_leader[i], i, &nb_messages_in_transit_multi[i]);
+
         return recv_size;
       }
     }
@@ -527,15 +530,15 @@ size_t recv_for_client(void *msg, size_t length)
   {
     for (int i = 0; i < nb_learners; i++)
     {
-      send_ack(&learners_to_clients[i][node_id - nb_paxos_nodes], i + 2,
-          &nb_messages_in_transit_multi[i]);
-
       recv_size = urpc_transport_recv_nonblocking(
           &learners_to_clients[i][node_id - nb_paxos_nodes], (void*) msg,
           URPC_MSG_WORDS);
 
       if (recv_size > 0)
       {
+        send_ack(&learners_to_clients[i][node_id - nb_paxos_nodes], i + 2,
+            &nb_messages_in_transit_multi[i]);
+
         return recv_size;
       }
     }
@@ -563,16 +566,16 @@ size_t IPC_receive(void *msg, size_t length)
   }
   else if (node_id == 1)
   {
-    send_ack(&leader_to_acceptor, 0, &nb_messages_in_transit_rcv);
-
     recv_size = urpc_transport_recv(&leader_to_acceptor, msg, length);
+
+    send_ack(&leader_to_acceptor, 0, &nb_messages_in_transit_rcv);
   }
   else if (node_id < nb_paxos_nodes)
   {
-    send_ack(&acceptor_to_learners[node_id - 2], 1, &nb_messages_in_transit_rcv);
-
     recv_size = urpc_transport_recv(&acceptor_to_learners[node_id - 2], msg,
         length);
+
+    send_ack(&acceptor_to_learners[node_id - 2], 1, &nb_messages_in_transit_rcv);
   }
   else
   {
