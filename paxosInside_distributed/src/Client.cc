@@ -19,7 +19,7 @@
 #include "time.h"
 
 #define MSG_DEBUG
-//#undef MSG_DEBUG
+#undef MSG_DEBUG
 
 Client::Client(int client_id, uint64_t nbi)
 {
@@ -41,6 +41,8 @@ void Client::run(void)
 {
   Message m;
   uint64_t thr_start_time, thr_stop_time;
+
+//if (client_id() == 5) { while (1) sleep(1);}
 
   // in order to ensure that the paxos nodes are launched
   sleep(2);
@@ -65,7 +67,8 @@ void Client::run(void)
     IPC_send_client_to_node(r.content(), r.length());
 #endif
 
-    while (1)
+    int quorum_size = 0;
+    while (quorum_size < 3)
     {
       size_t s = IPC_receive(m.content(), m.length());
 
@@ -78,7 +81,7 @@ void Client::run(void)
       if (s > MESSAGE_HEADER_SIZE && m.tag() == RESPONSE && handle_response(
           (Response*) &m))
       {
-        break;
+        quorum_size++;
       }
       else
       {
