@@ -20,7 +20,7 @@ if [ $# -eq 5 ]; then
    MSG_CHANNEL=$5
  
 else
-   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_iter_per_client> <same_proc|different_proc> <msg_max_size> <channel_size>"
+   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_iter> <same_proc|different_proc> <msg_max_size> <channel_size>"
    exit 0
 fi
 
@@ -68,4 +68,4 @@ done
 # save results
 ./stop_all.sh
 ./remove_shared_segment.pl
-mv results.txt ulm_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER}iter_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
+mv results.txt ulm_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
