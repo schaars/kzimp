@@ -167,7 +167,18 @@ int main(int argc, char **argv)
 
     Client *c = new Client(core_id, nb_iter);
 
-    c->run();
+    if (core_id == nb_nodes)
+    {
+      // this is the receiver
+      c->recv();
+    }
+    else
+    {
+      // this is the sender
+      c->send();
+    }
+
+    //c->run();
 
     delete c;
 

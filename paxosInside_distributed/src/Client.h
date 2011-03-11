@@ -22,8 +22,11 @@ public:
   // return the id of this client
   int client_id(void) const;
 
-  // do the client job
-  void run(void);
+  // receive responses
+  void recv(void);
+
+  // send requests
+  void send(void);
 
 private:
   bool handle_response(Response* r);

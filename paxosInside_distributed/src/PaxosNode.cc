@@ -18,7 +18,7 @@
 
 // to get some debug printf
 #define MSG_DEBUG
-//#undef MSG_DEBUG
+#undef MSG_DEBUG
 
 // current proposal number. Since we do not change the leader
 // this value is fixed

@@ -20,15 +20,15 @@
 
 // debug macro
 #define DEBUG
-//#undef DEBUG
+#undef DEBUG
 
 // Define NB_MESSAGES as the max number of messages in the channel
 // Define URPC_MSG_WORDS as the size of the messages in uint64_t
 // You can define USLEEP if you want to add a usleep(1) when busy waiting
 // You can define NOP if you want to add a nop when busy waiting
 
-//fixme: set it to NB_MESSAGES
 #define NB_MSG_MAX_IN_TRANSIT NB_MESSAGES
+//#define NB_MSG_MAX_IN_TRANSIT 1
 
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #define MIN(a, b) (((a)<(b))?(a):(b))
@@ -43,6 +43,12 @@ static int total_nb_nodes;
 
 static int nb_messages_in_transit_rcv; // Barrelfish requires an acknowledgement of sent messages. We send one peridically
 static int nb_messages_in_transit_snd; // We send one peridically
+
+// the leader and the clients need an array of nb_messages_in_transit:
+//   -for the client: 1 counter per learner
+//   -for the leader: 1 counter per client
+static int* nb_messages_in_transit_multi;
+
 static size_t buffer_size;
 static size_t connection_size;
 
@@ -312,6 +318,25 @@ void IPC_initialize_node(int _node_id)
   node_id = _node_id;
 
   intialize_channels();
+
+  if (node_id == 0)
+  {
+    nb_messages_in_transit_multi = (int*) malloc(sizeof(int) * nb_clients);
+    if (!nb_messages_in_transit_multi)
+    {
+      perror("Allocation error");
+      exit(errno);
+    }
+
+    for (int i = 0; i < nb_clients; i++)
+    {
+      nb_messages_in_transit_multi[i] = 0;
+    }
+  }
+  else
+  {
+    nb_messages_in_transit_multi = NULL;
+  }
 }
 
 // Initialize resources for the client of id _client_id
@@ -320,6 +345,18 @@ void IPC_initialize_client(int _client_id)
   node_id = _client_id;
 
   intialize_channels();
+
+  nb_messages_in_transit_multi = (int*) malloc(sizeof(int) * nb_learners);
+  if (!nb_messages_in_transit_multi)
+  {
+    perror("Allocation error");
+    exit(errno);
+  }
+
+  for (int i = 0; i < nb_learners; i++)
+  {
+    nb_messages_in_transit_multi[i] = 0;
+  }
 }
 
 // Clean resources
@@ -353,12 +390,19 @@ void free_all(void)
 void IPC_clean_node(void)
 {
   free_all();
+
+  if (node_id == 0)
+  {
+    free(nb_messages_in_transit_multi);
+  }
 }
 
 // Clean resources created for the client.
 void IPC_clean_client(void)
 {
   free_all();
+
+  free(nb_messages_in_transit_multi);
 }
 
 // send the message msg of size length to the node 1
@@ -468,7 +512,7 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid)
   printf("Node %i is going to send a message to client %i\n", node_id, cid);
 #endif
 
-  urpc_transport_send(&learners_to_clients[node_id - 2][cid - nb_paxos_nodes],
+  urpc_transport_send(&learners_to_clients[node_id - 2][0],
       msg, URPC_MSG_WORDS);
 
   nb_messages_in_transit_snd++;
@@ -482,7 +526,7 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid)
 #endif
 
     urpc_transport_recv(
-        &learners_to_clients[node_id - 2][cid - nb_paxos_nodes],
+        &learners_to_clients[node_id - 2][0],
         (void*) m.content(), URPC_MSG_WORDS);
 
 #ifdef DEBUG
@@ -509,9 +553,9 @@ size_t recv_for_node0(void *msg, size_t length)
 
       if (recv_size > 0)
       {
-        nb_messages_in_transit_rcv++;
+        nb_messages_in_transit_multi[i]++;
 
-        if (nb_messages_in_transit_rcv == NB_MSG_MAX_IN_TRANSIT)
+        if (nb_messages_in_transit_multi[i] == NB_MSG_MAX_IN_TRANSIT)
         {
 #ifdef DEBUG
           printf("Node %i is sending an ack to client %i\n", node_id, i);
@@ -520,7 +564,7 @@ size_t recv_for_node0(void *msg, size_t length)
           urpc_transport_send(&clients_to_leader[i], m.content(),
               URPC_MSG_WORDS);
 
-          nb_messages_in_transit_rcv = 0;
+          nb_messages_in_transit_multi[i] = 0;
         }
 
         return recv_size;
@@ -554,9 +598,9 @@ size_t recv_for_client(void *msg, size_t length)
 
       if (recv_size > 0)
       {
-        nb_messages_in_transit_rcv++;
+        nb_messages_in_transit_multi[i]++;
 
-        if (nb_messages_in_transit_rcv == NB_MSG_MAX_IN_TRANSIT)
+        if (nb_messages_in_transit_multi[i] == NB_MSG_MAX_IN_TRANSIT)
         {
 #ifdef DEBUG
           printf("Node %i is sending an ack to learner %i\n", node_id, i);
@@ -566,7 +610,7 @@ size_t recv_for_client(void *msg, size_t length)
               &learners_to_clients[i][node_id - nb_paxos_nodes], m.content(),
               URPC_MSG_WORDS);
 
-          nb_messages_in_transit_rcv = 0;
+          nb_messages_in_transit_multi[i] = 0;
         }
 
         return recv_size;
@@ -624,7 +668,8 @@ size_t IPC_receive(void *msg, size_t length)
       printf("Node %i is sending an ack to the acceptor\n", node_id);
 #endif
 
-      urpc_transport_send(&acceptor_to_learners[node_id - 2], m.content(), URPC_MSG_WORDS);
+      urpc_transport_send(&acceptor_to_learners[node_id - 2], m.content(),
+          URPC_MSG_WORDS);
 
       nb_messages_in_transit_rcv = 0;
     }
