@@ -167,7 +167,6 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid,
 // Return the number of read bytes.
 size_t IPC_receive(void *msg, size_t length)
 {
-  //todo
   if (node_id == 0)
   {
     return (size_t) mpsoc_recvfrom(&client_to_leader, msg, length, 0);

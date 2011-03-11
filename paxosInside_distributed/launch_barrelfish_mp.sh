@@ -3,10 +3,10 @@
 # Launch a PaxosInside XP with Barrelfish MP
 # Args:
 #   $1: nb paxos nodes
-#   $3: nb iter
-#   $4: same_proc or different_proc
-#   $5: message max size
-#   $6: number of messages in the channel
+#   $2: nb iter
+#   $3: same_proc or different_proc
+#   $4: message max size
+#   $5: number of messages in the channel
 
 
 CONFIG_FILE=config
