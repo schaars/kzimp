@@ -72,7 +72,7 @@ void IPC_send_node_multicast(void *msg, size_t length, int msg_pos_in_ring_buffe
 void IPC_send_client_to_node(void *msg, size_t length, int msg_pos_in_ring_buffer);
 
 // send the message msg of size length to the client of id cid
-// called by the leader
+// called by the learners
 void IPC_send_node_to_client(void *msg, size_t length, int cid, int msg_pos_in_ring_buffer);
 
 // receive a message and place it in msg (which is a buffer of size length).
