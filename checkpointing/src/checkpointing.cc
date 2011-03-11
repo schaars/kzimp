@@ -18,16 +18,18 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include "comm_mech/ipc_interface.h"
 #include "Checkpointer.h"
 
+#define LOG_FILE "results.txt"
+
 int nb_nodes = 3; // this counts the number of paxos nodes
+int periodic_chkpt = 1000; // periodic checkpointing in ms
 int *associated_core; // associated_core[i] = core on which you launch node i, for all the nodes
 
 // read the configuration file
 // format :
-//    nb paxos nodes
-//    nb clients
-//    nb iter per client
+//    nb nodes
 //    core associated to that node, 1 line per node
 void read_config_file(char *config)
 {
@@ -39,6 +41,7 @@ void read_config_file(char *config)
   }
 
   fscanf(config_file, "%i", &nb_nodes);
+  fscanf(config_file, "%i", &periodic_chkpt);
 
   associated_core = (int*) malloc(sizeof(int) * nb_nodes);
   if (!associated_core)
@@ -66,6 +69,9 @@ void read_config_file(char *config)
 
   printf("Nb nodes: %i\n", nb_nodes);
   fprintf(results_file, "Nb paxos nodes: %i\n", nb_nodes);
+
+  printf("checkpoint interval: %i\n", periodic_chkpt);
+  fprintf(results_file, "checkpoint interval: %i\n", periodic_chkpt);
 
   printf("Core association:");
   fprintf(results_file, "Core association:");
@@ -99,14 +105,14 @@ int main(int argc, char **argv)
     read_config_file(argv[1]);
   }
 
-  IPC_initialize(nb_nodes, nb_clients);
+  IPC_initialize(nb_nodes);
 
   fflush(NULL);
   sync();
 
   // create them (with fork)
   int core_id = 0;
-  for (int i = 1; i < total_nb_nodes; i++)
+  for (int i = 1; i < nb_nodes; i++)
   {
     if (!fork())
     {
@@ -127,10 +133,9 @@ int main(int argc, char **argv)
     perror("");
   }
 
-  //todo
   IPC_initialize_node(core_id);
 
-  Checkpointer c = new Checkpointer(core_id);
+  Checkpointer *c = new Checkpointer(core_id, nb_nodes, periodic_chkpt);
 
   c->recv();
 
