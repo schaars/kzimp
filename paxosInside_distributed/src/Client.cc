@@ -68,6 +68,7 @@ void Client::recv(void)
     if (s > MESSAGE_HEADER_SIZE && m.tag() == RESPONSE && handle_response(
         (Response*) &m))
     {
+      expected_value++;
       iter++;
     }
     else

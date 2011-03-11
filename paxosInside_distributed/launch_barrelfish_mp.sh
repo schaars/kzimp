@@ -29,7 +29,7 @@ rm -f /tmp/paxosInside_client_*_finished
 ./remove_shared_segment.pl
 
 # create config file
-./create_config.sh $NB_PAXOS_NODES $NB_CLIENTS $NB_ITER $LEADER_ACCEPTOR > $CONFIG_FILE
+./create_config.sh $NB_PAXOS_NODES 2 $NB_ITER $LEADER_ACCEPTOR > $CONFIG_FILE
 
 # Barrelfish specific
 # used by ftok
@@ -37,8 +37,8 @@ touch /tmp/paxosInside_barrelfish_mp_clients_to_leader_shmem
 touch /tmp/paxosInside_barrelfish_mp_leader_to_acceptor_shmem
 touch /tmp/paxosInside_barrelfish_mp_acceptor_to_learners_shmem
 
-for l in $(seq 0 $(($NB_PAXOS_NODES--2-1))); do
-for c in $(seq 0 $(($NB_CLIENTS-1))); do
+for l in $(seq 0 $(($NB_PAXOS_NODES-2-1))); do
+for c in $(seq 0 $((1))); do
 touch /tmp/paxosInside_barrelfish_mp_learner_${l}_to_client_${c}_shmem
 done
 done
@@ -62,7 +62,7 @@ while [ $nbc -ne 1 ]; do
    sleep 10
 
    nbc=0
-   for i in $(seq 0 $NB_CLIENTS); do
+   for i in $(seq 0 2); do
       F=/tmp/paxosInside_client_$(($i + $NB_PAXOS_NODES))_finished
       if [ -e $F ]; then
          nbc=$(($nbc+1))
@@ -73,4 +73,4 @@ done
 # save results
 ./stop_all.sh
 ./remove_shared_segment.pl
-mv results.txt barrelfish_mp_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER}iter_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
+mv results.txt barrelfish_mp_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
