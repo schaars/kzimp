@@ -40,10 +40,6 @@ struct urpc_connection
 void urpc_transport_create(int mon_id, void *buf, size_t buffer_size,
     size_t channel_length, struct urpc_connection *c, bool create);
 
-// return true if a message can be send using urpc_connection c,
-// false otherwise
-bool cansend(struct urpc_connection *c);
-
 // send a message
 // return true if the sending has suceeded, false otherwise.
 // For now, busy waiting

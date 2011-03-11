@@ -87,7 +87,7 @@ void urpc_transport_create(int mon_id, void *buf, size_t buffer_size,
 #endif
 }
 
-bool cansend(struct urpc_connection *c)
+static bool cansend(struct urpc_connection *c)
 {
 #ifdef URPC_TRANSPORT_DEBUG
   if ((c->sent_id - c->ack_id) > c->max_msgs) {
