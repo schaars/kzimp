@@ -12,7 +12,7 @@
 CONFIG_FILE=config
 
 
-if [ $# -eq 6 ]; then
+if [ $# -eq 5 ]; then
    NB_PAXOS_NODES=$1
    NB_ITER=$2
    LEADER_ACCEPTOR=$3
@@ -33,10 +33,10 @@ rm -f /tmp/paxosInside_client_*_finished
 
 # ULM specific
 # used by ftok
-/tmp/ulm_paxosInside_client_to_leader
-/tmp/ulm_paxosInside_leader_to_acceptor
-/tmp/ulm_paxosInside_learners_to_client
-/tmp/ulm_paxosInside_acceptor_multicast
+touch /tmp/ulm_paxosInside_client_to_leader
+touch /tmp/ulm_paxosInside_leader_to_acceptor
+touch /tmp/ulm_paxosInside_learners_to_client
+touch /tmp/ulm_paxosInside_acceptor_multicast
 
 #set new parameters
 sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmall
