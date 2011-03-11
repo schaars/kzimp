@@ -512,7 +512,7 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid)
   printf("Node %i is going to send a message to client %i\n", node_id, cid);
 #endif
 
-  urpc_transport_send(&learners_to_clients[node_id - 2][cid - nb_paxos_nodes],
+  urpc_transport_send(&learners_to_clients[node_id - 2][0],
       msg, URPC_MSG_WORDS);
 
   nb_messages_in_transit_snd++;
@@ -526,7 +526,7 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid)
 #endif
 
     urpc_transport_recv(
-        &learners_to_clients[node_id - 2][cid - nb_paxos_nodes],
+        &learners_to_clients[node_id - 2][0],
         (void*) m.content(), URPC_MSG_WORDS);
 
 #ifdef DEBUG
