@@ -23,6 +23,7 @@ private:
   int nid;
   int nb_nodes;
   int periodic_chkpt;
+  uint64_t cn; // checkpoint number
 };
 
 inline int Checkpointer::node_id(void) const
