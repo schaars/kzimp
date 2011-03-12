@@ -22,8 +22,6 @@
 
 /********** All the variables needed by Unix domain sockets **********/
 
-#define UDP_SEND_MAX_SIZE 65507
-
 #define UNIX_SOCKET_FILE_NAME "/tmp/multicore_replication_microbench_producer"
 
 #define MIN_MSG_SIZE (sizeof(char))
@@ -194,15 +192,13 @@ void IPC_sendToAll(int msg_size, char msg_id)
 
   for (i = 0; i < nb_receivers; i++)
   {
-    int sent, to_send;
+    int sent;
 
     sent = 0;
     while (sent < msg_size)
     {
-      to_send = MIN(msg_size - sent, UDP_SEND_MAX_SIZE);
-
       rdtsc(cycle_start);
-      sent += sendto(sock, msg + sent, to_send, 0,
+      sent += sendto(sock, msg + sent, msg_size - sent, 0,
           (struct sockaddr*) &addresses[i], sizeof(addresses[i]));
       rdtsc(cycle_stop);
 

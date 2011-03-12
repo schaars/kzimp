@@ -25,11 +25,12 @@ echo $NB_PAXOS_NODES
 echo $NB_CLIENTS
 echo $NB_ITER_PER_CLIENT
 
-leader_core=0
 if [ $LEADER_ACCEPTOR == "same_proc" ]; then
+   leader_core=0
    acceptor_core=$(( 1 * $NB_THREADS_PER_CORE ))
 else
-   acceptor_core=$(( $NB_CORE_PER_PROC * $NB_THREADS_PER_CORE ))
+   leader_core=$(( 4 * $NB_THREADS_PER_CORE ))
+   acceptor_core=0
 fi
 
 

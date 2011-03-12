@@ -7,13 +7,10 @@
 #ifndef CHECKPOINTER_H_
 #define CHECKPOINTER_H_
 
-class CheckpointMessage;
-class Checkpoint;
-
 class Checkpointer
 {
 public:
-  Checkpointer(int _node_id);
+  Checkpointer(int _node_id, int _nb_nodes, int _periodic_chkpt);
   ~Checkpointer(void);
 
   // return the id of this node
@@ -24,7 +21,8 @@ public:
 
 private:
   int nid;
-  Checkpoint chkpt; // the current checkpoint of this node
+  int nb_nodes;
+  int periodic_chkpt;
 };
 
 inline int Checkpointer::node_id(void) const
