@@ -6,7 +6,7 @@ all: barrelfish_mp_checkpointing ulm_checkpointing
 
 C:=g++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
-DEPS:=src/time.h src/checkpointing.cc src/Checkpointer.cc src/Checkpoint.cc
+DEPS:=src/time.h src/checkpointing.cc src/Checkpointer.cc src/Message.cc src/Checkpoint_request.cc  src/Checkpoint_response.cc
 
 posix_msg_queue_checkpointing: $(DEPS) src/comm_mech/posix_msg_queue.c
 	$(shell if [ ! -e POSIX_MSG_QUEUE_PROPERTIES ]; then echo "" > POSIX_MSG_QUEUE_PROPERTIES; fi)
