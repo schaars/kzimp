@@ -14,8 +14,8 @@ else
   NB_ITER=10000000
 fi  
     
-  ./launch_ulm.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor ${MSG_SIZE_ARRAY[$i]} 50
-  ./launch_barrelfish_mp.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor ${MSG_SIZE_ARRAY[$i]} 1000
+  ./launch_ulm.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 50
+  ./launch_barrelfish_mp.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 1000
   
 done
 done
