@@ -1,0 +1,11 @@
+#!/bin/bash
+
+NB_PAXOS_NODES=5
+NB_ITER=1000000
+LEADER_ACCEPTOR=same_proc
+MSG_SIZE_ARRAY=( 64 128 512 1024 4096 10240 102400 1048576 )
+
+for i in $(seq 0 $(( ${#MSG_SIZE_ARRAY[@]}-1 )) ); do
+  ./launch_ulm.sh $NB_PAXOS_NODES $NB_ITER $LEADER_ACCEPTOR ${MSG_SIZE_ARRAY[$i]} 1000
+  ./launch_barrelfish_mp.sh $NB_PAXOS_NODES $NB_ITER $LEADER_ACCEPTOR ${MSG_SIZE_ARRAY[$i]} 50
+done
