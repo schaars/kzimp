@@ -12,7 +12,7 @@
 CONFIG_FILE=config
 
 
-if [ $# -eq 6 ]; then
+if [ $# -eq 5 ]; then
    NB_PAXOS_NODES=$1
    NB_ITER=$2
    LEADER_ACCEPTOR=$3
@@ -20,7 +20,7 @@ if [ $# -eq 6 ]; then
    MSG_CHANNEL=$5
  
 else
-   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_iter_per_client> <same_proc|different_proc> <msg_max_size> <channel_size>"
+   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_iter> <same_proc|different_proc> <msg_max_size> <channel_size>"
    exit 0
 fi
 
@@ -33,10 +33,10 @@ rm -f /tmp/paxosInside_client_*_finished
 
 # ULM specific
 # used by ftok
-/tmp/ulm_paxosInside_client_to_leader
-/tmp/ulm_paxosInside_leader_to_acceptor
-/tmp/ulm_paxosInside_learners_to_client
-/tmp/ulm_paxosInside_acceptor_multicast
+touch /tmp/ulm_paxosInside_client_to_leader
+touch /tmp/ulm_paxosInside_leader_to_acceptor
+touch /tmp/ulm_paxosInside_learners_to_client
+touch /tmp/ulm_paxosInside_acceptor_multicast
 
 #set new parameters
 sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmall
@@ -68,4 +68,4 @@ done
 # save results
 ./stop_all.sh
 ./remove_shared_segment.pl
-mv results.txt ulm_${NB_PAXOS_NODES}nodes_${NB_CLIENTS}clients_${NB_ITER}iter_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
+mv results.txt ulm_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt

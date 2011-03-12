@@ -32,4 +32,11 @@ Checkpointer::~Checkpointer(void)
 void Checkpointer::recv(void)
 {
   //todo
+  //todo: measure latency
+  //        -between send/recv
+  //        -between new/recv in order to take into account the allocation time
+
+  while (1) {
+
+  }
 }

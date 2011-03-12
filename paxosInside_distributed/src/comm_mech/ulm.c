@@ -59,7 +59,7 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
 
   // multicast mask is all the learners
   unsigned int multicast_bitmap_mask = 0;
-  for (int i = 0; i < nb_paxos_nodes - 2; i++)
+  for (int i = 2; i < nb_paxos_nodes; i++)
   {
     multicast_bitmap_mask = multicast_bitmap_mask | (1 << i);
   }
