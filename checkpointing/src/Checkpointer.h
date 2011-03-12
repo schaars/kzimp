@@ -13,6 +13,7 @@ struct checkpoint
   uint64_t value;
 };
 
+class Message;
 class Checkpoint_request;
 class Checkpoint_response;
 
@@ -41,6 +42,8 @@ private:
   uint64_t cn; // current checkpoint number
   struct checkpoint chkpt; // current checkpoint
   struct checkpoint *snapshot; // current snapshot
+
+  void recv(Message *m);
 
   void handle(Checkpoint_request *req);
   void handle(Checkpoint_response *resp);

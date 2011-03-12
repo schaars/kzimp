@@ -20,10 +20,14 @@ void IPC_clean(void);
 void IPC_clean_node(void);
 
 // send the message msg of size length to all the nodes
-void IPC_send_all_nodes(void *msg, size_t length);
+void IPC_send_multicast(void *msg, size_t length);
+
+// send the message msg of size length to the node nid
+void IPC_send_unicast(void *msg, size_t length, int nid);
 
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
+// Non-blocking
 size_t IPC_receive(void *msg, size_t length);
 
 #endif /* IPC_INTERFACE_H */

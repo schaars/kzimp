@@ -54,10 +54,12 @@ Checkpointer::Checkpointer(int _node_id, int _nb_nodes, uint64_t _nb_iter,
     snapshot[i].value = 0;
   }
 
-  srand(0xdeadbeef << node_id());
-  lrand48(); // because the first call seems to return 0
-  periodic_chkpt = _periodic_chkpt + lrand48() % 10000; // add at most 10 ms
-  periodic_snapshot = _periodic_snapshot + lrand48() % 100000; // add at most 100 ms
+  int *a = (int*) malloc(sizeof(int));
+  srand(1 + node_id() * nb_nodes + (unsigned long int) a);
+  free(a);
+
+  periodic_chkpt = _periodic_chkpt + rand() % 10000; // add at most 10 ms
+  periodic_snapshot = _periodic_snapshot + rand() % 100000; // add at most 100 ms
 
   init_clock_mhz();
 
@@ -112,32 +114,44 @@ void Checkpointer::run(void)
     }
 
     // receive a message
-    size_t recv = IPC_receive(m.content(), m.length());
-
-    if (recv > 0 && m.length() >= sizeof(struct message_header))
-    {
-      switch (m.tag())
-      {
-      case CHECKPOINT_REQUEST:
-        handle((Checkpoint_request*) &m);
-        break;
-
-      case CHECKPOINT_RESPONSE:
-        handle((Checkpoint_response *) &m);
-        break;
-
-      default:
-#ifdef MSG_DEBUG
-        printf(
-            "Node %i has received a non-valid message of size %lu (%lu received) and tag %i\n",
-            node_id(), m.length(), recv, m.tag());
-#endif
-        break;
-      }
-    }
+    recv(&m);
   }
 
   //todo: print average latency
+  //todo: create a file to announce that this client has finished
+  printf("Node %i has finished its %lu iterations.\n", node_id(), nb_iter);
+
+  while (1)
+  {
+    recv(&m);
+  }
+}
+
+void Checkpointer::recv(Message *m)
+{
+  size_t recv = IPC_receive(m->content(), m->length());
+
+  if (recv > 0 && m->length() >= sizeof(struct message_header))
+  {
+    switch (m->tag())
+    {
+    case CHECKPOINT_REQUEST:
+      handle((Checkpoint_request*) m);
+      break;
+
+    case CHECKPOINT_RESPONSE:
+      handle((Checkpoint_response *) m);
+      break;
+
+    default:
+#ifdef MSG_DEBUG
+      printf(
+          "Node %i has received a non-valid message of size %lu (%lu received) and tag %i\n",
+          node_id(), m->length(), recv, m->tag());
+#endif
+      break;
+    }
+  }
 }
 
 void Checkpointer::handle(Checkpoint_request *req)
@@ -158,8 +172,7 @@ void Checkpointer::handle(Checkpoint_request *req)
 
   // send a Checkpoint_response with the current checkpoint
   Checkpoint_response resp(node_id(), chkpt.cn, chkpt.value);
-  //todo
-  //send to caller
+  IPC_send_unicast(resp.content(), resp.length(), caller);
 }
 
 void Checkpointer::handle(Checkpoint_response *resp)
@@ -175,7 +188,7 @@ void Checkpointer::handle(Checkpoint_response *resp)
 
 #ifdef MSG_DEBUG
   printf(
-      "Node %i is handling a checkpoint_resoponse from %i with checkpoint %lu (current is %lu)\n",
+      "Node %i is handling a checkpoint_response from %i with checkpoint %lu (current is %lu)\n",
       node_id(), sender, sent_cn, chkpt.cn);
 #endif
 
@@ -183,7 +196,8 @@ void Checkpointer::handle(Checkpoint_response *resp)
   snapshot[sender].value = value;
 
   // wait for the checkpoint_reponses (1 per node but this one)
-  awaited_responses &= (1 << sender);
+  awaited_responses &= ~(1 << sender);
+
   if (awaited_responses == 0)
   {
     snapshot_in_progress = false;
@@ -216,11 +230,5 @@ void Checkpointer::take_snapshot(void)
   //        -between new/recv in order to take into account the allocation time (because ULM allocates messages in shared memory)
 
   Checkpoint_request cr(node_id(), chkpt.cn);
-  // todo: send the checkpoint_request
-  // IPC_send_multicast()
-
-  if (cr.caller() != node_id())
-  {
-    printf("EMERGENCY!!! MEMORY CORRUPTION!!! CHANGE YOUR COMPUTER!!!\n");
-  }
+  IPC_send_multicast(cr.content(), cr.length());
 }
