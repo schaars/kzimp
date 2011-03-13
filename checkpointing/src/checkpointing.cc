@@ -21,7 +21,6 @@
 #include "comm_mech/ipc_interface.h"
 #include "Checkpointer.h"
 
-#define LOG_FILE "results.txt"
 
 int nb_nodes = 3; // this counts the number of paxos nodes
 uint64_t nb_iter = 10; // number of snapshots to be taken before exiting

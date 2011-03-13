@@ -14,7 +14,7 @@
 
 // to get some debug printf
 #define MSG_DEBUG
-//#undef MSG_DEBUG
+#undef MSG_DEBUG
 
 Message::Message(void)
 {

@@ -7,6 +7,8 @@
 #ifndef CHECKPOINTER_H_
 #define CHECKPOINTER_H_
 
+#define LOG_FILE "results.txt"
+
 struct checkpoint
 {
   uint64_t cn;
@@ -42,6 +44,10 @@ private:
   uint64_t cn; // current checkpoint number
   struct checkpoint chkpt; // current checkpoint
   struct checkpoint *snapshot; // current snapshot
+
+  // in order to compute the average latency of the snapshots
+  uint64_t latency_new_start, latency_send_start, latency_stop;
+  uint64_t sum_of_latencies_new, sum_of_latencies_send;
 
   void recv(Message *m);
 

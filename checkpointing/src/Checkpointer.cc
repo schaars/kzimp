@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "Checkpointer.h"
 #include "MessageTag.h"
@@ -18,7 +20,7 @@
 
 // to get some debug printf
 #define MSG_DEBUG
-//#undef MSG_DEBUG
+#undef MSG_DEBUG
 
 Checkpointer::Checkpointer(int _node_id, int _nb_nodes, uint64_t _nb_iter,
     uint64_t _periodic_chkpt, uint64_t _periodic_snapshot)
@@ -31,6 +33,9 @@ Checkpointer::Checkpointer(int _node_id, int _nb_nodes, uint64_t _nb_iter,
 
   chkpt.cn = 0;
   chkpt.value = node_id();
+
+  sum_of_latencies_new = 0;
+  sum_of_latencies_send = 0;
 
   awaited_responses_mask = 0;
   for (int i = 0; i < nb_nodes; i++)
@@ -117,9 +122,40 @@ void Checkpointer::run(void)
     recv(&m);
   }
 
-  //todo: print average latency
-  //todo: create a file to announce that this client has finished
+#ifdef MSG_DEBUG
   printf("Node %i has finished its %lu iterations.\n", node_id(), nb_iter);
+#endif
+
+  // compute and display average latency
+  double lat_new = ((double) sum_of_latencies_new / (double) nb_iter)
+      / (double) get_clock_mhz();
+  double lat_snd = ((double) sum_of_latencies_send / (double) nb_iter)
+      / (double) get_clock_mhz();
+
+  FILE *results_file = fopen(LOG_FILE, "a");
+  if (!results_file)
+  {
+    fprintf(stderr, "[Node %i] Unable to open %s in append mode.\n", node_id(),
+        LOG_FILE);
+  }
+
+  printf("Node= %i\tnb_iter= %lu\tlat_new= %f usec\tlat_snd= %f usec\n",
+      node_id(), nb_iter, lat_new, lat_snd);
+
+  if (results_file)
+  {
+    fprintf(results_file,
+        "Node= %i\tnb_iter= %lu\tlat_new= %f usec\tlat_snd= %f usec\n",
+        node_id(), nb_iter, lat_new, lat_snd);
+  }
+
+  fclose(results_file);
+
+  // create an empty file to announce that this node has finished
+  char filename[256];
+  sprintf(filename, "/tmp/checkpointing_node_%i_finished", node_id());
+  int fd = open(filename, O_WRONLY | O_CREAT, 0666);
+  close(fd);
 
   while (1)
   {
@@ -205,6 +241,11 @@ void Checkpointer::handle(Checkpoint_response *resp)
 
   if (awaited_responses == 0)
   {
+    // stop measuring latency
+    rdtsc(latency_stop);
+    sum_of_latencies_new += (latency_stop - latency_new_start);
+    sum_of_latencies_send += (latency_stop - latency_send_start);
+
     snapshot_in_progress = false;
     iter++;
   }
@@ -230,12 +271,15 @@ void Checkpointer::take_snapshot(void)
   snapshot_in_progress = true;
   awaited_responses = awaited_responses_mask;
 
-  //todo: measure latency
-  //        -between send/recv
-  //        -between new/recv in order to take into account the allocation time (because ULM allocates messages in shared memory)
+  // measure latency
+  //   -between send/recv
+  //   -between new/recv in order to take into account the allocation time
+  //      (because ULM allocates messages in shared memory)
 
+  rdtsc(latency_new_start);
   Checkpoint_request cr(node_id(), chkpt.cn);
 
+  rdtsc(latency_send_start);
 #ifdef ULM
   IPC_send_multicast(cr.content(), cr.length(), cr.get_msg_pos());
 #else
