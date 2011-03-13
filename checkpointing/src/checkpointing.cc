@@ -73,8 +73,8 @@ void read_config_file(char *config)
   printf("Nb nodes: %i\n", nb_nodes);
   fprintf(results_file, "Nb paxos nodes: %i\n", nb_nodes);
 
-  printf("Nb iterations interval: %lu\n", nb_iter);
-  fprintf(results_file, "Nb iterations interval: %lu\n", nb_iter);
+  printf("Nb iterations: %lu\n", nb_iter);
+  fprintf(results_file, "Nb iterations: %lu\n", nb_iter);
 
   printf("Checkpoint interval: %lu\n", periodic_chkpt);
   fprintf(results_file, "Checkpoint interval: %lu\n", periodic_chkpt);
