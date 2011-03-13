@@ -172,7 +172,12 @@ void Checkpointer::handle(Checkpoint_request *req)
 
   // send a Checkpoint_response with the current checkpoint
   Checkpoint_response resp(node_id(), chkpt.cn, chkpt.value);
+
+#ifdef ULM
+  //todo
+#else
   IPC_send_unicast(resp.content(), resp.length(), caller);
+#endif
 }
 
 void Checkpointer::handle(Checkpoint_response *resp)
@@ -230,5 +235,10 @@ void Checkpointer::take_snapshot(void)
   //        -between new/recv in order to take into account the allocation time (because ULM allocates messages in shared memory)
 
   Checkpoint_request cr(node_id(), chkpt.cn);
+
+#ifdef ULM
+  //todo
+#else
   IPC_send_multicast(cr.content(), cr.length());
+#endif
 }
