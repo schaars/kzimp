@@ -36,7 +36,7 @@ int recvMsg(int s, void *buf, size_t len, uint64_t *nb_cycles)
       exit(-1);
     }
 
-#ifdef INET_SYSCALLS_MEASUREMENT
+#ifdef SYSCALLS_MEASUREMENT
     nb_syscalls_recv++;
 
     //printf("recv_size= %i\n", n);
@@ -69,7 +69,7 @@ void sendMsg(int s, void *msg, int size, uint64_t *nb_cycles)
       exit(-1);
     }
 
-#ifdef INET_SYSCALLS_MEASUREMENT
+#ifdef SYSCALLS_MEASUREMENT
     nb_syscalls_send++;
 #endif
 

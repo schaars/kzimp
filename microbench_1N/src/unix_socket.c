@@ -35,6 +35,12 @@ static uint64_t nb_cycles_send;
 static uint64_t nb_cycles_recv;
 static uint64_t nb_cycles_first_recv;
 
+#ifdef SYSCALLS_MEASUREMENT
+uint64_t nb_syscalls_send;
+uint64_t nb_syscalls_recv;
+uint64_t nb_syscalls_first_recv;
+#endif
+
 struct sockaddr_un *addresses; // for each consumer, its address
 
 #define MIN(a, b) ((a < b) ? a : b)
@@ -54,6 +60,12 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   nb_cycles_send = 0;
   nb_cycles_recv = 0;
   nb_cycles_first_recv = 0;
+
+#ifdef SYSCALLS_MEASUREMENT
+  nb_syscalls_send = 0;
+  nb_syscalls_recv = 0;
+  nb_syscalls_first_recv = 0;
+#endif
 }
 
 // Initialize resources for the producer
@@ -202,6 +214,10 @@ void IPC_sendToAll(int msg_size, char msg_id)
           (struct sockaddr*) &addresses[i], sizeof(addresses[i]));
       rdtsc(cycle_stop);
 
+#ifdef SYSCALLS_MEASUREMENT
+      nb_syscalls_send++;
+#endif
+
       nb_cycles_send += cycle_stop - cycle_start;
     }
   }
@@ -243,8 +259,19 @@ int IPC_receive(int msg_size, char *msg_id)
     recv_size += recvfrom(sock, msg + recv_size, msg_size - recv_size, 0, 0, 0);
     rdtsc(cycle_stop);
 
+#ifdef SYSCALLS_MEASUREMENT
+    nb_syscalls_recv++;
+#endif
+
     nb_cycles_recv += cycle_stop - cycle_start;
   }
+
+#ifdef SYSCALLS_MEASUREMENT
+  if (nb_syscalls_first_recv == 0)
+  {
+    nb_syscalls_first_recv = nb_syscalls_recv;
+  }
+#endif
 
   if (nb_cycles_first_recv == 0)
   {
