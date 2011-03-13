@@ -27,6 +27,17 @@ Checkpoint_response::Checkpoint_response(int _sender, uint64_t _cn,
   rep()->value = _value;
 }
 
+#ifdef ULM
+Checkpoint_response::Checkpoint_response(int _sender, uint64_t _cn,
+    uint64_t _value, int caller) :
+  Message(sizeof(struct checkpoint_response), CHECKPOINT_RESPONSE, caller)
+{
+  rep()->sender = _sender;
+  rep()->cn = _cn;
+  rep()->value = _value;
+}
+#endif
+
 Checkpoint_response::~Checkpoint_response(void)
 {
 }

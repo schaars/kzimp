@@ -21,6 +21,9 @@ void IPC_clean_node(void);
 
 #ifdef ULM
 
+// allocate a message in shared memory.
+// If dest is -1, then this message is going to be multicast.
+// Otherwise it is sent to node dest.
 void* IPC_ulm_alloc(size_t len, int *msg_pos_in_ring_buffer, int dest);
 
 // send the message msg of size length to all the nodes

@@ -9,14 +9,22 @@
 #include "Checkpoint_request.h"
 
 Checkpoint_request::Checkpoint_request(void) :
-  Message(sizeof(struct checkpoint_request), CHECKPOINT_REQUEST)
+#ifdef ULM
+      Message(sizeof(struct checkpoint_request), CHECKPOINT_REQUEST, -1)
+#else
+      Message(sizeof(struct checkpoint_request), CHECKPOINT_REQUEST)
+#endif
 {
   rep()->caller = -1;
   rep()->cn = ~0;
 }
 
 Checkpoint_request::Checkpoint_request(int _caller, uint64_t _cn) :
-  Message(sizeof(struct checkpoint_request), CHECKPOINT_REQUEST)
+#ifdef ULM
+      Message(sizeof(struct checkpoint_request), CHECKPOINT_REQUEST, -1)
+#else
+      Message(sizeof(struct checkpoint_request), CHECKPOINT_REQUEST)
+#endif
 {
   rep()->caller = _caller;
   rep()->cn = _cn;

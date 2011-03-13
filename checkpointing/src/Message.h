@@ -33,6 +33,11 @@ public:
   Message(void);
   Message(MessageTag tag);
   Message(size_t len, MessageTag tag);
+
+#ifdef ULM
+  Message(size_t len, MessageTag tag, int cid);
+#endif
+
   ~Message(void);
 
   // return a pointer to the message
@@ -44,14 +49,28 @@ public:
   // return the tag of this message
   MessageTag tag(void) const;
 
+#ifdef ULM
+  // return the position of the message in the shared buffer of ULM
+  int get_msg_pos(void);
+#endif
+
 protected:
   char *msg;
+
+#ifdef ULM
+  int msg_pos_in_ring_buffer;
+#endif
 
 private:
   // cast content to a struct message*
   struct message_header *rep(void) const;
 
-  void init_message(size_t len, MessageTag tag);
+  // initialize the message
+  // +ulm_alloc is considered only when using ULM. If set to true, then this message is allocated
+  //  directly in shared memory.
+  // +nid is relevant only when using ULM. If set to -1, then this message will be multicast,
+  //  otherwise it is sent to node nid.
+  void init_message(size_t len, MessageTag tag, bool ulm_alloc = false, int nid = -2);
 };
 
 // return a pointer to the message
@@ -77,5 +96,12 @@ inline struct message_header *Message::rep(void) const
 {
   return (struct message_header *) msg;
 }
+
+#ifdef ULM
+inline int Message::get_msg_pos(void)
+{
+  return msg_pos_in_ring_buffer;
+}
+#endif
 
 #endif /* MESSAGE_H_ */

@@ -172,11 +172,20 @@ void IPC_clean_node(void)
   }
 }
 
-//todo: do we need dest? Or something else?
+// allocate a message in shared memory.
+// If dest is -1, then this message is going to be multicast.
+// Otherwise it is sent to node dest.
 void* IPC_ulm_alloc(size_t len, int *msg_pos_in_ring_buffer, int dest)
 {
-  //todo
-  return (void*) 0;
+  if (dest == -1)
+  {
+    return mpsoc_alloc(&multicast_from_node[node_id], len,
+        msg_pos_in_ring_buffer);
+  }
+  else
+  {
+    return mpsoc_alloc(&all_nodes_to_node[dest], len, msg_pos_in_ring_buffer);
+  }
 }
 
 // send the message msg of size length to all the nodes

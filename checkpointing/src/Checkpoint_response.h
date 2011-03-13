@@ -29,6 +29,11 @@ class Checkpoint_response: public Message
 public:
   Checkpoint_response(void);
   Checkpoint_response(int _sender, uint64_t _cn, uint64_t _value);
+
+#ifdef ULM
+  Checkpoint_response(int _sender, uint64_t _cn, uint64_t _value, int caller);
+#endif
+
   ~Checkpoint_response(void);
 
   int sender(void) const;
