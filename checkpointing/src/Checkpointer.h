@@ -22,8 +22,7 @@ class Checkpoint_response;
 class Checkpointer
 {
 public:
-  Checkpointer(int _node_id, int _nb_nodes, uint64_t _nb_iter,
-      uint64_t _periodic_chkpt, uint64_t _periodic_snapshot);
+  Checkpointer(int _node_id, int _nb_nodes, uint64_t _nb_iter);
   ~Checkpointer(void);
 
   // return the id of this node
@@ -39,8 +38,6 @@ private:
   bool snapshot_in_progress;
   uint64_t awaited_responses; // each bit represents a node. If set to 1, then we are waiting for a response from this node
   uint64_t awaited_responses_mask; // The initial mask, when we have not yet received any response
-  uint64_t periodic_chkpt; // elapsed time in usec between 2 checkpoints
-  uint64_t periodic_snapshot; // elapsed time in usec between 2 snapshots
   uint64_t cn; // current checkpoint number
   struct checkpoint chkpt; // current checkpoint
   struct checkpoint *snapshot; // current snapshot

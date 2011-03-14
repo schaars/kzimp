@@ -22,8 +22,7 @@
 #define MSG_DEBUG
 #undef MSG_DEBUG
 
-Checkpointer::Checkpointer(int _node_id, int _nb_nodes, uint64_t _nb_iter,
-    uint64_t _periodic_chkpt, uint64_t _periodic_snapshot)
+Checkpointer::Checkpointer(int _node_id, int _nb_nodes, uint64_t _nb_iter)
 {
   nid = _node_id;
   nb_nodes = _nb_nodes;
@@ -59,18 +58,11 @@ Checkpointer::Checkpointer(int _node_id, int _nb_nodes, uint64_t _nb_iter,
     snapshot[i].value = 0;
   }
 
-  int *a = (int*) malloc(sizeof(int));
-  srand(1 + node_id() * nb_nodes + (unsigned long int) a);
-  free(a);
-
-  periodic_chkpt = _periodic_chkpt + rand() % 10000; // add at most 10 ms
-  periodic_snapshot = _periodic_snapshot + rand() % 100000; // add at most 100 ms
-
   init_clock_mhz();
 
 #ifdef MSG_DEBUG
-  printf("Checkpointer.new(%i, %i, %lu, %lu, %lu, <%lu, %lu>, %lx)\n",
-      node_id(), nb_nodes, nb_iter, periodic_chkpt, periodic_snapshot,
+  printf("Checkpointer.new(%i, %i, %lu, <%lu, %lu>, %lx)\n",
+      node_id(), nb_nodes, nb_iter,
       chkpt.cn, chkpt.value, awaited_responses_mask);
 #endif
 }
@@ -84,53 +76,32 @@ Checkpointer::~Checkpointer(void)
 void Checkpointer::run(void)
 {
   Message m;
-  uint64_t periodic_chkpt_start_time, periodic_snapshot_start_time;
-  uint64_t current_time, elapsed_time;
+  uint64_t thr_start_time, thr_stop_time;
 
-  rdtsc(periodic_chkpt_start_time);
-  periodic_snapshot_start_time = periodic_chkpt_start_time;
+  rdtsc(thr_start_time);
 
   while (iter < nb_iter)
   {
-    rdtsc(current_time);
-
-    elapsed_time = diffTime(current_time, periodic_chkpt_start_time);
-    if (elapsed_time >= periodic_chkpt)
+    // take a snapshot
+    if (node_id() == 0 && !snapshot_in_progress)
     {
-      // take a checkpoint
-      if (!snapshot_in_progress)
-      {
-        take_checkpoint(chkpt.cn + 1);
-      }
-
-      rdtsc(periodic_chkpt_start_time);
-    }
-
-    elapsed_time = diffTime(current_time, periodic_snapshot_start_time);
-    if (elapsed_time >= periodic_snapshot)
-    {
-      // take a snapshot
-      if (!snapshot_in_progress)
-      {
-        take_snapshot();
-      }
-
-      rdtsc(periodic_snapshot_start_time);
+      take_snapshot();
     }
 
     // receive a message
     recv(&m);
   }
 
+  rdtsc(thr_stop_time);
+
 #ifdef MSG_DEBUG
   printf("Node %i has finished its %lu iterations.\n", node_id(), nb_iter);
 #endif
 
-  // compute and display average latency
-  double lat_new = ((double) sum_of_latencies_new / (double) nb_iter)
-      / (double) get_clock_mhz();
-  double lat_snd = ((double) sum_of_latencies_send / (double) nb_iter)
-      / (double) get_clock_mhz();
+  // thr_elapsed_time is in usec
+  uint64_t thr_elapsed_time = diffTime(thr_stop_time, thr_start_time);
+  double elapsed_time_sec = (double) thr_elapsed_time / 1000000.0;
+  double throughput = ((double) nb_iter) / elapsed_time_sec;
 
   FILE *results_file = fopen(LOG_FILE, "a");
   if (!results_file)
@@ -139,14 +110,13 @@ void Checkpointer::run(void)
         LOG_FILE);
   }
 
-  printf("Node= %i\tnb_iter= %lu\tlat_new= %f usec\tlat_snd= %f usec\n",
-      node_id(), nb_iter, lat_new, lat_snd);
+  printf("Node= %i\tnb_iter= %lu\tthr= %f snap/s\n", node_id(), nb_iter,
+      throughput);
 
   if (results_file)
   {
-    fprintf(results_file,
-        "Node= %i\tnb_iter= %lu\tlat_new= %f usec\tlat_snd= %f usec\n",
-        node_id(), nb_iter, lat_new, lat_snd);
+    fprintf(results_file, "Node= %i\tnb_iter= %lu\tthr= %f snap/s\n",
+        node_id(), nb_iter, throughput);
   }
 
   fclose(results_file);
@@ -159,7 +129,7 @@ void Checkpointer::run(void)
 
   while (1)
   {
-    recv(&m);
+    sleep(1);
   }
 }
 
@@ -241,11 +211,6 @@ void Checkpointer::handle(Checkpoint_response *resp)
 
   if (awaited_responses == 0)
   {
-    // stop measuring latency
-    rdtsc(latency_stop);
-    sum_of_latencies_new += (latency_stop - latency_new_start);
-    sum_of_latencies_send += (latency_stop - latency_send_start);
-
     snapshot_in_progress = false;
     iter++;
   }
@@ -271,15 +236,8 @@ void Checkpointer::take_snapshot(void)
   snapshot_in_progress = true;
   awaited_responses = awaited_responses_mask;
 
-  // measure latency
-  //   -between send/recv
-  //   -between new/recv in order to take into account the allocation time
-  //      (because ULM allocates messages in shared memory)
-
-  rdtsc(latency_new_start);
   Checkpoint_request cr(node_id(), chkpt.cn);
 
-  rdtsc(latency_send_start);
 #ifdef ULM
   IPC_send_multicast(cr.content(), cr.length(), cr.get_msg_pos());
 #else
