@@ -21,10 +21,11 @@
 #include "comm_mech/ipc_interface.h"
 #include "Checkpointer.h"
 
-#define LOG_FILE "results.txt"
 
 int nb_nodes = 3; // this counts the number of paxos nodes
-int periodic_chkpt = 1000; // periodic checkpointing in ms
+uint64_t nb_iter = 10; // number of snapshots to be taken before exiting
+uint64_t periodic_chkpt = 1000; // periodic checkpointing in ms
+uint64_t periodic_snapshot = 10000; // periodic snapshot taking in ms
 int *associated_core; // associated_core[i] = core on which you launch node i, for all the nodes
 
 // read the configuration file
@@ -41,7 +42,9 @@ void read_config_file(char *config)
   }
 
   fscanf(config_file, "%i", &nb_nodes);
-  fscanf(config_file, "%i", &periodic_chkpt);
+  fscanf(config_file, "%lu", &nb_iter);
+  fscanf(config_file, "%lu", &periodic_chkpt);
+  fscanf(config_file, "%lu", &periodic_snapshot);
 
   associated_core = (int*) malloc(sizeof(int) * nb_nodes);
   if (!associated_core)
@@ -70,8 +73,14 @@ void read_config_file(char *config)
   printf("Nb nodes: %i\n", nb_nodes);
   fprintf(results_file, "Nb paxos nodes: %i\n", nb_nodes);
 
-  printf("checkpoint interval: %i\n", periodic_chkpt);
-  fprintf(results_file, "checkpoint interval: %i\n", periodic_chkpt);
+  printf("Nb iterations: %lu\n", nb_iter);
+  fprintf(results_file, "Nb iterations: %lu\n", nb_iter);
+
+  printf("Checkpoint interval: %lu\n", periodic_chkpt);
+  fprintf(results_file, "Checkpoint interval: %lu\n", periodic_chkpt);
+
+  printf("Snapshot interval: %lu\n", periodic_snapshot);
+  fprintf(results_file, "Snapshot interval: %lu\n", periodic_snapshot);
 
   printf("Core association:");
   fprintf(results_file, "Core association:");
@@ -135,9 +144,10 @@ int main(int argc, char **argv)
 
   IPC_initialize_node(core_id);
 
-  Checkpointer *c = new Checkpointer(core_id, nb_nodes, periodic_chkpt);
+  Checkpointer *c = new Checkpointer(core_id, nb_nodes, nb_iter, periodic_chkpt
+      * 1000, periodic_snapshot * 1000);
 
-  c->recv();
+  c->run();
 
   delete c;
 
