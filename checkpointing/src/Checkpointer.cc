@@ -110,13 +110,14 @@ void Checkpointer::run(void)
         LOG_FILE);
   }
 
-  printf("Node= %i\tnb_iter= %lu\tthr= %f snap/s\n", node_id(), nb_iter,
-      throughput);
+  printf("Node= %i\tnb_iter= %lu\tthr= %f snap/s\telapsed_time= %f sec\n",
+      node_id(), nb_iter, throughput, elapsed_time_sec);
 
   if (results_file)
   {
-    fprintf(results_file, "Node= %i\tnb_iter= %lu\tthr= %f snap/s\n",
-        node_id(), nb_iter, throughput);
+    fprintf(results_file,
+        "Node= %i\tnb_iter= %lu\tthr= %f snap/s\telapsed_time= %f sec\n",
+        node_id(), nb_iter, throughput, elapsed_time_sec);
   }
 
   fclose(results_file);
