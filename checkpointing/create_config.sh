@@ -8,7 +8,7 @@
 
 NB_THREADS_PER_CORE=2
 
-if [ $# -eq 4 ]; then
+if [ $# -eq 2 ]; then
    NB_NODES=$1
    NB_ITER=$2
 else

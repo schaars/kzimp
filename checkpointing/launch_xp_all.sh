@@ -15,6 +15,6 @@ for msg_size in ${MSG_SIZE_ARRAY[@]}; do
 
   ./launch_ulm.sh $nb_nodes $NB_ITER $msg_size 50
   ./launch_barrelfish_mp.sh $nb_nodes $NB_ITER $msg_size 1000
-  
+ 
 done
 done
