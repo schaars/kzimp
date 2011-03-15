@@ -58,5 +58,5 @@ done
 # save results
 ./stop_all.sh
 ./remove_shared_segment.pl
-mv results.txt ulm_mp_${NB_NODES}nodes_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${MSG_CHANNEL}channelSize.txt
+mv results.txt ulm_${NB_NODES}nodes_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${MSG_CHANNEL}channelSize.txt
 
