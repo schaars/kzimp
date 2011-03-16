@@ -263,7 +263,8 @@ void IPC_send_multicast(void *msg, size_t length)
     printf("Node %i is sending on [%i][%i]\n", node_id, node_id, j);
 #endif
 
-    urpc_transport_send(&connections[node_id][j], msg, URPC_MSG_WORDS);
+    //urpc_transport_send(&connections[node_id][j], msg, URPC_MSG_WORDS);
+    urpc_transport_send(&connections[node_id][j], msg, URPC_MSG_WORDS_CHKPT);
   }
 }
 
@@ -283,6 +284,16 @@ void IPC_send_unicast(void *msg, size_t length, int nid)
 size_t IPC_receive(void *msg, size_t length)
 {
   size_t recv_size = 0;
+  size_t length2;
+
+  if (node_id == 0)
+  {
+    length2 = URPC_MSG_WORDS;
+  }
+  else
+  {
+    length2 = URPC_MSG_WORDS_CHKPT;
+  }
 
   for (int j = 0; j < nb_nodes; j++)
   {
@@ -297,7 +308,7 @@ size_t IPC_receive(void *msg, size_t length)
 #endif
 
     recv_size = urpc_transport_recv_nonblocking(&connections[node_id][j],
-        (void*) msg, URPC_MSG_WORDS);
+        (void*) msg, length2);
 
     if (recv_size > 0)
     {

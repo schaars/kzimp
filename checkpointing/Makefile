@@ -13,7 +13,7 @@ posix_msg_queue_checkpointing: $(DEPS) src/comm_mech/posix_msg_queue.c
 	$(C) $(CFLAGS) $(shell cat POSIX_MSG_QUEUE_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
 	
 barrelfish_mp_checkpointing: $(DEPS) src/comm_mech/urpc.h src/comm_mech/urpc_transport.c src/comm_mech/barrelfish_mp.c
-	$(shell if [ ! -e BARRELFISH_MP_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64 -DURPC_MSG_WORDS=16" > BARRELFISH_MP_PROPERTIES; fi)
+	$(shell if [ ! -e BARRELFISH_MP_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64 -DURPC_MSG_WORDS=16 -DURPC_MSG_WORDS_CHKPT=16" > BARRELFISH_MP_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat BARRELFISH_MP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	
 ulm_checkpointing: $(DEPS) src/comm_mech/mpsoc.c src/comm_mech/ulm.c

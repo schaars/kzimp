@@ -61,4 +61,3 @@ done
 ./stop_all.sh
 ./remove_shared_segment.pl
 mv results.txt ulm_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B_${MSG_CHANNEL}channelSize.txt
-

@@ -12,6 +12,8 @@
 #include "Message.h"
 #include "MessageTag.h"
 
+// Define MESSAGE_MAX_SIZE_CHKPT_REQ as the size of a checkpoint request
+
 #define CHECKPOINT_REQUEST_SIZE (MESSAGE_HEADER_SIZE + sizeof(int) + sizeof(uint64_t))
 struct checkpoint_request
 {

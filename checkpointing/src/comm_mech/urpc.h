@@ -111,12 +111,11 @@ static inline void urpc_new(struct urpc_channel *c, void *buf, size_t size,
  *
  * \return true if message outstanding, false otherwise.
  */
-static inline bool urpc_havemessage(struct urpc_channel *c)
+static inline bool urpc_havemessage(struct urpc_channel *c, size_t msg_len)
 {
   assert(c->type == URPC_INCOMING);
 
-  return (c->buf[c->pos + URPC_MSG_WORDS - 1] >> URPC_TYPE_REMAINDER)
-      == c->epoch;
+  return (c->buf[c->pos + msg_len - 1] >> URPC_TYPE_REMAINDER) == c->epoch;
 }
 
 /**
@@ -129,13 +128,14 @@ static inline bool urpc_havemessage(struct urpc_channel *c)
  *
  * \return true if message in 'msg', false if no message.
  */
-static inline bool urpc_peek(struct urpc_channel *c, uint64_t *msg)
+static inline bool urpc_peek(struct urpc_channel *c, uint64_t *msg,
+    size_t msg_len)
 {
   assert(c->type == URPC_INCOMING);
 
-  if (urpc_havemessage(c))
+  if (urpc_havemessage(c, msg_len))
   {
-    memcpy(msg, (void*) &(c->buf[c->pos]), URPC_MSG_WORDS * sizeof(uint64_t));
+    memcpy(msg, (void*) &(c->buf[c->pos]), msg_len * sizeof(uint64_t));
 
     return true;
   }
@@ -152,10 +152,10 @@ static inline bool urpc_peek(struct urpc_channel *c, uint64_t *msg)
  *
  * \param c     The URPC channel.
  */
-static inline void urpc_consume(struct urpc_channel *c)
+static inline void urpc_consume(struct urpc_channel *c, size_t msg_len)
 {
   assert(c->type == URPC_INCOMING);
-  assert(urpc_havemessage(c));
+  assert(urpc_havemessage(c, msg_len));
 
   c->pos = (c->pos + URPC_MSG_WORDS) % c->size;
   c->epoch++;
@@ -169,11 +169,12 @@ static inline void urpc_consume(struct urpc_channel *c)
  *
  * \return true if message in 'msg', false if no message.
  */
-static inline bool urpc_poll(struct urpc_channel *c, uint64_t *msg)
+static inline bool urpc_poll(struct urpc_channel *c, uint64_t *msg,
+    size_t msg_len)
 {
-  if (urpc_peek(c, msg))
+  if (urpc_peek(c, msg, msg_len))
   {
-    urpc_consume(c);
+    urpc_consume(c, msg_len);
     return true;
   }
   return false;
@@ -187,11 +188,12 @@ static inline bool urpc_poll(struct urpc_channel *c, uint64_t *msg)
  *
  * \return true if message in 'msg', false if no message.
  */
-static inline bool urpc_poll_throughput(struct urpc_channel *c, uint64_t *msg)
+static inline bool urpc_poll_throughput(struct urpc_channel *c, uint64_t *msg,
+    size_t msg_len)
 {
-  if (urpc_peek(c, msg))
+  if (urpc_peek(c, msg, msg_len))
   {
-    urpc_consume(c);
+    urpc_consume(c, msg_len);
     __asm volatile("prefetch %[addr]" :: [addr] "m" (c->buf[c->pos]));
     return true;
   }
@@ -206,15 +208,16 @@ static inline bool urpc_poll_throughput(struct urpc_channel *c, uint64_t *msg)
  *
  * \return true if message sent, false if buffer full.
  */
-static inline bool urpc_send(struct urpc_channel *c, uint64_t *msg)
+static inline bool urpc_send(struct urpc_channel *c, uint64_t *msg,
+    size_t msg_len)
 {
   assert(c->type == URPC_OUTGOING);
 
-  memcpy((void*) &(c->buf[c->pos]), msg, URPC_MSG_WORDS * sizeof(uint64_t));
+  memcpy((void*) &(c->buf[c->pos]), msg, msg_len * sizeof(uint64_t));
 
 #ifndef __ARMEL__
-  c->buf[c->pos + URPC_MSG_WORDS - 1] = (msg[URPC_MSG_WORDS - 1]
-      & ((((uint64_t) 1) << URPC_TYPE_REMAINDER) - 1)) | ((uint64_t) c->epoch
+  c->buf[c->pos + msg_len - 1] = (msg[msg_len - 1] & ((((uint64_t) 1)
+      << URPC_TYPE_REMAINDER) - 1)) | ((uint64_t) c->epoch
       << URPC_TYPE_REMAINDER);
 #endif // __ARMEL__
   c->pos = (c->pos + URPC_MSG_WORDS) % c->size;
@@ -231,9 +234,10 @@ static inline bool urpc_send(struct urpc_channel *c, uint64_t *msg)
  *
  * \return true if message sent, false if buffer full.
  */
-static inline bool urpc_send_throughput(struct urpc_channel *c, uint64_t *msg)
+static inline bool urpc_send_throughput(struct urpc_channel *c, uint64_t *msg,
+    size_t msg_len)
 {
-  urpc_send(c, msg);
+  urpc_send(c, msg, msg_len);
   __asm volatile("prefetchw %[addr]" :: [addr] "m" (c->buf[c->pos]));
 
   return true;
