@@ -20,7 +20,7 @@ struct checkpoint_request
   int caller; // the node which is asking for a checkpoint
   uint64_t cn; // requested checkpoint number
 
-  char __p[MESSAGE_MAX_SIZE - CHECKPOINT_REQUEST_SIZE];
+  char __p[MESSAGE_MAX_SIZE_CHKPT_REQ - CHECKPOINT_REQUEST_SIZE];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 class Checkpoint_request: public Message
