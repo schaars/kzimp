@@ -33,8 +33,8 @@
 static int node_id;
 static int nb_nodes;
 
-static struct mpsoc_ctrl *multicast_from_node; // node i -> all nodes but i
-static struct mpsoc_ctrl *all_nodes_to_node; // all nodes -> node i, for all i
+static struct mpsoc_ctrl multicast_0_to_all; // node 0          -> all but 0
+static struct mpsoc_ctrl all_to_0; // all nodes but 0 -> node 0
 
 /* init a shared area of size s with pathname p and project id i.
  * Return a pointer to it, or NULL in case of errors.
@@ -107,47 +107,18 @@ void IPC_initialize(int _nb_nodes)
 {
   nb_nodes = _nb_nodes;
 
-  multicast_from_node = (struct mpsoc_ctrl*) malloc(sizeof(struct mpsoc_ctrl)
-      * nb_nodes);
-  if (!multicast_from_node)
+  unsigned int multicast_mask = 0;
+  for (int i = 1; i < nb_nodes; i++)
   {
-    perror("Allocation error: ");
-    exit(-1);
+    multicast_mask |= (1 << i);
   }
 
-  all_nodes_to_node = (struct mpsoc_ctrl*) malloc(sizeof(struct mpsoc_ctrl)
-      * nb_nodes);
-  if (!all_nodes_to_node)
-  {
-    perror("Allocation error: ");
-    exit(-1);
-  }
+  mpsoc_init(&multicast_0_to_all,
+      (char*) "/tmp/ulm_checkpointing_multicast_0_to_all", nb_nodes,
+      NB_MESSAGES, multicast_mask);
 
-  char filename[256];
-
-  for (int i = 0; i < nb_nodes; i++)
-  {
-    unsigned int multicast_mask = 0;
-    for (int j = 0; j < nb_nodes; j++)
-    {
-      if (j != i)
-      {
-        multicast_mask |= (1 << j);
-      }
-    }
-
-    sprintf(filename, "%s_%i", "/tmp/ulm_checkpointing_multicast_from_node", i);
-
-    mpsoc_init(&multicast_from_node[i], filename, nb_nodes, NB_MESSAGES,
-        multicast_mask);
-  }
-
-  for (int i = 0; i < nb_nodes; i++)
-  {
-    sprintf(filename, "%s_%i", "/tmp/ulm_checkpointing_all_nodes_to_node", i);
-
-    mpsoc_init(&all_nodes_to_node[i], filename, 1, NB_MESSAGES, 0x1);
-  }
+  mpsoc_init(&all_to_0, (char*) "/tmp/ulm_checkpointing_all_to_0", 1,
+      NB_MESSAGES, 0x1);
 }
 
 // Initialize resources for the node
@@ -165,66 +136,53 @@ void IPC_clean(void)
 // Clean resources created for the (paxos) node.
 void IPC_clean_node(void)
 {
-  for (int i = 0; i < nb_nodes; i++)
-  {
-    mpsoc_destroy(&multicast_from_node[i]);
-    mpsoc_destroy(&all_nodes_to_node[i]);
-  }
+  mpsoc_destroy(&multicast_0_to_all);
+  mpsoc_destroy(&all_to_0);
 }
 
 // allocate a message in shared memory.
 // If dest is -1, then this message is going to be multicast.
-// Otherwise it is sent to node dest.
+// Otherwise it is sent to node 0.
 void* IPC_ulm_alloc(size_t len, int *msg_pos_in_ring_buffer, int dest)
 {
   if (dest == -1)
   {
-    return mpsoc_alloc(&multicast_from_node[node_id], len,
-        msg_pos_in_ring_buffer);
+    return mpsoc_alloc(&multicast_0_to_all, len, msg_pos_in_ring_buffer);
   }
   else
   {
-    return mpsoc_alloc(&all_nodes_to_node[dest], len, msg_pos_in_ring_buffer);
+    return mpsoc_alloc(&all_to_0, len, msg_pos_in_ring_buffer);
   }
 }
 
 // send the message msg of size length to all the nodes
 void IPC_send_multicast(void *msg, size_t length, int msg_pos_in_ring_buffer)
 {
-  mpsoc_sendto(&multicast_from_node[node_id], msg, length,
-      msg_pos_in_ring_buffer, -1);
+  mpsoc_sendto(&multicast_0_to_all, msg, length, msg_pos_in_ring_buffer, -1);
 }
 
-// send the message msg of size length to the node nid
+// send the message msg of size length to the node 0
 void IPC_send_unicast(void *msg, size_t length, int nid,
     int msg_pos_in_ring_buffer)
 {
-  mpsoc_sendto(&all_nodes_to_node[nid], msg, length, msg_pos_in_ring_buffer, 0);
+  mpsoc_sendto(&all_to_0, msg, length, msg_pos_in_ring_buffer, 0);
 }
 
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
-// Non-blocking
+// blocking
 size_t IPC_receive(void *msg, size_t length)
 {
-  ssize_t recv_size = 0;
+  ssize_t recv_size;
 
-  for (int i = 0; i < nb_nodes; i++)
+  if (node_id == 0)
   {
-    recv_size = mpsoc_recvfrom_nonblocking(&multicast_from_node[i], msg,
-        length, node_id);
-
-    if (recv_size > 0)
-    {
-      return (size_t) recv_size;
-    }
+    recv_size = mpsoc_recvfrom(&all_to_0, msg, length, node_id);
   }
-
-  recv_size = mpsoc_recvfrom_nonblocking(&all_nodes_to_node[node_id], msg,
-      length, 0);
-
-  // if there is nothing to read then mpsoc_recvfrom_nonblocking returns 0,
-  // thus we can directly return recv_size :)
+  else
+  {
+    recv_size = mpsoc_recvfrom(&multicast_0_to_all, msg, length, node_id);
+  }
 
   return (size_t) recv_size;
 }

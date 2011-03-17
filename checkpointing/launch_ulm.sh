@@ -25,7 +25,7 @@ else
 fi
 
 ./stop_all.sh
-rm -f /tmp/checkpointing_node_*_finished
+rm -f /tmp/checkpointing_node_0_finished
 ./remove_shared_segment.pl
 
 # create config file
@@ -33,10 +33,9 @@ rm -f /tmp/checkpointing_node_*_finished
 
 # ULM specific
 # used by ftok
-for i in $(seq 0 $NB_NODES); do
-   touch /tmp/ulm_checkpointing_multicast_from_node_${i}
-   touch /tmp/ulm_checkpointing_all_nodes_to_node_${i}
-done
+touch /tmp/ulm_checkpointing_multicast_0_to_all
+touch /tmp/ulm_checkpointing_all_to_0 
+
 
 #set new parameters
 sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmall
@@ -44,7 +43,6 @@ sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmmax
 
 # compile
 echo "-DULM -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE} -DNB_MESSAGES=${MSG_CHANNEL}" > ULM_PROPERTIES
-#echo "-DUSLEEP -DULM -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DNB_MESSAGES=${MSG_CHANNEL}" > ULM_PROPERTIES
 make ulm_checkpointing
 
 # launch

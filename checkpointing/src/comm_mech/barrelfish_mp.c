@@ -34,8 +34,8 @@ static size_t connection_size;
 static int node_id;
 static int nb_nodes;
 
-static void* **shared_areas; // a matrice of shared areas between the nodes
-static struct urpc_connection **connections; // a matrix of urpc_connections between the nodes
+static void* *shared_areas; // shared area between nodes 0 and i, for all the nodes
+static struct urpc_connection *connections; // urpc_connections between nodes 0 and nodes i
 
 /* init a shared area of size s with pathname p and project id i.
  * Return a pointer to it, or NULL in case of errors.
@@ -114,77 +114,29 @@ void IPC_initialize(int _nb_nodes)
   connection_size = buffer_size * 2 + 2 * URPC_CHANNEL_SIZE;
 
   // ***** allocate the necessary
-
-  shared_areas = (void***) malloc(sizeof(void**) * nb_nodes);
+  shared_areas = (void**) malloc(sizeof(void*) * nb_nodes);
   if (!shared_areas)
   {
     perror("Allocation error: ");
     exit(-1);
   }
 
-  for (int i = 0; i < nb_nodes; i++)
-  {
-    shared_areas[i] = (void**) malloc(sizeof(void*) * nb_nodes);
-    if (!shared_areas[i])
-    {
-      perror("Allocation error: ");
-      exit(-1);
-    }
-  }
-
-  connections = (struct urpc_connection**) malloc(
-      sizeof(struct urpc_connection*) * nb_nodes);
+  connections = (struct urpc_connection*) malloc(sizeof(struct urpc_connection)
+      * nb_nodes);
   if (!connections)
   {
     perror("Allocation error: ");
     exit(-1);
   }
 
-  for (int i = 0; i < nb_nodes; i++)
-  {
-    connections[i] = (struct urpc_connection*) malloc(
-        sizeof(struct urpc_connection) * nb_nodes);
-    if (!connections[i])
-    {
-      perror("Allocation error: ");
-      exit(-1);
-    }
-  }
-
   // ***** now that we have allocated the necessary, fill-in the matrix of shared areas
-  for (int i = 0; i < nb_nodes; i++)
+  // communication from 0 to 0 does not exist
+  for (int i = 1; i < nb_nodes; i++)
   {
-    for (int j = 0; j < i; j++)
-    {
-      shared_areas[i][j] = init_shared_memory_segment(
-          (char*) "/tmp/checkpointing_barrelfish_mp_shmem", connection_size,
-          'a' + nb_nodes * i + j);
-    }
+    shared_areas[i] = init_shared_memory_segment(
+        (char*) "/tmp/checkpointing_barrelfish_mp_shmem", connection_size, 'a'
+            + i);
   }
-
-  for (int i = 0; i < nb_nodes; i++)
-  {
-    shared_areas[i][i] = NULL;
-
-    for (int j = i + 1; j < nb_nodes; j++)
-    {
-      shared_areas[i][j] = shared_areas[j][i];
-    }
-  }
-
-#ifdef DEBUG
-  printf("Shared areas addresses:\n");
-
-  for (int i = 0; i < nb_nodes; i++)
-  {
-    for (int j = 0; j < nb_nodes; j++)
-    {
-      printf("%p\t", shared_areas[i][j]);
-    }
-
-    printf("\n");
-  }
-#endif
 }
 
 // Initialize resources for the node
@@ -192,30 +144,19 @@ void IPC_initialize_node(int _node_id)
 {
   node_id = _node_id;
 
-  for (int j = 0; j < nb_nodes; j++)
+  if (node_id == 0)
   {
-    if (node_id < j)
+    // communication from 0 to 0 does not exist
+    for (int i = 1; i < nb_nodes; i++)
     {
-#ifdef DEBUG
-      printf("Node %i: [%i][%i] = true\n", node_id, node_id, j);
-#endif
-
-      urpc_transport_create(node_id, shared_areas[node_id][j], connection_size,
-          buffer_size, &connections[node_id][j], true);
+      urpc_transport_create(node_id, shared_areas[i], connection_size,
+          buffer_size, &connections[i], true);
     }
-    else if (node_id == j)
-    {
-      continue;
-    }
-    else
-    {
-#ifdef DEBUG
-      printf("Node %i: [%i][%i] = false\n", node_id, node_id, j);
-#endif
-
-      urpc_transport_create(node_id, shared_areas[node_id][j], connection_size,
-          buffer_size, &connections[node_id][j], false);
-    }
+  }
+  else
+  {
+    urpc_transport_create(node_id, shared_areas[node_id], connection_size,
+        buffer_size, &connections[node_id], false);
   }
 }
 
@@ -228,92 +169,58 @@ void IPC_clean(void)
 // Clean resources created for the (paxos) node.
 void IPC_clean_node(void)
 {
-  for (int i = 0; i < nb_nodes; i++)
+  for (int i = 1; i < nb_nodes; i++)
   {
-    for (int j = 0; j < i; j++)
-    {
-      shmdt(shared_areas[i][j]);
-    }
+    shmdt(shared_areas[i]);
   }
 
-  for (int i = 0; i < nb_nodes; i++)
-  {
-    free(connections[i]);
-  }
   free(connections);
-
-  for (int i = 0; i < nb_nodes; i++)
-  {
-    free(shared_areas[i]);
-  }
   free(shared_areas);
 }
 
 // send the message msg of size length to all the nodes
 void IPC_send_multicast(void *msg, size_t length)
 {
-  for (int j = 0; j < nb_nodes; j++)
+  for (int i = 1; i < nb_nodes; i++)
   {
-    if (node_id == j)
-    {
-      continue;
-    }
-
-#ifdef DEBUG
-    printf("Node %i is sending on [%i][%i]\n", node_id, node_id, j);
-#endif
-
-    //urpc_transport_send(&connections[node_id][j], msg, URPC_MSG_WORDS);
-    urpc_transport_send(&connections[node_id][j], msg, URPC_MSG_WORDS_CHKPT);
+    urpc_transport_send(&connections[i], msg, URPC_MSG_WORDS_CHKPT);
   }
 }
 
 // send the message msg of size length to the node nid
 void IPC_send_unicast(void *msg, size_t length, int nid)
 {
-#ifdef DEBUG
-  printf("Node %i is sending on [%i][%i]\n", node_id, node_id, nid);
-#endif
-
-  urpc_transport_send(&connections[node_id][nid], msg, URPC_MSG_WORDS);
+  urpc_transport_send(&connections[node_id], msg, URPC_MSG_WORDS);
 }
 
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
-// Non-blocking
+// blocking
 size_t IPC_receive(void *msg, size_t length)
 {
-  size_t recv_size = 0;
-  size_t length2;
+  size_t recv_size;
 
   if (node_id == 0)
   {
-    length2 = URPC_MSG_WORDS;
+    while (1)
+    {
+      for (int i = 1; i < nb_nodes; i++)
+      {
+        recv_size = urpc_transport_recv_nonblocking(&connections[i],
+            (void*) msg, URPC_MSG_WORDS);
+
+        if (recv_size > 0)
+        {
+          return recv_size * sizeof(uint64_t);
+        }
+      }
+    }
   }
   else
   {
-    length2 = URPC_MSG_WORDS_CHKPT;
-  }
-
-  for (int j = 0; j < nb_nodes; j++)
-  {
-    if (j == node_id)
-    {
-      continue;
-    }
-
-#ifdef DEBUG
-    // too verbose
-    //printf("Node %i is receiving on [%i][%i]\n", node_id, node_id, j);
-#endif
-
-    recv_size = urpc_transport_recv_nonblocking(&connections[node_id][j],
-        (void*) msg, length2);
-
-    if (recv_size > 0)
-    {
-      return recv_size * sizeof(uint64_t);
-    }
+    recv_size = urpc_transport_recv(&connections[node_id], (void*) msg,
+        URPC_MSG_WORDS_CHKPT);
+    return recv_size * sizeof(uint64_t);
   }
 
   return 0;
