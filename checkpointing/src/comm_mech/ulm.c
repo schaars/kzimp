@@ -33,8 +33,8 @@
 static int node_id;
 static int nb_nodes;
 
-static struct mpsoc_ctrl multicast_0_to_all; // node 0          -> all but 0
-static struct mpsoc_ctrl all_to_0; // all nodes but 0 -> node 0
+static struct mpsoc_ctrl multicast_0_to_all; // node 0 -> all but 0
+static struct mpsoc_ctrl *nodei_to_0; // node i -> node 0 for all i
 
 /* init a shared area of size s with pathname p and project id i.
  * Return a pointer to it, or NULL in case of errors.
@@ -117,8 +117,16 @@ void IPC_initialize(int _nb_nodes)
       (char*) "/tmp/ulm_checkpointing_multicast_0_to_all", nb_nodes,
       NB_MESSAGES, multicast_mask);
 
-  mpsoc_init(&all_to_0, (char*) "/tmp/ulm_checkpointing_all_to_0", 1,
-      NB_MESSAGES, 0x1);
+  nodei_to_0 = (struct mpsoc_ctrl *) malloc(sizeof(struct mpsoc_ctrl)
+      * nb_nodes);
+
+  char filename[256];
+  for (int i = 1; i < nb_nodes; i++)
+  {
+    sprintf(filename, "/tmp/ulm_checkpointing_node%i_to_0", i);
+    mpsoc_init(&nodei_to_0[i], filename, 1, NB_MESSAGES, 0x1);
+  }
+
 }
 
 // Initialize resources for the node
@@ -137,7 +145,13 @@ void IPC_clean(void)
 void IPC_clean_node(void)
 {
   mpsoc_destroy(&multicast_0_to_all);
-  mpsoc_destroy(&all_to_0);
+
+  for (int i = 1; i < nb_nodes; i++)
+  {
+    mpsoc_destroy(&nodei_to_0[i]);
+  }
+
+  free(nodei_to_0);
 }
 
 // allocate a message in shared memory.
@@ -151,7 +165,7 @@ void* IPC_ulm_alloc(size_t len, int *msg_pos_in_ring_buffer, int dest)
   }
   else
   {
-    return mpsoc_alloc(&all_to_0, len, msg_pos_in_ring_buffer);
+    return mpsoc_alloc(&nodei_to_0[node_id], len, msg_pos_in_ring_buffer);
   }
 }
 
@@ -165,7 +179,7 @@ void IPC_send_multicast(void *msg, size_t length, int msg_pos_in_ring_buffer)
 void IPC_send_unicast(void *msg, size_t length, int nid,
     int msg_pos_in_ring_buffer)
 {
-  mpsoc_sendto(&all_to_0, msg, length, msg_pos_in_ring_buffer, 0);
+  mpsoc_sendto(&nodei_to_0[node_id], msg, length, msg_pos_in_ring_buffer, 0);
 }
 
 // receive a message and place it in msg (which is a buffer of size length).
@@ -177,7 +191,19 @@ size_t IPC_receive(void *msg, size_t length)
 
   if (node_id == 0)
   {
-    recv_size = mpsoc_recvfrom(&all_to_0, msg, length, node_id);
+    while (1)
+    {
+      for (int i = 1; i < nb_nodes; i++)
+      {
+        recv_size = mpsoc_recvfrom_nonblocking(&nodei_to_0[i], msg, length,
+            node_id);
+
+        if (recv_size > 0)
+        {
+          return recv_size;
+        }
+      }
+    }
   }
   else
   {

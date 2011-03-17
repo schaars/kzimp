@@ -34,7 +34,9 @@ rm -f /tmp/checkpointing_node_0_finished
 # ULM specific
 # used by ftok
 touch /tmp/ulm_checkpointing_multicast_0_to_all
-touch /tmp/ulm_checkpointing_all_to_0 
+for i in $(seq 1 $NB_NODES); do
+   touch /tmp/ulm_checkpointing_node${i}_to_0
+done
 
 
 #set new parameters
