@@ -32,19 +32,21 @@
 
 static int node_id;
 static int nb_paxos_nodes;
+static int nb_learners;
 static int nb_clients;
 static int total_nb_nodes;
 
 static struct mpsoc_ctrl client_to_leader; // client 1 -> leader
 static struct mpsoc_ctrl leader_to_acceptor; // leader -> acceptor
 static struct mpsoc_ctrl acceptor_multicast; // acceptor -> learners
-static struct mpsoc_ctrl learners_to_client; // learners -> client 0
+static struct mpsoc_ctrl *learneri_to_client; // learner i -> client 0, for all the learners
 
 // Initialize resources for both the node and the clients
 // First initialization function called
 void IPC_initialize(int _nb_nodes, int _nb_clients)
 {
   nb_paxos_nodes = _nb_nodes;
+  nb_learners = nb_paxos_nodes - 2;
   nb_clients = _nb_clients;
   total_nb_nodes = nb_paxos_nodes + nb_clients;
 
@@ -54,8 +56,21 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
   mpsoc_init(&leader_to_acceptor,
       (char*) "/tmp/ulm_paxosInside_leader_to_acceptor", 1, NB_MESSAGES, 0x1);
 
-  mpsoc_init(&learners_to_client,
-      (char*) "/tmp/ulm_paxosInside_learners_to_client", 1, NB_MESSAGES, 0x1);
+  learneri_to_client = (struct mpsoc_ctrl*) malloc(sizeof(struct mpsoc_ctrl)
+      * nb_learners);
+  if (!learneri_to_client)
+  {
+    perror("Allocation failed: ");
+    exit(-1);
+  }
+
+  char filename[256];
+
+  for (int i = 0; i < nb_learners; i++)
+  {
+    sprintf(filename, "/tmp/ulm_paxosInside_learner%i_to_client", i);
+    mpsoc_init(&learneri_to_client[i], filename, 1, NB_MESSAGES, 0x1);
+  }
 
   // multicast mask is all the learners
   unsigned int multicast_bitmap_mask = 0;
@@ -91,7 +106,13 @@ static void clean_node(void)
 {
   mpsoc_destroy(&client_to_leader);
   mpsoc_destroy(&leader_to_acceptor);
-  mpsoc_destroy(&learners_to_client);
+
+  for (int i = 0; i < nb_learners; i++)
+  {
+    mpsoc_destroy(&learneri_to_client[i]);
+  }
+  free(learneri_to_client);
+
   mpsoc_destroy(&acceptor_multicast);
 }
 
@@ -129,7 +150,8 @@ void* IPC_ulm_alloc(size_t len, int *msg_pos_in_ring_buffer, int dest)
   }
   else
   {
-    return mpsoc_alloc(&learners_to_client, len, msg_pos_in_ring_buffer);
+    return mpsoc_alloc(&learneri_to_client[node_id - 2], len,
+        msg_pos_in_ring_buffer);
   }
 }
 
@@ -160,7 +182,8 @@ void IPC_send_client_to_node(void *msg, size_t length,
 void IPC_send_node_to_client(void *msg, size_t length, int cid,
     int msg_pos_in_ring_buffer)
 {
-  mpsoc_sendto(&learners_to_client, msg, length, msg_pos_in_ring_buffer, 0);
+  mpsoc_sendto(&learneri_to_client[node_id - 2], msg, length,
+      msg_pos_in_ring_buffer, 0);
 }
 
 // receive a message and place it in msg (which is a buffer of size length).
@@ -177,7 +200,21 @@ size_t IPC_receive(void *msg, size_t length)
   }
   else if (node_id >= nb_paxos_nodes)
   {
-    return (size_t) mpsoc_recvfrom(&learners_to_client, msg, length, 0);
+    size_t recv_size;
+
+    while (1)
+    {
+      for (int i = 0; i < nb_learners; i++)
+      {
+        recv_size = mpsoc_recvfrom_nonblocking(&learneri_to_client[i], msg,
+            length, 0);
+
+        if (recv_size > 0)
+        {
+          return recv_size;
+        }
+      }
+    }
   }
   else
   {

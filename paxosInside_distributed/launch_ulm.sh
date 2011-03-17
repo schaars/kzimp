@@ -35,8 +35,11 @@ rm -f /tmp/paxosInside_client_*_finished
 # used by ftok
 touch /tmp/ulm_paxosInside_client_to_leader
 touch /tmp/ulm_paxosInside_leader_to_acceptor
-touch /tmp/ulm_paxosInside_learners_to_client
 touch /tmp/ulm_paxosInside_acceptor_multicast
+for i in $(seq 0 $(( $NB_PAXOS_NODES-2 ))); do
+  touch /tmp/ulm_paxosInside_learner${i}_to_client
+done
+
 
 #set new parameters
 sudo ./root_set_value.sh 16000000000 /proc/sys/kernel/shmall
