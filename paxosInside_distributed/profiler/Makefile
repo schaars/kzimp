@@ -11,6 +11,7 @@ all:
 	gcc $(CFLAGS) -c -o events.o events.c
 	gcc -o profiler profiler.o $(LDFLAGS)
 	gcc -o profiler-sampling profiler-sampling.o $(LDFLAGS)
+	gcc -o parser-sampling events.o symbols.o parser-sampling.o $(LDFLAGS)
 
 clean:
 	rm -f *.o $(TARGETS)
