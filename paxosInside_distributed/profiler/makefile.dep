@@ -1,0 +1,8 @@
+events.o: events.c events.h parser-sampling.h common.h symbols.h
+parser-sampling.o: parser-sampling.c parser-sampling.h common.h symbols.h \
+ events.h
+profiler.o: profiler.c profiler.h common.h
+profiler-sampling.o: profiler-sampling.c profiler.h common.h
+profiler-tids.o: profiler-tids.c profiler.h common.h
+symbols.o: symbols.c symbols.h parser-sampling.h common.h events.h
+test.o: test.c
