@@ -407,7 +407,7 @@ int main(int argc, char **argv) {
 	   printf("#TOTAL SAMPLES OF EVT %s ", "ALL_EVTS");
    else
 	   printf("#TOTAL SAMPLES OF EVT %d ", options.base_event);
-   for(i = 0; i < 16; i++) {
+   for(i = 0; i < 8; i++) {
 	   printf("%d ", (int)total_samples[options.base_event][i]);
    }
    printf("\n");

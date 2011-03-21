@@ -1,5 +1,8 @@
 #!/bin/bash
 
+#XXX: do not run it
+exit 0
+
 
 NUM_CONSUMERS_ARRAY=( 1 3 5 7 )
 MSG_SIZE_ARRAY=( 1 64 128 512 1024 4096 10240 102400 1048576 )

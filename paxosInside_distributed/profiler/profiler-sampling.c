@@ -9,21 +9,21 @@ static event_t default_events[] = {
     .name = "CLK_UNHALTED",
     .type = PERF_TYPE_HARDWARE,
     .config = PERF_COUNT_HW_CPU_CYCLES,
-    .sampling_period = 100000,
+    .sampling_period = 10000,
     .exclude_user = 0,
   },
   {
     .name = "INSTRUCTIONS",
     .type = PERF_TYPE_HARDWARE,
     .config = PERF_COUNT_HW_INSTRUCTIONS,
-    .sampling_period = 100000,
+    .sampling_period = 10000,
     .exclude_user = 0,
   },
   {
     .name = "CACHE_MISSES",
     .type = PERF_TYPE_HARDWARE,
     .config = PERF_COUNT_HW_CACHE_MISSES,
-    .sampling_period = 100000,
+    .sampling_period = 10000,
     .exclude_user = 0,
   },
 };
@@ -391,7 +391,7 @@ int main(int argc, char**argv) {
    signal(SIGINT, _sig_handler);
    parse_options(argc, argv);
 //ncpus = get_nprocs();
-   ncpus = 16;
+   ncpus = 8;
    pthread_barrier_init(&barrier, NULL, ncpus);
 
    char *name = malloc(512), *name_sentence = NULL, *option_sentence = NULL;

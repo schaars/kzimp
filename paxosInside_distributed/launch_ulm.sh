@@ -106,7 +106,6 @@ if [ ! -z $PROFILER ]; then
 sudo pkill profiler
 sudo chown bft:bft /tmp/perf.data.*
 
-#TODO: save results
 OUTPUT_DIR=ulm_profiling_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize
 mkdir $OUTPUT_DIR
 

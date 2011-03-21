@@ -108,15 +108,14 @@ if [ ! -z $PROFILER ]; then
 sudo pkill profiler
 sudo chown bft:bft /tmp/perf.data.*
 
-#TODO: save results
-OUTPUT_DIR=ulm_profiling_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize
+OUTPUT_DIR=barrelfish_profiling_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize
 mkdir $OUTPUT_DIR
 
 for e in 0 1 2; do
-   ./profiler/parser-sampling /tmp/perf.data.* --c 0 --c 1 --c 2 --c 3 --c 4 --c 5 --c 6 --base-event ${e} --app ulm_paxosInside > $OUTPUT_DIR/perf_everyone_event_${e}.log
+   ./profiler/parser-sampling /tmp/perf.data.* --c 0 --c 1 --c 2 --c 3 --c 4 --c 5 --c 6 --base-event ${e} --app barrelfish_mp_p > $OUTPUT_DIR/perf_everyone_event_${e}.log
 done
 
-rm /tmp/perf.data.* -f
+#rm /tmp/perf.data.* -f
 fi
 #####################################
 

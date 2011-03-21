@@ -8,7 +8,7 @@
 #   $3: nb iter per client
 #   $4: same_proc or different_proc
 
-NB_THREADS_PER_CORE=2
+NB_THREADS_PER_CORE=1
 NB_CORE_PER_PROC=4
 
 if [ $# -eq 4 ]; then
