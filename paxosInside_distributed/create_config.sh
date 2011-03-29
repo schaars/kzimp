@@ -28,6 +28,14 @@ echo $NB_PAXOS_NODES
 echo $NB_CLIENTS
 echo $NB_ITER_PER_CLIENT
 
+
+#Order of the cores for the Bertha:
+# proc 0: cores 0 4 8 12
+# proc 1: cores 3 7 11 15
+# proc 2: cores 2 6 10 14
+# proc 3: cores 1 5 9 13
+
+
 if [ $LEADER_ACCEPTOR == "same_proc" ]; then
    leader_core=0
    acceptor_core=$(( 1 * $NB_THREADS_PER_CORE ))
