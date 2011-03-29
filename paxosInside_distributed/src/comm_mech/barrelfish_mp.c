@@ -641,7 +641,7 @@ size_t IPC_receive(void *msg, size_t length)
   }
   else if (node_id == 1)
   {
-    recv_size = urpc_transport_recv(&leader_to_acceptor, msg, length);
+    recv_size = urpc_transport_recv(&leader_to_acceptor, msg, length / sizeof(uint64_t));
 
     nb_messages_in_transit_rcv++;
 
@@ -659,7 +659,7 @@ size_t IPC_receive(void *msg, size_t length)
   else if (node_id < nb_paxos_nodes)
   {
     recv_size = urpc_transport_recv(&acceptor_to_learners[node_id - 2], msg,
-        length);
+        length / sizeof(uint64_t));
 
     nb_messages_in_transit_rcv++;
 
