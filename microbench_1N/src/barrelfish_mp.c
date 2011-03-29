@@ -27,6 +27,9 @@
 //#define BUFFER_SIZE (URPC_MSG_WORDS*8*NB_MESSAGES)
 //#define CONNECTION_SIZE (BUFFER_SIZE * 2 + 2 * URPC_CHANNEL_SIZE)
 
+// size of an ack in uint64_t
+#define ACK_SIZE 1
+
 #define MIN_MSG_SIZE (URPC_MSG_WORDS*sizeof(uint64_t))
 
 static int core_id; // 0 is the producer. The others are children
@@ -289,7 +292,7 @@ void IPC_sendToAll(int msg_size, char msg_id)
     // receive a message
     for (i = 0; i < nb_receivers; i++)
     {
-      urpc_transport_recv(&conn[i], (void*) msg, URPC_MSG_WORDS);
+      urpc_transport_recv(&conn[i], (void*) msg, ACK_SIZE);
     }
     nb_messages_in_transit = 0;
   }
@@ -351,7 +354,7 @@ int IPC_receive(int msg_size, char *msg_id)
   if (nb_messages_in_transit == NB_MESSAGES)
   {
     // send a message
-    urpc_transport_send(consumer_connection, msg, URPC_MSG_WORDS);
+    urpc_transport_send(consumer_connection, msg, ACK_SIZE);
     nb_messages_in_transit = 0;
   }
 

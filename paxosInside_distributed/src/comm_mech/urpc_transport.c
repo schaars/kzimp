@@ -132,19 +132,19 @@ bool urpc_transport_send(struct urpc_connection *c, void *msg, size_t msg_len)
       (unsigned int) c->ack_id, (unsigned int) c->sent_id);
 #endif
 
-  msg_as_uint64_t[URPC_PAYLOAD_WORDS]
+  msg_as_uint64_t[msg_len-1]
       = ((uint64_t) c->seq_id << URPC_TYPE_SIZE) | c->sent_id;
   c->sent_id++;
-  urpc_send_abstract(&c->out, msg_as_uint64_t);
+  urpc_send_abstract(&c->out, msg_as_uint64_t, msg_len);
 
   return true;
 }
 
 // Get the message that is available.
-size_t get_the_message(struct urpc_connection *c, uint64_t *msg)
+size_t get_the_message(struct urpc_connection *c, uint64_t *msg, size_t msg_len)
 {
-  c->ack_id = (msg[URPC_PAYLOAD_WORDS] >> URPC_TYPE_SIZE) & SEQ_ID_MASK;
-  c->seq_id = msg[URPC_PAYLOAD_WORDS] & SEQ_ID_MASK;
+  c->ack_id = (msg[msg_len-1] >> URPC_TYPE_SIZE) & SEQ_ID_MASK;
+  c->seq_id = msg[msg_len-1] & SEQ_ID_MASK;
 
 #ifdef URPC_TRANSPORT_DEBUG
   printf("[%u] Receiving a message with seq_id=%u, ack_id=%i and sent_id=%u\n",
@@ -152,7 +152,7 @@ size_t get_the_message(struct urpc_connection *c, uint64_t *msg)
       (unsigned int) c->ack_id, (unsigned int) c->sent_id);
 #endif
 
-  return URPC_MSG_WORDS;
+  return msg_len;
 }
 
 // receive a message
@@ -162,10 +162,10 @@ size_t urpc_transport_recv_nonblocking(struct urpc_connection *c, void *msg,
 {
   uint64_t* msg_as_uint64_t = (uint64_t*) msg;
 
-  if (urpc_poll_abstract(c->in, msg_as_uint64_t))
+  if (urpc_poll_abstract(c->in, msg_as_uint64_t, msg_len))
   {
     // there is a message
-    return get_the_message(c, msg_as_uint64_t);
+    return get_the_message(c, msg_as_uint64_t, msg_len);
   }
   else
   {
@@ -181,7 +181,7 @@ size_t urpc_transport_recv(struct urpc_connection *c, void *msg, size_t msg_len)
 {
   uint64_t* msg_as_uint64_t = (uint64_t*) msg;
 
-  while (!urpc_poll_abstract(c->in, msg_as_uint64_t))
+  while (!urpc_poll_abstract(c->in, msg_as_uint64_t, msg_len))
   {
 #ifdef URPC_TRANSPORT_DEBUG
     //printf("[urpc_transport_recv][%u] Trying again\n",
@@ -198,5 +198,5 @@ size_t urpc_transport_recv(struct urpc_connection *c, void *msg, size_t msg_len)
   }
 
   // we have received a message in msg_as_uint64_t
-  return get_the_message(c, msg_as_uint64_t);
+  return get_the_message(c, msg_as_uint64_t, msg_len);
 }

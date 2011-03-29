@@ -30,6 +30,9 @@
 #define NB_MSG_MAX_IN_TRANSIT NB_MESSAGES
 //#define NB_MSG_MAX_IN_TRANSIT 1
 
+// size of an ack in uint64_t
+#define ACK_SIZE 1
+
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #define MIN(a, b) (((a)<(b))?(a):(b))
 
@@ -409,7 +412,7 @@ void IPC_clean_client(void)
 // Indeed the only unicast is from 0 to 1
 void IPC_send_node_unicast(void *msg, size_t length)
 {
-  urpc_transport_send(&leader_to_acceptor, msg, URPC_MSG_WORDS);
+  urpc_transport_send(&leader_to_acceptor, msg, length / sizeof(uint64_t));
 
   nb_messages_in_transit_snd++;
 
@@ -421,8 +424,7 @@ void IPC_send_node_unicast(void *msg, size_t length)
     printf("Node %i is going to receive an ack from the acceptor\n", node_id);
 #endif
 
-    urpc_transport_recv(&leader_to_acceptor, (void*) m.content(),
-        URPC_MSG_WORDS);
+    urpc_transport_recv(&leader_to_acceptor, (void*) m.content(), ACK_SIZE);
 
 #ifdef DEBUG
     printf("Node %i has received an ack from the acceptor\n", node_id);
@@ -441,7 +443,8 @@ void IPC_send_node_multicast(void *msg, size_t length)
     printf("Node %i is going to send a multicast message to learner %i\n",
         node_id, l + 2);
 #endif
-    urpc_transport_send(&acceptor_to_learners[l], msg, URPC_MSG_WORDS);
+    urpc_transport_send(&acceptor_to_learners[l], msg, length
+        / sizeof(uint64_t));
   }
 
 #ifdef DEBUG
@@ -465,7 +468,7 @@ void IPC_send_node_multicast(void *msg, size_t length)
 #endif
 
       urpc_transport_recv(&acceptor_to_learners[l], (void*) m.content(),
-          URPC_MSG_WORDS);
+          ACK_SIZE);
 
 #ifdef DEBUG
       printf("Node %i has received an ack from leader %i\n", node_id, l);
@@ -480,8 +483,8 @@ void IPC_send_node_multicast(void *msg, size_t length)
 // called by a client
 void IPC_send_client_to_node(void *msg, size_t length)
 {
-  urpc_transport_send(&clients_to_leader[node_id - nb_paxos_nodes], msg,
-      URPC_MSG_WORDS);
+  urpc_transport_send(&clients_to_leader[node_id - nb_paxos_nodes], msg, length
+      / sizeof(uint64_t));
 
   nb_messages_in_transit_snd++;
 
@@ -494,7 +497,7 @@ void IPC_send_client_to_node(void *msg, size_t length)
 #endif
 
     urpc_transport_recv(&clients_to_leader[node_id - nb_paxos_nodes],
-        (void*) m.content(), URPC_MSG_WORDS);
+        (void*) m.content(), ACK_SIZE);
 
 #ifdef DEBUG
     printf("Node %i has received an ack from the leader\n", node_id);
@@ -512,8 +515,8 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid)
   printf("Node %i is going to send a message to client %i\n", node_id, cid);
 #endif
 
-  urpc_transport_send(&learners_to_clients[node_id - 2][0],
-      msg, URPC_MSG_WORDS);
+  urpc_transport_send(&learners_to_clients[node_id - 2][0], msg, length
+      / sizeof(uint64_t));
 
   nb_messages_in_transit_snd++;
 
@@ -525,9 +528,8 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid)
     printf("Node %i is going to receive an ack from client %i\n", node_id, cid);
 #endif
 
-    urpc_transport_recv(
-        &learners_to_clients[node_id - 2][0],
-        (void*) m.content(), URPC_MSG_WORDS);
+    urpc_transport_recv(&learners_to_clients[node_id - 2][0],
+        (void*) m.content(), ACK_SIZE);
 
 #ifdef DEBUG
     printf("Node %i has received an ack from client %i\n", node_id, cid);
@@ -549,7 +551,7 @@ size_t recv_for_node0(void *msg, size_t length)
     for (int i = 0; i < nb_clients; i++)
     {
       recv_size = urpc_transport_recv_nonblocking(&clients_to_leader[i],
-          (void*) msg, URPC_MSG_WORDS);
+          (void*) msg, length / sizeof(uint64_t));
 
       if (recv_size > 0)
       {
@@ -561,8 +563,7 @@ size_t recv_for_node0(void *msg, size_t length)
           printf("Node %i is sending an ack to client %i\n", node_id, i);
 #endif
 
-          urpc_transport_send(&clients_to_leader[i], m.content(),
-              URPC_MSG_WORDS);
+          urpc_transport_send(&clients_to_leader[i], m.content(), ACK_SIZE);
 
           nb_messages_in_transit_multi[i] = 0;
         }
@@ -594,7 +595,7 @@ size_t recv_for_client(void *msg, size_t length)
     {
       recv_size = urpc_transport_recv_nonblocking(
           &learners_to_clients[i][node_id - nb_paxos_nodes], (void*) msg,
-          URPC_MSG_WORDS);
+          length / sizeof(uint64_t));
 
       if (recv_size > 0)
       {
@@ -608,7 +609,7 @@ size_t recv_for_client(void *msg, size_t length)
 
           urpc_transport_send(
               &learners_to_clients[i][node_id - nb_paxos_nodes], m.content(),
-              URPC_MSG_WORDS);
+              ACK_SIZE);
 
           nb_messages_in_transit_multi[i] = 0;
         }
@@ -650,7 +651,7 @@ size_t IPC_receive(void *msg, size_t length)
       printf("Node %i is sending an ack to the leader\n", node_id);
 #endif
 
-      urpc_transport_send(&leader_to_acceptor, m.content(), URPC_MSG_WORDS);
+      urpc_transport_send(&leader_to_acceptor, m.content(), ACK_SIZE);
 
       nb_messages_in_transit_rcv = 0;
     }
@@ -669,7 +670,7 @@ size_t IPC_receive(void *msg, size_t length)
 #endif
 
       urpc_transport_send(&acceptor_to_learners[node_id - 2], m.content(),
-          URPC_MSG_WORDS);
+          ACK_SIZE);
 
       nb_messages_in_transit_rcv = 0;
     }

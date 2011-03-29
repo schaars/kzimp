@@ -55,23 +55,25 @@ size_t urpc_transport_recv_nonblocking(struct urpc_connection *c, void *msg,
 // Return the length of the read message
 // busy waiting (with a small sleep)
 size_t
-    urpc_transport_recv(struct urpc_connection *c, void *msg, size_t msg_len);
+urpc_transport_recv(struct urpc_connection *c, void *msg, size_t msg_len);
 
-static inline bool urpc_poll_abstract(struct urpc_channel *c, uint64_t *msg)
+static inline bool urpc_poll_abstract(struct urpc_channel *c, uint64_t *msg,
+    size_t msg_len)
 {
 #ifdef OPTIMIZE_THROUGHPUT
-  return urpc_poll_throughput(c, msg);
+  return urpc_poll_throughput(c, msg, msg_len);
 #else
-  return urpc_poll(c, msg);
+  return urpc_poll(c, msg, msg_len);
 #endif
 }
 
-static inline bool urpc_send_abstract(struct urpc_channel *c, uint64_t *msg)
+static inline bool urpc_send_abstract(struct urpc_channel *c, uint64_t *msg,
+    size_t msg_len)
 {
 #ifdef OPTIMIZE_THROUGHPUT
-  return urpc_send_throughput(c, msg);
+  return urpc_send_throughput(c, msg, msg_len);
 #else
-  return urpc_send(c, msg);
+  return urpc_send(c, msg, msg_len);
 #endif
 
 }

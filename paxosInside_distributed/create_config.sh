@@ -8,8 +8,11 @@
 #   $3: nb iter per client
 #   $4: same_proc or different_proc
 
-NB_THREADS_PER_CORE=1
-NB_CORE_PER_PROC=4
+if [ $(hostname) == "sci73" ] || [ $(hostname) == "sci74" ] || [ $(hostname) == "sci75" ] || [ $(hostname) == "sci76" ] || [ $(hostname) == "sci77" ]; then
+  NB_THREADS_PER_CORE=2
+else
+  NB_THREADS_PER_CORE=1
+fi
 
 if [ $# -eq 4 ]; then
    NB_PAXOS_NODES=$1

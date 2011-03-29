@@ -6,7 +6,11 @@
 #   $1: nb nodes
 #   $2: nb iter 
 
-NB_THREADS_PER_CORE=2
+if [ $(hostname) == "sci73" ] || [ $(hostname) == "sci74" ] || [ $(hostname) == "sci75" ] || [ $(hostname) == "sci76" ] || [ $(hostname) == "sci77" ]; then
+  NB_THREADS_PER_CORE=2
+else
+  NB_THREADS_PER_CORE=1
+fi
 
 if [ $# -eq 2 ]; then
    NB_NODES=$1
