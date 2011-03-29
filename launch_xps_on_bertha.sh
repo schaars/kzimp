@@ -54,8 +54,8 @@ for r in $(seq 1 $NB_RUNS); do
          rm -rf run$r
          mkdir run$r
          mv microbench*consumers* run$r/
-         tar cfj microbench_${c}_sci50_run$r.tar.bz2 run$r
-         scp_to_proton microbench_${c}_sci50_run$r.tar.bz2
+         tar cfj microbench_${c}_bertha_run$r.tar.bz2 run$r
+         scp_to_proton microbench_${c}_bertha_run$r.tar.bz2
       done
 
    fi
@@ -71,8 +71,8 @@ for r in $(seq 1 $NB_RUNS); do
       rm -rf run$r
       mkdir run$r
       mv ulm* barrelfish* run$r/
-      tar cfj chkpt_sci50_run$r.tar.bz2 run$r
-      scp_to_proton chkpt_sci50_run$r.tar.bz2
+      tar cfj chkpt_bertha_run$r.tar.bz2 run$r
+      scp_to_proton chkpt_bertha_run$r.tar.bz2
 
    fi
 
@@ -87,8 +87,8 @@ for r in $(seq 1 $NB_RUNS); do
       rm -rf run$r
       mkdir run$r
       mv ulm* barrelfish* run$r/
-      tar cfj paxosInside_sci50_run$r.tar.bz2 run$r
-      scp_to_proton paxosInside_sci50_run$r.tar.bz2
+      tar cfj paxosInside_bertha_run$r.tar.bz2 run$r
+      scp_to_proton paxosInside_bertha_run$r.tar.bz2
 
    fi
 
