@@ -32,7 +32,7 @@
 #undef DEBUG2
 
 // number of threads per core. Set it to 2 when having a hyperthreaded CPU
-#define NB_THREADS_PER_CORE 1
+#define NB_THREADS_PER_CORE 2
 
 // stop the experiment after XP_MAX_DURATION seconds
 #define XP_MAX_DURATION (60*10)

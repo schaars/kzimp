@@ -64,11 +64,26 @@ void IPC_initialize(int _nb_receivers, int _request_size)
     exit(errno);
   }
 
-  int i;
+  int i, ret;
   for (i = 0; i < nb_receivers; i++)
   {
     pipes[i] = (int*) malloc(sizeof(int) * 2);
     pipe(pipes[i]);
+
+    // set the size of the pipe's buffer
+    ret = fcntl(pipes[i][0], F_SETPIPE_SZ, 1048576);
+    if (!ret)
+    {
+      perror("[IPC_Initialize] error when setting the size of pipes[i][0]! ");
+      exit(errno);
+    }
+
+    ret = fcntl(pipes[i][1], F_SETPIPE_SZ, 1048576);
+    if (!ret)
+    {
+      perror("[IPC_Initialize] error when setting the size of pipes[i][1]! ");
+      exit(errno);
+    }
   }
 
 #ifdef VMSPLICE
