@@ -261,6 +261,7 @@ static int check_samples(struct mmaped_file *f) {
             break;
          case PERF_RECORD_THROTTLE:
          case PERF_RECORD_UNTHROTTLE:
+            die("Throttling");
             break;
          default: /* Very baadd... */
 	    raw_data = (char*)event;
