@@ -161,6 +161,8 @@ void IPC_sendToAll(int msg_size, char msg_id)
   rdtsc(cycle_stop);
   nb_cycles_send += cycle_stop - cycle_start;
 #endif
+
+  free(msg);
 }
 
 // Get a message for this core
