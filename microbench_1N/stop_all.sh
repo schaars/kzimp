@@ -10,5 +10,6 @@ pkill -f ipc_msg_queue_microbench
 pkill -f barrelfish_message_passing
 pkill -f local_multicast_microbench
 pkill -f ul_lm_0copy_microbench
+pkill -f kzimp_microbench
 
 pkill -f get_memory_usage.sh
