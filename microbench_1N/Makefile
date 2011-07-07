@@ -69,6 +69,7 @@ clean:
 	-rm BARRELFISH_MESSAGE_PASSING_PROPERTIES
 	-rm LOCAL_MULTICAST_PROPERTIES
 	-rm UL_LM_0COPY_PROPERTIES
+	-rm KZIMP_PROPERTIES
 
 clobber:
 	-rm *.o
@@ -82,3 +83,4 @@ clobber:
 	-rm bin/barrelfish_message_passing
 	-rm bin/local_multicast_microbench
 	-rm bin/ul_lm_0copy_microbench
+	-rm bin/kzimp_microbench

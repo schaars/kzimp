@@ -39,6 +39,7 @@ cd $KZIMP_DIR; make; ./kzimp.sh load nb_max_communication_channels=1 default_cha
 
 # launch XP
 #./get_memory_usage.sh  $MEMORY_DIR &
+make kzimp_microbench
 ./bin/kzimp_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP &
 
 sleep 5

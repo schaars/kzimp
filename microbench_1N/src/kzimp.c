@@ -23,7 +23,7 @@
 
 // debug macro
 #define DEBUG
-//#undef DEBUG
+#undef DEBUG
 
 /********** All the variables needed by kzimp **********/
 

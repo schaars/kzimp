@@ -7,7 +7,7 @@
 #  $4: max nb of messages in the circular buffer
 
 
-KZIMP_DIR="~/zimp_module"
+KZIMP_DIR="../../zimp_module"
 
 # get arguments
 if [ $# -eq 4 ]; then
@@ -36,6 +36,7 @@ cd $KZIMP_DIR; make; ./kzimp.sh load nb_max_communication_channels=1 default_cha
 
 # launch XP
 #./get_memory_usage.sh  $MEMORY_DIR &
+make kzimp_microbench
 ./bin/kzimp_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
 
 ./stop_all.sh
