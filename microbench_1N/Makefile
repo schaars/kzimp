@@ -4,7 +4,8 @@ toplevel:
 
 all: inet_tcp_microbench inet_udp_microbench unix_microbench pipe_microbench \
 	 pipe_vmsplice_microbench ipc_msg_queue_microbench posix_msg_queue_microbench \
-	 barrelfish_message_passing local_multicast_microbench ul_lm_0copy_microbench
+	 barrelfish_message_passing local_multicast_microbench ul_lm_0copy_microbench \
+	 kzimp_microbench
 
 C:=gcc
 CFLAGS:=-Wall -Werror -g -lm -ltcmalloc
@@ -50,7 +51,12 @@ local_multicast_microbench: $(DEPS) src/local_multicast.c
 ul_lm_0copy_microbench: $(DEPS) src/mpsoc.c src/ul_lm_0copy.c
 	$(shell if [ ! -e UL_LM_0COPY_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DMESSAGE_MAX_SIZE=1000" > UL_LM_0COPY_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell grep -v '#' UL_LM_0COPY_PROPERTIES 2>/dev/null) -o bin/$@ $^ -lrt
-	
+
+kzimp_microbench: $(DEPS) src/kzimp.c
+	$(shell if [ ! -e KZIMP_PROPERTIES ]; then echo "" > KZIMP_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell grep -v '#' KZIMP_PROPERTIES 2>/dev/null) -o bin/$@ $^ -lrt
+
+
 clean:
 	-rm *.o
 	-rm *~
