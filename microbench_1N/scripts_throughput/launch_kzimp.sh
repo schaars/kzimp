@@ -32,7 +32,7 @@ fi
 ./stop_all.sh
 
 #compile and load module
-cd $KZIMP_DIR; make; ./kzimp.sh load nb_max_communication_channels=1 default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE}; cd -
+cd $KZIMP_DIR; make; ./kzimp.sh load nb_max_communication_channels=1 default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE} default_timeout_in_ms=60000; cd -
 
 # launch XP
 #./get_memory_usage.sh  $MEMORY_DIR &
