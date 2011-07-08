@@ -54,7 +54,7 @@ ul_lm_0copy_microbench: $(DEPS) src/mpsoc.c src/ul_lm_0copy.c
 
 kzimp_microbench: $(DEPS) src/kzimp.c
 	$(shell if [ ! -e KZIMP_PROPERTIES ]; then echo "" > KZIMP_PROPERTIES; fi)
-	$(C) $(CFLAGS) $(shell grep -v '#' KZIMP_PROPERTIES 2>/dev/null) -o bin/$@ $^ -lrt
+	$(C) $(CFLAGS) $(shell grep -v '#' KZIMP_PROPERTIES 2>/dev/null) -o bin/$@ $^
 
 
 clean:

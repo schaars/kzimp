@@ -20,6 +20,11 @@
 #define DEBUG
 #undef DEBUG
 
+
+// --[ HACK ]--
+#define F_SETPIPE_SZ 1031
+
+
 /********** All the variables needed by pipes **********/
 
 #define MIN_MSG_SIZE (sizeof(char))
