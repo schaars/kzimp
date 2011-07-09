@@ -409,7 +409,7 @@ void symb_add_exe(char *file) {
       char *demangled;
       uint64_t obj_start;
       int is_label = elf_sym__is_label(&sym);
-      const char *section_name;
+      const char *section_name = NULL;
 
       if (!is_label && !elf_sym__is_function(&sym))
          continue;
@@ -425,6 +425,11 @@ void symb_add_exe(char *file) {
 
       section_name = elf_sec__name(&shdr, secstrs);
       obj_start = sym.st_value;
+
+      // to avoid unused-but-set-variable error at compile time
+      if (0) {
+        printf("section_name=%s, obj_start=%qd\n", section_name, (unsigned long long)obj_start);
+      }
 
       if (adjust_symbols) {
          sym.st_value -= shdr.sh_addr - shdr.sh_offset;

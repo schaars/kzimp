@@ -3,38 +3,94 @@
 
 int callgraph = 0;
 static event_t default_events[] = {
-	/*{
+	/*
+	{
 		.name = "CLK_UNHALTED",
-		.type = PERF_TYPE_HARDWARE,
-		.config = PERF_COUNT_HW_CPU_CYCLES,
-		.sampling_period = 500,
+		.type = PERF_TYPE_RAW,
+		.config = 0x00400076,
+		.sampling_period = 1500000,
+		.exclude_user = 0,
+	},
+	*/
+
+	/*
+	{
+		.name = "RETIRED_INSTRUCTION",
+		.type = PERF_TYPE_RAW,
+		.config = 0x004000C0,
+		.sampling_period = 100000,
 		.exclude_user = 0,
 	},*/
+
 	{
 		.name = "CPU_DRAM_NODE0",
 		.type = PERF_TYPE_RAW,
 		.config = 0x1004001E0,
-		.sampling_period = 300,
+		.sampling_period = 500,
 	},
 	{
 		.name = "CPU_DRAM_NODE1",
 		.type = PERF_TYPE_RAW,
 		.config = 0x1004002E0,
-		.sampling_period = 300,
+		.sampling_period = 500,
 	},
 	{
 		.name = "CPU_DRAM_NODE2",
 		.type = PERF_TYPE_RAW,
 		.config = 0x1004004E0,
-		.sampling_period = 300,
+		.sampling_period = 500,
 	},
 	{
 		.name = "CPU_DRAM_NODE3",
 		.type = PERF_TYPE_RAW,
 		.config = 0x1004008E0,
-		.sampling_period = 300,
+		.sampling_period = 500,
 	},
+
+	/*
+	{
+		.name = "MEM_CPU_LOCAL",
+		.type = PERF_TYPE_RAW,
+		.config = 0x0040A8E9,
+		.sampling_period = 550,
+	},
+	{
+		.name = "MEM_CPU_REMOTE",
+		.type = PERF_TYPE_RAW,
+		.config = 0x004098E9,
+		.sampling_period = 550,
+	},
+	*/
+	/*
+	{
+		.name = "MEM_IO_LOCAL",
+		.type = PERF_TYPE_RAW,
+		.config = 0x0040A2E9,
+		.sampling_period = 30,
+	},
+	{
+		.name = "MEM_IO_REMOTE",
+		.type = PERF_TYPE_RAW,
+		.config = 0x004092E9,
+		.sampling_period = 30,
+	},*/
+	/*
+	{
+		.name = "L3 Accesses",
+		.type = PERF_TYPE_RAW,
+		.config = 0x40040f7E0,
+		.sampling_period = 550,
+	},
+	{
+		.name = "L3 Misses",
+		.type = PERF_TYPE_RAW,
+		.config = 0x40040f7E1,
+		.sampling_period = 550,
+	},
+	*/
+	
 };
+#define MAX_CPUS  16
 #define MAX_PIDS  2000
 static pdata_t **datas;
 static int nb_observed_apps;
@@ -253,7 +309,7 @@ static uint64_t mmap_read(int core, int event_idx, void *base, uint64_t old_inde
    assert(written == size);
 
    end_mmap:;
-   printf("[%d ev %d core %d] Total written: %d\n", tid, core, event_idx, (int) total);
+   printf("[%d ev %d core %d] Total written: %d\n", tid, event_idx, core, (int) total);
    /* Indicate to poll that we have read all the data so that we are not constantly waked up. */
    header->data_tail = old; /* WARNING : DO NOT REMOVE THAT LINE ! */
    return old;
@@ -261,18 +317,19 @@ static uint64_t mmap_read(int core, int event_idx, void *base, uint64_t old_inde
 
 pthread_barrier_t barrier;
 static void* thread_loop(void *pdata) {
-   int i;
+   int i,j;
    pdata_t *data = (pdata_t*) pdata;
    FILE *fd_dump = data->log;
    int tid = data->tid;
+   int nb_cpus = 1;
 
    /* Malloc the arrays which will hold the descriptors data */
-   struct perf_event_attr *events_attr = calloc(data->nb_events * sizeof(*events_attr), 1);
-   void **mmaped_zones = calloc(data->nb_events, sizeof(*mmaped_zones));
-   uint64_t *old_index = calloc(data->nb_events, sizeof(*old_index));
-   uint64_t *old_times = calloc(data->nb_events, sizeof(*old_times));
-   struct pollfd *event_array = calloc(data->nb_events + 1, sizeof(*event_array));
-   data->fd = malloc(data->nb_events * sizeof(*data->fd));
+   struct perf_event_attr *events_attr = calloc(data->nb_events, sizeof(*events_attr));
+   void **mmaped_zones = calloc(nb_cpus*data->nb_events, sizeof(*mmaped_zones));
+   uint64_t *old_index = calloc(nb_cpus*data->nb_events, sizeof(*old_index));
+   uint64_t *old_times = calloc(nb_cpus*data->nb_events, sizeof(*old_times));
+   struct pollfd *event_array = calloc(nb_cpus*data->nb_events + 1, sizeof(*event_array));
+   data->fd = malloc(nb_cpus * data->nb_events * sizeof(*data->fd));
 
    /* Init the perf events */
    for (i = 0; i < data->nb_events; i++) {
@@ -297,50 +354,63 @@ static void* thread_loop(void *pdata) {
 	   events_attr[i].mmap = !i;
 	   events_attr[i].comm = !i;
 	   events_attr[i].disabled = 1;
-	   data->fd[i] = sys_perf_counter_open(&events_attr[i], tid, -1, -1, 0);
-
-	   if (data->fd[i] < 0) {
-		   if (errno == EPERM || errno == EACCES)
-			   thread_die("#[%d] Permission denied (are you root?)", tid);
-		   thread_die("#[%d] Failed to open counter %d", tid, i);
-	   }
-
-	   /* Read the fd to make sure it is correctly initidalized */
-	   struct {
-		   uint64_t count;
-		   uint64_t tidme_enabled;
-		   uint64_t tidme_running;
-		   uint64_t i;
-	   } read_data;
-	   if (read(data->fd[i], &read_data, sizeof(read_data)) == -1)
-		   thread_die("#[%d] Unable to read perf file descriptor (%s)\n", tid, strerror(errno));
-	   fcntl(data->fd[i], F_SETFL, O_NONBLOCK);
-
-	   /* Initidalize the mmap where the samples will be dumped */
-	   mmaped_zones[i] = mmap(NULL, (MMAP_SIZE + 1) * PAGE_SIZE, PROT_READ
-			   | PROT_WRITE, MAP_SHARED, data->fd[i], 0);
-	   if (mmaped_zones[i] == MAP_FAILED)
-		   thread_die("#[%d] Mmap %d failed", tid, i);
-
-	   event_array[i].events = POLLIN;
-	   event_array[i].revents = 0;
-	   event_array[i].fd = data->fd[i];
-
-	   ioctl(data->fd[i], PERF_EVENT_IOC_ENABLE);
-	   old_index[i] = 0;
    }
-   event_array[data->nb_events].events = POLLIN;
-   event_array[data->nb_events].revents = 0;
-   event_array[data->nb_events].fd = data->pipe[0];
+
+   //for (j = 0; j < nb_cpus; j++) {
+   j = 0; {
+	   int group_fd = -1;
+	   for (i = 0; i < data->nb_events; i++) {
+		   int fd_index = j*data->nb_events + i;
+		   data->fd[fd_index] = sys_perf_counter_open(&events_attr[i], tid, -1, group_fd, 0);
+		   /*if(group_fd == -1)
+			   group_fd = data->fd[fd_index];*/
+
+		   if (data->fd[fd_index] < 0) {
+			   if (errno == EPERM || errno == EACCES)
+				   thread_die("#[%d] Permission denied (are you root?)", tid);
+			   thread_die("#[%d] Failed to open counter %d", tid, fd_index);
+		   }
+
+		   /* Read the fd to make sure it is correctly initidalized */
+		   struct {
+			   uint64_t count;
+			   uint64_t tidme_enabled;
+			   uint64_t tidme_running;
+			   uint64_t i;
+		   } read_data;
+		   if (read(data->fd[fd_index], &read_data, sizeof(read_data)) == -1)
+			   thread_die("#[%d] Unable to read perf file descriptor (%s)\n", tid, strerror(errno));
+		   fcntl(data->fd[fd_index], F_SETFL, O_NONBLOCK);
+
+		   /* Initidalize the mmap where the samples will be dumped */
+		   mmaped_zones[fd_index] = mmap(NULL, (MMAP_SIZE + 1) * PAGE_SIZE, PROT_READ
+				   | PROT_WRITE, MAP_SHARED, data->fd[fd_index], 0);
+		   if (mmaped_zones[fd_index] == MAP_FAILED)
+			   thread_die("#[%d] Mmap %d failed", tid, fd_index);
+
+		   event_array[fd_index].events = POLLIN;
+		   event_array[fd_index].revents = 0;
+		   event_array[fd_index].fd = data->fd[fd_index];
+
+		   ioctl(data->fd[fd_index], PERF_EVENT_IOC_ENABLE);
+		   old_index[fd_index] = 0;
+	   }
+   }
+   event_array[data->nb_events*nb_cpus].events = POLLIN;
+   event_array[data->nb_events*nb_cpus].revents = 0;
+   event_array[data->nb_events*nb_cpus].fd = data->pipe[0];
 
    /* Read the mmap areas when there is data available */
    for (;;) {
-      for (i = 0; i < data->nb_events; i++) {
-	      old_index[i] = mmap_read(20, i, mmaped_zones[i], old_index[i], &old_times[i], fd_dump, tid); //20=fake CPU
+      j = 0; { //for (j = 0; j < nb_cpus; j++) {
+	   	   for (i = 0; i < data->nb_events; i++) {
+	   		   int fd_index = j*data->nb_events + i;
+	   		   old_index[fd_index] = mmap_read(j, i, mmaped_zones[fd_index], old_index[fd_index], &old_times[fd_index], fd_dump, tid); //20=fake CPU
+	   	   }
       }
-      if(event_array[data->nb_events].revents)
+      if(event_array[data->nb_events*nb_cpus].revents)
          break;
-      int n = poll(event_array, data->nb_events+1, -1);
+      int n = poll(event_array, data->nb_events*nb_cpus+1, -1);
       if (n <= 0 && errno != EINTR)
          thread_die("#[%d] Poll failed ?! (%s)\n", tid, strerror(errno));
    }
@@ -400,13 +470,17 @@ void parse_options(int argc, char **argv) {
 static void _sig_handler(int signal) {
    int i;
    for (i = 0; i < nb_observed_pids; i++) {
-      write(datas[i]->pipe[1], " ", 1);
+      int r = write(datas[i]->pipe[1], " ", 1);
+
+      if (r == -1) {
+         fprintf(stderr, "Error %i: %s\n", errno, strerror(errno));
+      }
    }
    printf("#signal caught: %d\n", signal);
 }
 
 int main(int argc, char**argv) {
-   int i, j, written;
+   int i, j, r, written;
    uint64_t main_start,main_stop;
 
    signal(SIGPIPE, _sig_handler);
@@ -416,8 +490,11 @@ int main(int argc, char**argv) {
 
    char *name = malloc(512), *name_sentence = NULL, *option_sentence = NULL, *rdtscll_log;
    gethostname(name, 512);
-   asprintf(&name_sentence, "#Host %s\n", name);
-   asprintf(&option_sentence, "#CPU_IN_IP_EVENTS %d\n", CPU_IN_IP_EVENTS);
+   r = asprintf(&name_sentence, "#Host %s\n", name);
+   if (r == -1) {
+      fprintf(stderr, "Error in asprintf\n");
+   }
+
    printf("%s%s\n", name_sentence, option_sentence);
    for (i = 0; i < nb_events; i++) {
       printf("#Event %d: %s (%llx), count %llu (Exclude Kernel: %s; Exclude User: %s)\n", i, events[i].name, (long long unsigned) events[i].config, (long long unsigned) events[i].sampling_period, (events[i].exclude_kernel) ? "yes" : "no", (events[i].exclude_user) ? "yes" : "no");
@@ -446,11 +523,20 @@ int main(int argc, char**argv) {
       data->events = events;
 
       char *file = NULL;
-      asprintf(&file, "/home/b218/prof_dump/perf.data.%d", observed_pids[i]);
+      r = asprintf(&file, "/home/b218/prof_dump/perf.data.%d", observed_pids[i]);
+      if (r == -1) {
+         fprintf(stderr, "Error in asprintf\n");
+      }
+
       data->log = fopen(file, "w");
-      pipe(data->pipe);
       if (!data->log)
          die("fopen %s failed %s", file, strerror(errno));
+
+      r = pipe(data->pipe);
+      if (r == -1) {
+         fprintf(stderr, "Error %i: %s\n", errno, strerror(errno));
+      }
+
       fwrite(name_sentence, 1, strlen(name_sentence), data->log);
       fwrite(option_sentence, 1, strlen(option_sentence), data->log);
       for (j = 0; j < nb_events; j++) {
@@ -477,7 +563,12 @@ int main(int argc, char**argv) {
 
    rdtscll(main_stop);
    fwrite("###END HEADER\n", 1, strlen("###END HEADER\n"), log);
-   asprintf(&rdtscll_log, "#MAIN_LENGTH start %llu stop %llu length %llu [freq %llu]\n", (long long unsigned) main_start, (long long unsigned) main_stop, (long long unsigned) (main_stop - main_start), (long long unsigned)2493513984);
+
+   r = asprintf(&rdtscll_log, "#MAIN_LENGTH start %llu stop %llu length %llu [freq %llu]\n", (long long unsigned) main_start, (long long unsigned) main_stop, (long long unsigned) (main_stop - main_start), (long long unsigned)2493513984);
+   if (r == -1) {
+      fprintf(stderr, "Error in asprintf\n");
+   }
+
    fwrite(rdtscll_log, 1, strlen(rdtscll_log), log);
    fclose(log);
 

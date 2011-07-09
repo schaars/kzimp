@@ -29,6 +29,7 @@
 #include <sys/sysinfo.h>
 #undef __EXPORTED_HEADERS__
 #include <linux/perf_event.h>
+//#include <pfmlib_priv.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <dirent.h>

@@ -2,6 +2,9 @@
 //#define MMAP_SIZE               (128)
 #define MMAP_SIZE               (64)
 
+#define CPU_IN_IP_EVENTS 1
+
+
 // Events to look for
 // 0 -> several stuff but memory access
 // 1 -> memory access, L3 cache stuff
@@ -116,6 +119,7 @@ static event_t default_events[] = {
   },
 #endif
 };
+
 
 static int nb_events = sizeof(default_events) / sizeof(*default_events);
 static event_t *events = default_events;
@@ -271,6 +275,7 @@ static uint64_t mmap_read(int core, int event_idx, void *base, uint64_t old_inde
    int diff = head - old;
    unsigned char *buf;
    size_t written;
+   long unsigned int total = 0;
 
    /* Write the header */
    struct write_event new_evt;
@@ -291,7 +296,6 @@ static uint64_t mmap_read(int core, int event_idx, void *base, uint64_t old_inde
 
    /* Else, dump everything to disk */
    int size = head - old;
-   long unsigned int total = 0;
    if ((old & mask_mmap) + size != (head & mask_mmap)) {
       buf = &data[old & mask_mmap];
       size = mask_mmap + 1 - (old & mask_mmap);
@@ -311,7 +315,7 @@ static uint64_t mmap_read(int core, int event_idx, void *base, uint64_t old_inde
    assert(written == size);
 
    end_mmap:;
-   //printf("[%d] Total written: %d\n", core, (int) total);
+//   printf("[%d] Total written: %d\n", core, (int) total);
    /* Indicate to poll that we have read all the data so that we are not constantly waked up. */
    header->data_tail = old; /* WARNING : DO NOT REMOVE THAT LINE ! */
    return old;
@@ -467,27 +471,41 @@ void parse_options(int argc, char **argv) {
 static void _sig_handler(int signal) {
    int i;
    for (i = 0; i < ncpus; i++) {
-      write(datas[i]->pipe[1], " ", 1);
+      int r = write(datas[i]->pipe[1], " ", 1);
+
+      if (r == -1) {
+         fprintf(stderr, "Error %i: %s\n", errno, strerror(errno));
+      }
    }
    printf("#signal caught: %d\n", signal);
 }
 
 int main(int argc, char**argv) {
-   int i, j, written;
+   int i, j, r, written;
 
    signal(SIGPIPE, _sig_handler);
    signal(SIGTERM, _sig_handler);
    signal(SIGINT, _sig_handler);
    parse_options(argc, argv);
-//ncpus = get_nprocs();
-   ncpus = 16;
-   pthread_barrier_init(&barrier, NULL, ncpus);
+
+   //ncpus = get_nprocs();
+   ncpus = MAX_CORE;
+
+   r = pthread_barrier_init(&barrier, NULL, ncpus);
+   if (r != 0) {
+      fprintf(stderr, "Error in pthread_barrier_init: %i\n", r);
+   }
 
    char *name = malloc(512), *name_sentence = NULL, *option_sentence = NULL;
    gethostname(name, 512);
-   asprintf(&name_sentence, "#Host %s\n", name);
-   asprintf(&option_sentence, "#CPU_IN_IP_EVENTS %d\n", CPU_IN_IP_EVENTS);
-   printf("%s%s", name_sentence, option_sentence);
+   r = asprintf(&name_sentence, "#Host %s\n", name);
+   r = asprintf(&option_sentence, "#CPU_IN_IP_EVENTS %d\n", CPU_IN_IP_EVENTS);
+   if (r == -1) {
+      fprintf(stderr, "Error in asprintf\n");
+   }
+  
+
+ printf("%s%s", name_sentence, option_sentence);
    for (i = 0; i < nb_events; i++) {
       printf("#Event %d: %s (%llx), count %llu (Exclude Kernel: %s; Exclude User: %s)\n", i, events[i].name, (long long unsigned) events[i].config, (long long unsigned) events[i].sampling_period, (events[i].exclude_kernel) ? "yes" : "no", (events[i].exclude_user) ? "yes" : "no");
    }
@@ -502,11 +520,20 @@ int main(int argc, char**argv) {
       data->events = events;
 
       char *file = NULL;
-      asprintf(&file, "/tmp/perf.data.%d", i);
+      r = asprintf(&file, "/tmp/perf.data.%d", i);
+      if (r == -1) {
+         fprintf(stderr, "Error in asprintf\n");
+      }
+
       data->log = fopen(file, "w");
-      pipe(data->pipe);
       if (!data->log)
          die("fopen %s failed %s", file, strerror(errno));
+
+      r = pipe(data->pipe);
+      if (r == -1) {
+         fprintf(stderr, "Error %i: %s\n", errno, strerror(errno));
+      }
+
       fwrite(name_sentence, 1, strlen(name_sentence), data->log);
       fwrite(option_sentence, 1, strlen(option_sentence), data->log);
       for (j = 0; j < nb_events; j++) {

@@ -30,15 +30,16 @@ typedef struct _event {
    const char* name;
 } event_t;
 
-#define CPU_IN_IP_EVENTS 1
 struct ip_event {
         struct perf_event_header header;
         uint64_t ip;
         uint32_t pid, tid;
+	//uint64_t tid_entry;
         uint64_t time;
-#if CPU_IN_IP_EVENTS
-	uint32_t cpu, res; /**/
-#endif
+	//uint64_t addr;
+	//uint64_t id, stream_id;
+	uint32_t cpu, res; 
+	//uint64_t period;
         unsigned char __more_data[];
 };
 

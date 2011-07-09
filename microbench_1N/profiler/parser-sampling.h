@@ -18,6 +18,7 @@
 #include "common.h"
 #include "symbols.h"
 #include "events.h"
+#include "list.h"
 
 #define MAX_CPUS 32
 extern struct options {
@@ -33,6 +34,12 @@ extern struct options {
 	int pid, tid, ttid, ltid;	/* pid & tid are legacy and useless 
 					   ttid = show a raw output of the perf.data.*; see .c for the printf
 					   ltid = show only samples of tif 'ltid' */
+	int dieonfail;
+   int kernel, user;
+   int die_on_empty_file;
+   int remote;
+   struct list *callee;
+   struct list *non_callee;
 } options;
 
 __attribute__((unused)) static gpointer int_key (int key_val) {

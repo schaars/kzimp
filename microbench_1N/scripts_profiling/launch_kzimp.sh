@@ -8,8 +8,8 @@
 
 
 #MEMORY_DIR="memory_conso"
-NB_THREADS_PER_CORE=2
-KZIMP_DIR="~/zimp_module"
+KZIMP_DIR="/home/bft/zimp_module"
+#KZIMP_DIR="/home/bft/zimp_module/kzimp_smallBuffer4smallMessages"
 
 
 # get arguments
@@ -35,7 +35,7 @@ fi
 ./stop_all.sh
 
 #compile and load module
-cd $KZIMP_DIR; make; ./kzimp.sh load nb_max_communication_channels=1 default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE}; cd -
+cd $KZIMP_DIR; make; ./kzimp.sh load nb_max_communication_channels=1 default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE} default_timeout_in_ms=60000 default_compute_checksum=0; cd -
 
 # launch XP
 #./get_memory_usage.sh  $MEMORY_DIR &
@@ -49,14 +49,9 @@ sudo ./profiler/profiler-sampling &
 sleep $DURATION_XP
 sudo pkill profiler
 
-c=$(ps -A | grep kzimp_microbenc | wc -l)
-while [ $c -gt 0 ]; do
-   sleep 20
-   c=$(ps -A | grep kzimp_microbenc | wc -l)
-done
+sleep 30
 
 ./stop_all.sh
-cd $KZIMP_DIR; ./kzimp.sh unload; cd -
 
 # save files
 mkdir $OUTPUT_DIR
@@ -68,5 +63,7 @@ sudo chown bft:bft /tmp/perf.data.*
 for e in 0 1 2 3; do
    ./profiler/parser-sampling /tmp/perf.data.* --base-event ${e} > $OUTPUT_DIR/perf_everyone_event_${e}.log
 done
+
+cd $KZIMP_DIR; ./kzimp.sh unload; cd -
 
 rm /tmp/perf.data.* -f

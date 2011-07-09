@@ -1,17 +1,22 @@
-CC=gcc
-CFLAGS=-Wall -I/usr/include/ -I/usr/src/linux-source-2.6.36/include/ -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -O0 -g -I/usr/src/linux-source-2.6.32-custom/include/
-LDFLAGS=-lpthread -lelf -lglib-2.0 -lbfd -ldl
-TARGETS=profiler profiler-sampling parser-sampling profiler-tids
+################################################################################
+# Automatically-generated file. Do not edit!
+################################################################################
 
-all:  
-	gcc $(CFLAGS) -c -o profiler.o profiler.c
-	gcc $(CFLAGS) -c -o profiler-sampling.o profiler-sampling.c
-	gcc $(CFLAGS) -c -o parser-sampling.o parser-sampling.c
-	gcc $(CFLAGS) -c -o symbols.o symbols.c
-	gcc $(CFLAGS) -c -o events.o events.c
-	gcc -o profiler profiler.o $(LDFLAGS)
-	gcc -o profiler-sampling profiler-sampling.o $(LDFLAGS)
-	gcc -o parser-sampling events.o symbols.o parser-sampling.o $(LDFLAGS)
+CC=gcc
+INCLUDES= -I/usr/include/ -I/usr/src/linux-source-2.6.36/include/ -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -I/usr/src/linux-source-2.6.32-custom/include/
+CFLAGS=-Wall -O2 -g -Werror ${INCLUDES}
+LDFLAGS=-lpthread -lelf -lglib-2.0 -lbfd -lnuma
+
+TARGETS=makefile.dep profiler profiler-sampling parser-sampling
+
+
+all: $(TARGETS)
+
+makefile.dep : *.[Cch]
+	    for i in *.[Cc]; do gcc -MM "$${i}"; done > $@
+-include makefile.dep
+
+parser-sampling: parser-sampling.o symbols.o events.o
 
 clean:
 	rm -f *.o $(TARGETS)

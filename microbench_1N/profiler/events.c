@@ -147,10 +147,44 @@ struct symb_callg_container {
    int values[MAX_EVT];
    GHashTable*  children;
 };
+
+static uint64_t __context = PERF_CONTEXT_MAX;
+struct symb* ip_callchain_to_symb(struct ip_event *evt, uint64_t _ip) {
+   struct symb* caller_s = NULL;
+   struct mmaped_zone *l;
+   struct symb_arr *f;
+   struct ip_event ip;      ip.pid = evt->pid;      ip.ip = _ip;
+   if (ip.ip >= PERF_CONTEXT_MAX) {
+      __context = ip.ip;
+      return NULL;
+   }
+
+
+   switch (__context) {
+      case PERF_CONTEXT_HV:
+         return NULL;
+      case PERF_CONTEXT_KERNEL:
+         caller_s = symb_find(_ip, &kern_symb_arr);
+         break;
+      default:
+         l = symb_find_map(&ip);
+         if (l) {
+            f = symb_find_exe(l->file);
+            if (!f)
+               die("Cannot find file %s in maps", l->file);
+            caller_s = symb_find(ip.ip - l->begin + l->off, f);
+         }
+         break;
+   }
+   if(!caller_s)
+      caller_s = &unknown_symbol;
+   return caller_s;
+}
+
 void symb_add_sample_caller(struct symb *s, struct ip_event *evt, int evt_index, int core) {
 	uint64_t i;
-	uint64_t context = PERF_CONTEXT_MAX;
 	struct callchain *ch = (struct callchain *) (evt->__more_data);
+   __context = PERF_CONTEXT_MAX;
 	if(!s->direct_callers)
 	   s->direct_callers = g_hash_table_new(g_direct_hash, g_direct_equal);
 	if(!s->callers)
@@ -158,38 +192,9 @@ void symb_add_sample_caller(struct symb *s, struct ip_event *evt, int evt_index,
 
 	GHashTable* to_insert = s->direct_callers;
 	for (i = 0; i < ch->nbr; i++) {
-		struct ip_event ip;      ip.pid = evt->pid;      ip.ip = ch->ips[i];
-		if (ip.ip >= PERF_CONTEXT_MAX) {
-			context = ip.ip;
+      struct symb *caller_s = ip_callchain_to_symb(evt, ch->ips[i]);
+		if(!caller_s) 
 			continue;
-		}
-
-
-		struct symb* caller_s;
-		struct mmaped_zone *l;
-		struct symb_arr *f;
-		struct process *p;
-		switch (context) {
-			case PERF_CONTEXT_HV:
-				return;
-			case PERF_CONTEXT_KERNEL:
-				caller_s = symb_find(ch->ips[i], &kern_symb_arr);
-				break;
-			default:
-				l = symb_find_map(&ip);
-				p = symb_find_pid(evt->pid);
-				if (!l) {
-				   if(!p) {
-				      caller_s = &unknown_symbol;
-				   }
-				} else {
-				   f = symb_find_exe(l->file);
-				   if (!f)
-				      die("Cannot find file %s in maps", l->file);
-				   caller_s = symb_find(ip.ip - l->begin + l->off, f);
-				}
-				break;
-		}
 
 		struct symb_callg_container *value = g_hash_table_lookup(to_insert, caller_s);
 		if(!value) {
@@ -199,7 +204,6 @@ void symb_add_sample_caller(struct symb *s, struct ip_event *evt, int evt_index,
 		}
 		value->values[evt_index]++;
 		to_insert = value->children;
-
 
 		if(!caller_s->called_symbols)
 		   caller_s->called_symbols = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -219,6 +223,40 @@ void symb_add_sample_caller(struct symb *s, struct ip_event *evt, int evt_index,
 	}
 }
 
+int check_callee(struct ip_event *evt) {
+   int ret_value = !options.callee;
+	uint64_t i;
+	struct callchain *ch = (struct callchain *) (evt->__more_data);
+   __context = PERF_CONTEXT_MAX;
+
+	for (i = 0; i < ch->nbr; i++) {
+      struct symb *caller_s = ip_callchain_to_symb(evt, ch->ips[i]);
+		if(!caller_s) {
+			//die("#Null pointer caller_s in <%s>: %s:%i\n", __FILE__, __FUNCTION__, __LINE__);
+         continue;
+		} else {
+         char *name;
+         {
+            list_foreach(options.callee, name) {
+               if(!strcmp(name, caller_s->name)) {
+                  ret_value = 1;
+                  break;
+               }
+            }
+         }
+         {
+            list_foreach(options.non_callee, name) {
+               if(!strcmp(name, caller_s->name)) {
+                  return 0;
+               }
+            }
+         }
+      }
+	}
+   return ret_value;
+}
+
+int _user, _kernel;
 int symb_add_sample(struct ip_event *evt, int evt_index, int core) {
    assert(core < MAX_CORE);
    assert(evt_index < MAX_EVT);
@@ -233,11 +271,18 @@ int symb_add_sample(struct ip_event *evt, int evt_index, int core) {
    if(options.app && strcmp(options.app, p->name)) {
 	   return 4;
    }
+
+   if((options.callee || options.non_callee) && !check_callee(evt))
+      return 5;
+
+   //printf("%s\n", p->name);
    struct symb *s;
    if ((evt->header.misc & PERF_RECORD_MISC_CPUMODE_MASK)
             == PERF_RECORD_MISC_KERNEL) {
       s = symb_find(evt->ip, &kern_symb_arr);
+      _kernel++;
    } else {
+      _user++;
       struct mmaped_zone *l = symb_find_map(evt);
       if (!l) {
          return 2;
@@ -298,8 +343,14 @@ __attribute__((unused)) static void caller_top_foreach (gpointer key, gpointer v
    struct symb* caller = (struct symb*)key;
    struct symb_callg_container *val = value;
    tmp->data[tmp->index].val = val->values[options.base_event];
-   tmp->data[tmp->index].name = strdup(caller->name);
-   tmp->data[tmp->index].s = caller;
+   if (key==NULL) {
+     //fprintf(stderr, "#Unknown symbol\n");
+     tmp->data[tmp->index].name = strdup("unknown");
+     tmp->data[tmp->index].s = NULL;
+   } else {
+     tmp->data[tmp->index].name = strdup(caller->name);
+     tmp->data[tmp->index].s = caller;
+   }
    tmp->sum += tmp->data[tmp->index].val;
    tmp->index++;
 }
@@ -338,11 +389,18 @@ void _symb_print_callchain(struct symb *top_symbol, GHashTable* children, int ma
             printf("|-- %5.1f%% --", percent);
          else
             printf("|-- %5.2f%% --", percent);
-         int *samples = g_hash_table_lookup(chtmp.data[j].s->called_symbols, top_symbol);
-         if(samples)
-            printf(" %s [%d samples / %d]\n", chtmp.data[j].name, (int)chtmp.data[j].val, samples[options.base_event]);
-         else
-            printf(" %s [%d samples]\n", chtmp.data[j].name, (int)chtmp.data[j].val);
+
+         if(chtmp.data[j].s!=NULL){
+           int *samples = g_hash_table_lookup(chtmp.data[j].s->called_symbols, top_symbol);
+           if(samples)
+             printf(" %s [%d samples / %d]\n", chtmp.data[j].name, (int)chtmp.data[j].val, samples[options.base_event]);
+           else
+             printf(" %s [%d samples]\n", chtmp.data[j].name, (int)chtmp.data[j].val);
+         } else {
+           //fprintf(stderr, "#Null pointer in <%s>: %s:%i\n", __FILE__, __FUNCTION__, __LINE__);
+           printf(" %s [%d samples]\n", chtmp.data[j].name, (int)chtmp.data[j].val);
+         }
+
          struct symb_callg_container *val = g_hash_table_lookup(children, chtmp.data[j].s);
          _symb_print_callchain(top_symbol, val->children, max_depth, depth-1);
       }
@@ -408,6 +466,7 @@ void symb_print_top_func(struct symb *sym, int num) {
 }
 
 void symb_print_top() {
+   printf("#User: %d Kernel: %d (%.2f%%)\n", _user, _kernel, 100.*((float)_kernel)/((float)_user+_kernel));
    symb_sort(symb_sort_by_base_event, &all_syms);
    int i;
    for(i = 0; i < 100; i++) {
@@ -426,8 +485,8 @@ void symb_print_top() {
          symb_print_top_func(sym,50);
 
       /* Callchain computation */
-      if(sym->direct_callers)
-	      symb_print_callchain(sym, 500);
+      if(1 && sym->direct_callers)
+	      symb_print_callchain(sym, 50);
    }
    struct process *p = symb_new_process();
    g_hash_table_foreach(processes_hash, top_process, &p);

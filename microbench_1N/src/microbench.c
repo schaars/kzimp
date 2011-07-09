@@ -95,10 +95,10 @@ double do_producer(void)
   throughput = ((double) total_payload / 1000000.0)
       / ((double) thr_elapsed_time / 1000000.0);
 
-#ifdef DEBUG
+//#ifdef DEBUG
   printf(
       "[producer] Throughput = %f MB/s\n", throughput);
-#endif
+//#endif
 
   cycle_start_xp = thr_start_time;
 
