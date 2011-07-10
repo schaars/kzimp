@@ -11,6 +11,7 @@
 
 
 CONFIG_FILE=config
+PROFDIR=../profiler
 
 
 if [ $# -eq 6 ]; then
@@ -66,7 +67,7 @@ make barrelfish_mp_paxosInside
 #####################################
 ############# Profiler  #############
 if [ ! -z $PROFILER ]; then
-cd profiler
+cd $PROFDIR
 make
 cd ..
 fi
@@ -81,7 +82,7 @@ fi
 ############# Profiler  #############
 if [ ! -z $PROFILER ]; then
 sleep 5
-sudo ./profiler/profiler-sampling &
+sudo $PROFDIR/profiler-sampling &
 fi
 #####################################
 
@@ -112,7 +113,7 @@ OUTPUT_DIR=barrelfish_profiling_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_$
 mkdir $OUTPUT_DIR
 
 for e in 0 1 2; do
-   ./profiler/parser-sampling /tmp/perf.data.* --c 0 --c 1 --c 2 --c 3 --c 4 --c 5 --c 6 --base-event ${e} --app barrelfish_mp_p > $OUTPUT_DIR/perf_everyone_event_${e}.log
+   $PROFDIR/parser-sampling /tmp/perf.data.* --c 0 --c 1 --c 2 --c 3 --c 4 --c 5 --c 6 --base-event ${e} --app barrelfish_mp_p > $OUTPUT_DIR/perf_everyone_event_${e}.log
 done
 
 #rm /tmp/perf.data.* -f
