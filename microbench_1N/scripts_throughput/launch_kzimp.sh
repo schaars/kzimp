@@ -7,8 +7,9 @@
 #  $4: max nb of messages in the circular buffer
 
 
-KZIMP_DIR="/home/bft/zimp_module"
-#KZIMP_DIR="/home/bft/zimp_module/kzimp_smallBuffer4smallMessages"
+KZIMP_DIR="../kzimp/kzimp"
+#KZIMP_DIR="../kzimp/kzimp_smallbuff"
+
 
 # get arguments
 if [ $# -eq 4 ]; then

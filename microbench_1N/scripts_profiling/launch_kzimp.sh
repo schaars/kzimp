@@ -9,8 +9,8 @@
 
 #MEMORY_DIR="memory_conso"
 PROFDIR=../profiler
-KZIMP_DIR="/home/bft/zimp_module"
-#KZIMP_DIR="/home/bft/zimp_module/kzimp_smallBuffer4smallMessages"
+KZIMP_DIR="../kzimp/kzimp"
+#KZIMP_DIR="../kzimp/kzimp_smallbuff"
 
 
 # get arguments
