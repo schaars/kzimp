@@ -8,7 +8,7 @@
 
 
 #MEMORY_DIR="memory_conso"
-NB_THREADS_PER_CORE=2
+PROFDIR=../profiler
 
 
 # get arguments
@@ -52,7 +52,7 @@ make ul_lm_0copy_microbench
 
 sleep 5
 
-sudo ./profiler/profiler-sampling &
+sudo $PROFDIR/profiler-sampling &
 
 sleep $DURATION_XP
 sudo pkill profiler
@@ -74,7 +74,7 @@ mv statistics*.log $OUTPUT_DIR/
 sudo chown bft:bft /tmp/perf.data.*
 
 for e in 0 1 2 3; do
-   ./profiler/parser-sampling /tmp/perf.data.* --base-event ${e} > $OUTPUT_DIR/perf_everyone_event_${e}.log
+   $PROFDIR/parser-sampling /tmp/perf.data.* --base-event ${e} > $OUTPUT_DIR/perf_everyone_event_${e}.log
 done
 
 rm /tmp/perf.data.* -f
