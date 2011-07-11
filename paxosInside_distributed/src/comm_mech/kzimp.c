@@ -12,6 +12,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#ifdef ONE_CHANNEL_PER_LEARNER
+#include <time.h>
+#endif
+
 #include "ipc_interface.h"
 
 // debug macro
@@ -38,7 +42,11 @@ static int total_nb_nodes;
 int client_to_leader; // client 1 -> leader
 int leader_to_acceptor; // leader -> acceptor
 int acceptor_multicast; // acceptor -> learners
+#ifdef ONE_CHANNEL_PER_LEARNER
+int *learneri_to_client; // learner i -> client 0
+#else
 int learners_to_client; // learners -> client 0
+#endif
 
 // Initialize resources for both the node and the clients
 // First initialization function called
@@ -66,7 +74,7 @@ static void init_node(int _node_id)
 
     if (client_to_leader < 0 || leader_to_acceptor < 0)
     {
-      printf(">>> Error while opening channels for node %i\n", node_id);
+      perror(">>> Error while opening channels\n");
     }
   }
   else if (node_id == 1)
@@ -79,29 +87,47 @@ static void init_node(int _node_id)
 
     if (leader_to_acceptor < 0 || acceptor_multicast < 0)
     {
-      printf(">>> Error while opening channels for node %i\n", node_id);
+      perror(">>> Error while opening channels\n");
     }
   }
   else if (node_id == nb_paxos_nodes)
   {
-    // client 0
+#ifdef ONE_CHANNEL_PER_LEARNER
+    learneri_to_client = (int*) malloc(sizeof(int) * nb_learners);
+    if (!learneri_to_client)
+    {
+      perror("Allocation failed: ");
+      exit(-1);
+    }
+
+    int i;
+    for (i = 0; i < nb_learners; i++)
+    {
+      learneri_to_client[i] = open(chaname, O_WRONLY);
+
+      if (learneri_to_client[i] < 0)
+      {
+        perror(">>> Error while opening channels\n");
+      }
+    }
+#else
     snprintf(chaname, 256, "/dev/kzimp%i", 3);
     learners_to_client = open(chaname, O_RDONLY);
 
     if (learners_to_client < 0)
     {
-      printf(">>> Error while opening channels for node %i\n", node_id);
+      perror(">>> Error while opening channels\n");
     }
+#endif
   }
   else if (node_id > nb_paxos_nodes)
   {
-    // client 1
     snprintf(chaname, 256, "/dev/kzimp%i", 0);
     client_to_leader = open(chaname, O_WRONLY);
 
     if (client_to_leader < 0)
     {
-      printf(">>> Error while opening channels for node %i\n", node_id);
+      perror(">>> Error while opening channels\n");
     }
   }
   else
@@ -109,13 +135,35 @@ static void init_node(int _node_id)
     snprintf(chaname, 256, "/dev/kzimp%i", 2);
     acceptor_multicast = open(chaname, O_RDONLY);
 
+    if (acceptor_multicast < 0)
+    {
+      perror(">>> Error while opening channels\n");
+    }
+
     snprintf(chaname, 256, "/dev/kzimp%i", 3);
+
+#ifdef ONE_CHANNEL_PER_LEARNER
+    learneri_to_client = (int*) malloc(sizeof(int));
+    if (!learneri_to_client)
+    {
+      perror("Allocation failed: ");
+      exit(-1);
+    }
+
+    *learneri_to_client = open(chaname, O_WRONLY);
+
+    if (*learneri_to_client < 0)
+    {
+      perror(">>> Error while opening channels\n");
+    }
+#else
     learners_to_client = open(chaname, O_WRONLY);
 
-    if (acceptor_multicast < 0 || learners_to_client < 0)
+    if (learners_to_client < 0)
     {
-      printf(">>> Error while opening channels for node %i\n", node_id);
+      perror(">>> Error while opening channels\n");
     }
+#endif
   }
 }
 
@@ -151,7 +199,16 @@ static void clean_node(void)
   }
   else if (node_id == nb_paxos_nodes)
   {
+#ifdef ONE_CHANNEL_PER_LEARNER
+    int i;
+    for (i = 0; i < nb_learners; i++)
+    {
+      close(learneri_to_client[i]);
+    }
+    free(learneri_to_client);
+#else
     close(learners_to_client);
+#endif
   }
   else if (node_id > nb_paxos_nodes)
   {
@@ -160,7 +217,12 @@ static void clean_node(void)
   else
   {
     close(acceptor_multicast);
+#ifdef ONE_CHANNEL_PER_LEARNER
+    close(*learneri_to_client);
+    free(learneri_to_client);
+#else
     close(learners_to_client);
+#endif
   }
 }
 
@@ -200,7 +262,11 @@ void IPC_send_client_to_node(void *msg, size_t length)
 // called by the learners
 void IPC_send_node_to_client(void *msg, size_t length, int cid)
 {
+#ifdef ONE_CHANNEL_PER_LEARNER
+  write(*learneri_to_client, msg, length);
+#else
   write(learners_to_client, msg, length);
+#endif
 }
 
 // receive a message and place it in msg (which is a buffer of size length).
@@ -217,7 +283,42 @@ size_t IPC_receive(void *msg, size_t length)
   }
   else if (node_id == nb_paxos_nodes)
   {
+#ifdef ONE_CHANNEL_PER_LEARNER
+    while (1)
+    {
+      int i, ret;
+      fd_set set_read;
+      struct timeval tv;
+
+      FD_ZERO(&set_read);
+
+      tv.tv_sec = 1; // timeout in seconds
+      tv.tv_usec = 0;
+
+      int max = 0;
+      for (i = 0; i < nb_learners; i++)
+      {
+        FD_SET(learneri_to_client[i], &set_read);
+        max = ((learneri_to_client[i] > max) ? learneri_to_client[i] : max);
+      }
+
+      ret = select(max + 1, &set_read, NULL, NULL, &tv);
+      if (ret)
+      {
+        for (i = 0; i < nb_learners; i++)
+        {
+          if (FD_ISSET(learneri_to_client[i], &set_read))
+          {
+            return read(learneri_to_client[i], msg, length);
+          }
+        }
+      }
+    }
+
+    return 0;
+#else
     return read(learners_to_client, msg, length);
+#endif
   }
   else
   {
