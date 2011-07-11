@@ -30,6 +30,7 @@
 
 #define KZIMP_CHAR_DEV_FILE "/dev/kzimp"
 
+
 /********** All the variables needed by ULM **********/
 
 static int node_id;
@@ -39,13 +40,13 @@ static int nb_clients;
 static int total_nb_nodes;
 
 // channels file descriptors
-int client_to_leader; // client 1 -> leader
-int leader_to_acceptor; // leader -> acceptor
-int acceptor_multicast; // acceptor -> learners
+static int client_to_leader; // client 1 -> leader
+static int leader_to_acceptor; // leader -> acceptor
+static int acceptor_multicast; // acceptor -> learners
 #ifdef ONE_CHANNEL_PER_LEARNER
-int *learneri_to_client; // learner i -> client 0
+static int *learneri_to_client; // learner i -> client 0
 #else
-int learners_to_client; // learners -> client 0
+static int learners_to_client; // learners -> client 0
 #endif
 
 // Initialize resources for both the node and the clients
