@@ -10,6 +10,7 @@ for msg_size in ${MSG_SIZE_ARRAY[@]}; do
     
   ./launch_ulm.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 50
   ./launch_barrelfish_mp.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 1000
+  ./launch_kzimp.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 10000
   
 done
 done
