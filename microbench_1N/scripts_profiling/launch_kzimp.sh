@@ -12,6 +12,12 @@ PROFDIR=../profiler
 KZIMP_DIR="../kzimp/kzimp"
 #KZIMP_DIR="../kzimp/kzimp_smallbuff"
 
+# Do we compute the checksum?
+COMPUTE_CHKSUM=0
+
+# Writer's timeout
+KZIMP_TIMEOUT=60000
+
 
 # get arguments
 if [ $# -eq 4 ]; then
@@ -36,7 +42,10 @@ fi
 ./stop_all.sh
 
 #compile and load module
-cd $KZIMP_DIR; make; ./kzimp.sh load nb_max_communication_channels=1 default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE} default_timeout_in_ms=60000 default_compute_checksum=0; cd -
+cd $KZIMP_DIR
+make
+./kzimp.sh load nb_max_communication_channels=1 default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE} default_timeout_in_ms=${KZIMP_TIMEOUT} default_compute_checksum=${COMPUTE_CHKSUM}
+cd -
 
 # launch XP
 #./get_memory_usage.sh  $MEMORY_DIR &
