@@ -259,7 +259,7 @@ static ssize_t kzimp_read
 
     prepare_to_wait(&chan->rq, &__wait, TASK_INTERRUPTIBLE);
 
-    if (signal_pending(current))
+    if (unlikely(signal_pending(current)))
     {
       printk(KERN_WARNING "kzimp: process %i in read has been interrupted\n", current->pid);
       return -EINTR;
@@ -296,7 +296,7 @@ static ssize_t kzimp_read
   {
 	ret = (m->data ? copy_to_user(buf, m->data, count) : copy_to_user(buf, m->smallbuff, count));
 
-    if (ret)
+    if (unlikely(ret))
     {
       printk(KERN_ERR "kzimp: copy_to_user failed for process %i in read\n", current->pid);
       return -EFAULT;
@@ -394,7 +394,7 @@ static ssize_t kzimp_write
   ctrl = private->ctrl;
 
   // Check the validity of the arguments
-  if (count <= 0 || count > chan->max_msg_size)
+  if (unlikely(count <= 0 || count > chan->max_msg_size))
   {
     printk(KERN_ERR "kzimp: count is not valid: %lu (process %i in write on channel %i)\n", (unsigned long)count, current->pid, chan->chan_id);
     return 0;
@@ -404,14 +404,14 @@ static ssize_t kzimp_write
   {
     // allocate kernel-space buffer and memcpy
     kb = my_kmalloc(count, GFP_KERNEL);
-    if (!kb)
+    if (unlikely(!kb))
     {
       printk(KERN_ERR "kzimp: allocation failed for process %i in write\n", current->pid);
       return -ENOMEM;
     }
 
     // copy_from_user returns the number of bytes left to copy
-    if (copy_from_user(kb, buf, count))
+    if (unlikely(copy_from_user(kb, buf, count)))
     {
       printk(KERN_ERR "kzimp: copy_from_user failed for process %i in write\n", current->pid);
       my_kfree(kb);
@@ -457,7 +457,7 @@ static ssize_t kzimp_write
 
     prepare_to_wait(&chan->wq, &__wait, TASK_INTERRUPTIBLE);
 
-    if (signal_pending(current))
+    if (unlikely(signal_pending(current)))
     {
       spin_unlock(&chan->bcl);
       if (count > SMALL_BUFFER_SIZE)
@@ -472,7 +472,7 @@ static ssize_t kzimp_write
   }
   finish_wait(&chan->wq, &__wait);
 
-  if (!to_expired)
+  if (unlikely(!to_expired))
   {
     printk(KERN_DEBUG "kzimp: timer has expired for process %i in write\n", current->pid);
     handle_timeout(chan, m);
@@ -491,7 +491,7 @@ static ssize_t kzimp_write
   {
     //printk(KERN_DEBUG "kzimp: process %i in write. Using smallbuff for a message of %lu\n", current->pid, count);
 
-    if (copy_from_user(m->smallbuff, buf, count))
+    if (unlikely(copy_from_user(m->smallbuff, buf, count)))
     {
       printk(KERN_ERR "kzimp: copy_from_user failed for process %i in write\n", current->pid);
       spin_unlock(&chan->bcl);
