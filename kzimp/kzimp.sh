@@ -62,7 +62,9 @@ $SUDO rm -f /dev/${DEVICE}*
 
 # Load and create files
 function load_device () {
-$SUDO insmod ./${DEVICE}.ko $OPTIONS
+# Because of Linux first-touch policy, the taskset ensures
+# that the memory will be allocated on the node of core 0.
+taskset -c 0 $SUDO insmod ./${DEVICE}.ko $OPTIONS
 if [ $? -eq 0 ]; then
    MAJOR=`awk "\\$2==\"$DEVICE\" {print \\$1}" /proc/devices`
 
