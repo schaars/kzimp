@@ -2,7 +2,7 @@ toplevel:
 	-mkdir -p bin
 	-$(MAKE) $(MLAGS) all
 
-all: barrelfish_mp_checkpointing ulm_checkpointing
+all: barrelfish_mp_checkpointing ulm_checkpointing kzimp_checkpointing
 
 C:=g++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
@@ -20,14 +20,20 @@ ulm_checkpointing: $(DEPS) src/comm_mech/mpsoc.c src/comm_mech/ulm.c
 	$(shell if [ ! -e ULM_PROPERTIES ]; then echo "-DULM -DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64 -DNB_MESSAGES=10" > ULM_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat ULM_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	
+kzimp_checkpointing: $(DEPS) src/comm_mech/kzimp.c
+	$(shell if [ ! -e KZIMP_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64" > KZIMP_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell cat KZIMP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
+	
 clean:
 	-rm *.o
 	-rm *~
 	-rm BARRELFISH_MP_PROPERTIES
 	-rm ULM_PROPERTIES
+	-rm KZIMP_PROPERTIES
 
 clobber:
 	-rm *.o
 	-rm *~
 	-rm bin/barrelfish_mp_checkpointing
 	-rm bin/ulm_checkpointing
+	-rm bimnkzimp_checkpointing
