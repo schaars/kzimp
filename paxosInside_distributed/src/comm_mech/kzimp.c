@@ -19,6 +19,7 @@
 #undef DEBUG
 
 // Define MESSAGE_MAX_SIZE as the max size of a message in the channel
+// Define ONE_CHANNEL_PER_LEARNER if you want to run the version with 1 channel per learner i -> client 0
 
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #define MIN(a, b) (((a)<(b))?(a):(b))

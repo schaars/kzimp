@@ -16,6 +16,15 @@ PROFDIR=../profiler
 KZIMP_DIR="../kzimp/kzimp"
 #KZIMP_DIR="../kzimp/kzimp_smallbuff"
 
+# Do we compute the checksum?
+COMPUTE_CHKSUM=0
+
+# Writer's timeout
+KZIMP_TIMEOUT=60000
+
+# macro for the version with 1 channel per learner i -> client 0
+ONE_CHANNEL_PER_LEARNER=
+
 
 if [ $# -eq 6 ]; then
    NB_PAXOS_NODES=$1
@@ -45,10 +54,21 @@ rm -f /tmp/paxosInside_client_*_finished
 ./create_config.sh $NB_PAXOS_NODES 2 $NB_ITER $LEADER_ACCEPTOR > $CONFIG_FILE
 
 # compile and load module
-cd $KZIMP_DIR; make; ./kzimp.sh load nb_max_communication_channels=4 default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE} default_timeout_in_ms=60000 default_compute_checksum=0; cd -
+if [ -e $ONE_CHANNEL_PER_LEARNER ]; then
+   NB_MAX_CHANNELS=6
+else
+   NB_MAX_CHANNELS=4
+fi
+cd $KZIMP_DIR
+make
+./kzimp.sh load nb_max_communication_channels=${NB_MAX_CHANNELS} default_channel_size=${MSG_CHANNEL} default_max_msg_size=${MESSAGE_MAX_SIZE} default_timeout_in_ms=${KZIMP_TIMEOUT} default_compute_checksum=${COMPUTE_CHKSUM}
+cd -
 
 # compile
 echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > ULM_PROPERTIES
+if [ -e $ONE_CHANNEL_PER_LEARNER ]; then
+   echo "-DONE_CHANNEL_PER_LEARNER" >> ULM_PROPERTIES
+fi
 make kzimp_paxosInside
 
 
