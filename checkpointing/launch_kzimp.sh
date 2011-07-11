@@ -13,6 +13,7 @@ CONFIG_FILE=config
 
 KZIMP_DIR="../kzimp/kzimp"
 #KZIMP_DIR="../kzimp/kzimp_smallbuff"
+#KZIMP_DIR="../kzimp/kzimp_allMessagesArea"
 
 # Do we compute the checksum?
 COMPUTE_CHKSUM=0
