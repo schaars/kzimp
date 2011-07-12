@@ -22,7 +22,8 @@ COMPUTE_CHKSUM=0
 KZIMP_TIMEOUT=60000
 
 # macro for the version with 1 channel per learner i -> client 0
-ONE_CHANNEL_PER_NODE=
+# set it to 1 if you want 1 channel per learner, 0 otherwise.
+ONE_CHANNEL_PER_LEARNER=0
 
 
 if [ $# -eq 5 ]; then
@@ -44,8 +45,8 @@ rm -f /tmp/checkpointing_node_0_finished
 ./create_config.sh $NB_NODES $NB_ITER > $CONFIG_FILE
 
 # compile and load module
-if [ -e $ONE_CHANNEL_PER_NODE ]; then
-   NB_MAX_CHANNELS=$(($NB_NODES + 1))
+if [ $ONE_CHANNEL_PER_LEARNER -eq 1 ]; then
+   NB_MAX_CHANNELS=6
 else
    NB_MAX_CHANNELS=2
 fi
@@ -57,7 +58,7 @@ cd -
 # compile
 echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE}" > KZIMP_PROPERTIES
 
-if [ -e $ONE_CHANNEL_PER_NODE ]; then
+if [ $ONE_CHANNEL_PER_LEARNER -eq 1 ]; then
    echo "-DONE_CHANNEL_PER_NODE" >> KZIMP_PROPERTIES
 fi
 make kzimp_checkpointing
