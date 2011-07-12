@@ -179,7 +179,7 @@ static int kzimp_open(struct inode *inode, struct file *filp)
 }
 
 /*
- * kzimp open operation.
+ * kzimp release operation.
  * Returns:
  *  . 0: it always succeeds
  */
