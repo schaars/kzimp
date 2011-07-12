@@ -64,16 +64,13 @@ static struct file_operations kbfish_fops =
    
 
 // VMA OPERATIONS
-static void kbfish_vma_open(struct vm_area_struct *);
-static void kbfish_vma_close(struct vm_area_struct *);
 static int kbfish_vma_fault(struct vm_area_struct *, struct vm_fault *);
 
 // operations for mmap on the vmas
 static struct vm_operations_struct kbfish_vm_ops = {
-	.open = kbfish_vma_open,
-	.close = kbfish_vma_close,
 	.fault = kbfish_vma_fault,
 };
+
 
 // what is a channel (for this module)
 struct kbfish_channel {
@@ -88,6 +85,13 @@ struct kbfish_channel {
    char* receiver_to_sender;    /* shared area used by the receiver to send messages */
    
    struct cdev cdev;            /* char device structure */
+};
+
+// Each process has a control structure.
+struct kbfish_ctrl {
+   pid_t pid;                   /* pid of this structure's owner */
+   struct kbfish_channel *chan; /* pointer to the channel */
+   int is_sender;               /* is this process a sender? */
 };
 
 
