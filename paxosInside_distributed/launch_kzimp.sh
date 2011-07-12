@@ -24,7 +24,8 @@ COMPUTE_CHKSUM=0
 KZIMP_TIMEOUT=60000
 
 # macro for the version with 1 channel per learner i -> client 0
-ONE_CHANNEL_PER_LEARNER=
+# set it to 1 if you want 1 channel per learner, 0 otherwise.
+ONE_CHANNEL_PER_LEARNER=1
 
 
 if [ $# -eq 6 ]; then
@@ -55,7 +56,7 @@ rm -f /tmp/paxosInside_client_*_finished
 ./create_config.sh $NB_PAXOS_NODES 2 $NB_ITER $LEADER_ACCEPTOR > $CONFIG_FILE
 
 # compile and load module
-if [ -e $ONE_CHANNEL_PER_LEARNER ]; then
+if [ $ONE_CHANNEL_PER_LEARNER -eq 1 ]; then
    NB_MAX_CHANNELS=6
 else
    NB_MAX_CHANNELS=4
@@ -67,7 +68,7 @@ cd -
 
 # compile
 echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > KZIMP_PROPERTIES
-if [ -e $ONE_CHANNEL_PER_LEARNER ]; then
+if [ $ONE_CHANNEL_PER_LEARNER -eq 1 ]; then
    echo "-DONE_CHANNEL_PER_LEARNER" >> KZIMP_PROPERTIES
 fi
 make kzimp_paxosInside

@@ -30,7 +30,6 @@
 
 #define KZIMP_CHAR_DEV_FILE "/dev/kzimp"
 
-
 /********** All the variables needed by ULM **********/
 
 static int node_id;
@@ -75,6 +74,7 @@ static void init_node(int _node_id)
 
     if (client_to_leader < 0 || leader_to_acceptor < 0)
     {
+      printf("Node %i experiences an error at %i\n", node_id, __LINE__);
       perror(">>> Error while opening channels\n");
     }
   }
@@ -88,6 +88,7 @@ static void init_node(int _node_id)
 
     if (leader_to_acceptor < 0 || acceptor_multicast < 0)
     {
+      printf("Node %i experiences an error at %i\n", node_id, __LINE__);
       perror(">>> Error while opening channels\n");
     }
   }
@@ -104,10 +105,12 @@ static void init_node(int _node_id)
     int i;
     for (i = 0; i < nb_learners; i++)
     {
-      learneri_to_client[i] = open(chaname, O_WRONLY);
+      snprintf(chaname, 256, "/dev/kzimp%i", i+3);
+      learneri_to_client[i] = open(chaname, O_RDONLY);
 
       if (learneri_to_client[i] < 0)
       {
+        printf("Node %i experiences an error at %i\n", node_id, __LINE__);
         perror(">>> Error while opening channels\n");
       }
     }
@@ -117,6 +120,7 @@ static void init_node(int _node_id)
 
     if (learners_to_client < 0)
     {
+      printf("Node %i experiences an error at %i\n", node_id, __LINE__);
       perror(">>> Error while opening channels\n");
     }
 #endif
@@ -128,6 +132,7 @@ static void init_node(int _node_id)
 
     if (client_to_leader < 0)
     {
+      printf("Node %i experiences an error at %i\n", node_id, __LINE__);
       perror(">>> Error while opening channels\n");
     }
   }
@@ -138,10 +143,9 @@ static void init_node(int _node_id)
 
     if (acceptor_multicast < 0)
     {
+      printf("Node %i experiences an error at %i\n", node_id, __LINE__);
       perror(">>> Error while opening channels\n");
     }
-
-    snprintf(chaname, 256, "/dev/kzimp%i", 3);
 
 #ifdef ONE_CHANNEL_PER_LEARNER
     learneri_to_client = (int*) malloc(sizeof(int));
@@ -151,17 +155,22 @@ static void init_node(int _node_id)
       exit(-1);
     }
 
+    snprintf(chaname, 256, "/dev/kzimp%i", node_id - 2 + 3);
     *learneri_to_client = open(chaname, O_WRONLY);
 
     if (*learneri_to_client < 0)
     {
+      printf("Node %i experiences an error at %i\n", node_id, __LINE__);
       perror(">>> Error while opening channels\n");
     }
+
 #else
+    snprintf(chaname, 256, "/dev/kzimp%i", 3);
     learners_to_client = open(chaname, O_WRONLY);
 
     if (learners_to_client < 0)
     {
+      printf("Node %i experiences an error at %i\n", node_id, __LINE__);
       perror(">>> Error while opening channels\n");
     }
 #endif
