@@ -29,20 +29,53 @@ static struct kbfish_channel *channels;
 
 /*
  * kbfish open operation.
+ * The file must be opened in RW mode.
+ * The receiver needs to set the O_CREAT flag,
+ * otherwise it will be considered as a sender.
  * Returns:
- *  . X //TODO
+ *  . -EACCESS if the requested access is not allowed (must be RW)
+ *  . -EEXIST if there is already a registered process
  *  . 0 otherwise
  */
 static int kbfish_open(struct inode *inode, struct file *filp)
 {
-   printk(KERN_DEBUG "kbfish: process %i in open\n", current->pid);
+   struct kbfish_channel *chan; /* channel information */
+   int retval;
 
-   //TODO
-   //LOCK
-   //Modify channel filp->private
-   //UNLOCK
+   // the file must be opened in RW, otherwise we cannot mmap the areas
+   if (!(filp->f_mode & FMODE_READ) && !(filp->f_mode & FMODE_WRITE)) {
+      printk(KERN_ERR "kbfish: process %i in open has not the right credentials\n", current->pid);
+      retval = -EACCES;
+      goto out;
+   }
 
-   return 0;
+   chan = container_of(inode->i_cdev, struct kbfish_channel, cdev);
+
+   spin_lock(&chan->bcl);
+
+   // the receiver needs the O_CREAT flag
+   if (filp->f_flags & O_CREAT) {
+      if (chan->receiver != -1) {
+         printk(KERN_ERR "kbfish: process %i in open but there is already a receiver: %i\n", current->pid, chan->receiver);
+         retval = -EEXIST;
+         goto unlock;
+      }
+      chan->receiver = current->pid;
+   } else {
+      if (chan->sender != -1) {
+         printk(KERN_ERR "kbfish: process %i in open but there is already a sender: %i\n", current->pid, chan->sender);
+         retval = -EEXIST;
+         goto unlock;
+      }
+      chan->sender = current->pid;
+   }
+
+   retval = 0;
+
+unlock:
+   spin_unlock(&chan->bcl);
+out:
+   return retval;
 }
 
 /*
@@ -52,26 +85,42 @@ static int kbfish_open(struct inode *inode, struct file *filp)
  */
 static int kbfish_release(struct inode *inode, struct file *filp)
 {
-   printk(KERN_DEBUG "kbfish: process %i in release\n", current->pid);
+   struct kbfish_channel *chan; /* channel information */
 
-   //TODO
-   //LOCK
-   //Modify channel filp->private
-   //UNLOCK
+   chan = container_of(inode->i_cdev, struct kbfish_channel, cdev);
+
+   spin_lock(&chan->bcl);
+
+   if (chan->receiver == current->pid) {
+      chan->receiver = -1;
+   } else if (chan->sender == current->pid) {
+      chan->sender = -1;
+   } else {
+      printk(KERN_ERR "kbfish: process %i in release is neither a receiver (%i) nor a sender (%i)\n", current->pid, chan->receiver, chan->sender);
+   }
+
+   spin_unlock(&chan->bcl);
 
    return 0;
 }
 
 static int kbfish_init_channel(struct kbfish_channel *channel, int chan_id,
-    int max_msg_size, int channel_size)
+      int max_msg_size, int channel_size, int init_lock)
 {
-  channel->chan_id = chan_id;
-  channel->sender = -1;
-  channel->receiver = -1;
-  channel->channel_size = channel_size;
-  channel->max_msg_size = max_msg_size;
+   channel->chan_id = chan_id;
+   channel->sender = -1;
+   channel->receiver = -1;
+   channel->channel_size = channel_size;
+   channel->max_msg_size = max_msg_size;
 
-  return 0;
+   //TODO: create the memory areas
+
+   if (init_lock)
+   {
+      channel->bcl = SPIN_LOCK_UNLOCKED;
+   }
+
+   return 0;
 }
 
 // called when reading file /proc/<procfs_name>
@@ -92,12 +141,12 @@ static int kbfish_read_proc_file(char *page, char **start, off_t off, int count,
    for (i = 0; i < nb_max_communication_channels; i++)
    {
       len += sprintf(page + len, "%i\t%i\t%i\t%i\t%i\n",
-           channels[i].chan_id, channels[i].channel_size,
-           channels[i].max_msg_size, channels[i].sender,
-           channels[i].receiver);
-  }
+            channels[i].chan_id, channels[i].channel_size,
+            channels[i].max_msg_size, channels[i].sender,
+            channels[i].receiver);
+   }
 
-  return len;
+   return len;
 }
 
 // called when writing to file /proc/<procfs_name>
@@ -131,7 +180,7 @@ static int kbfish_init_cdev(struct kbfish_channel *channel, int i)
 {
    int err, devno;
 
-   err = kbfish_init_channel(channel, i, default_max_msg_size, default_channel_size);
+   err = kbfish_init_channel(channel, i, default_max_msg_size, default_channel_size, 1);
    if (unlikely(err))
    {
       printk(KERN_ERR "kbfish: Error %i at initialization of channel %i", err, i);
@@ -156,6 +205,8 @@ static int kbfish_init_cdev(struct kbfish_channel *channel, int i)
 
 static void kbfish_del_cdev(struct kbfish_channel *channel)
 {
+   //TODO: free the memory areas
+
    cdev_del(&channel->cdev);
 }
 

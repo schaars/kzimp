@@ -64,7 +64,9 @@ struct kbfish_channel {
    pid_t sender;     /* pid of the sender */
    pid_t receiver;   /* pid of the receiver */
    int channel_size; /* max number of messages */
-   int max_msg_size; /* max message size */
+   int max_msg_size; /* max message size */;
+   spinlock_t bcl;   /* the Big Channel Lock :) */
+
    //TODO: shared areas addresses
    
    struct cdev cdev; /* char device structure */
