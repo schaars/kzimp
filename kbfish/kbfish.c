@@ -26,7 +26,6 @@ static struct proc_dir_entry *proc_file;
 // array of the kbfish_dev
 static struct kbfish_channel *channels;
 
-
 /*
  * kbfish open operation.
  * The file must be opened in RW mode.
@@ -45,7 +44,8 @@ static int kbfish_open(struct inode *inode, struct file *filp)
   int retval;
 
   // the file must be opened in RW, otherwise we cannot mmap the areas
-  if (!(filp->f_mode & FMODE_READ) && !(filp->f_mode & FMODE_WRITE)) {
+  if (!(filp->f_mode & FMODE_READ) && !(filp->f_mode & FMODE_WRITE))
+  {
     printk(KERN_ERR "kbfish: process %i in open has not the right credentials\n", current->pid);
     retval = -EACCES;
     goto out;
@@ -63,16 +63,21 @@ static int kbfish_open(struct inode *inode, struct file *filp)
   spin_lock(&chan->bcl);
 
   // the receiver needs the O_CREAT flag
-  if (filp->f_flags & O_CREAT) {
-    if (chan->receiver != -1) {
+  if (filp->f_flags & O_CREAT)
+  {
+    if (chan->receiver != -1)
+    {
       printk(KERN_ERR "kbfish: process %i in open but there is already a receiver: %i\n", current->pid, chan->receiver);
       retval = -EEXIST;
       goto unlock;
     }
     chan->receiver = current->pid;
     ctrl->is_sender = 0;
-  } else {
-    if (chan->sender != -1) {
+  }
+  else
+  {
+    if (chan->sender != -1)
+    {
       printk(KERN_ERR "kbfish: process %i in open but there is already a sender: %i\n", current->pid, chan->sender);
       retval = -EEXIST;
       goto unlock;
@@ -86,10 +91,8 @@ static int kbfish_open(struct inode *inode, struct file *filp)
   filp->private_data = ctrl;
   retval = 0;
 
-  unlock:
-  spin_unlock(&chan->bcl);
-  out:
-  return retval;
+  unlock: spin_unlock(&chan->bcl);
+  out: return retval;
 }
 
 /*
@@ -107,9 +110,12 @@ static int kbfish_release(struct inode *inode, struct file *filp)
 
   spin_lock(&chan->bcl);
 
-  if (ctrl->is_sender) {
+  if (ctrl->is_sender)
+  {
     chan->sender = -1;
-  } else {
+  }
+  else
+  {
     chan->receiver = -1;
   }
 
@@ -120,9 +126,11 @@ static int kbfish_release(struct inode *inode, struct file *filp)
   return 0;
 }
 
-static int kbfish_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf) {
+static int kbfish_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+{
   struct kbfish_ctrl *ctrl;
   struct page *peyj;
+  unsigned long offset;
   int retval;
 
   printk(KERN_DEBUG "kbfish: process %i in kbfish_vma_fault\n", current->pid);
@@ -130,6 +138,7 @@ static int kbfish_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf) {
   printk(KERN_DEBUG "kbfish: flags=%u, pgoff=%lu, virtual_addr=%p, page=%p\n", vmf->flags, vmf->pgoff, vmf->virtual_address, vmf->page);
 
   ctrl = vma->vm_private_data;
+  offset = (vmf->pgoff-vma->vm_pgoff) * PAGE_SIZE;
 
   // vma->vm_pgoff is the same offset as used by verify_credentials.
   // vmf->pgoff is the offset of the page that we need to get.
@@ -138,7 +147,7 @@ static int kbfish_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf) {
   case 1:
     // access sender->receiver
     printk(KERN_DEBUG "kbfish: process %i: getting a page for the sender->receiver area\n", current->pid);
-    peyj = vmalloc_to_page((const void*) &(ctrl->chan->sender_to_receiver[vmf->pgoff * PAGE_SIZE]));
+    peyj = vmalloc_to_page((const void*) &(ctrl->chan->sender_to_receiver[offset]));
     get_page(peyj);
     retval = VM_FAULT_MINOR;
     break;
@@ -146,7 +155,7 @@ static int kbfish_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf) {
   case 2:
     // access receiver->sender
     printk(KERN_DEBUG "kbfish: process %i: getting a page for the receiver->sender area\n", current->pid);
-    peyj = vmalloc_to_page((const void*) &(ctrl->chan->receiver_to_sender[vmf->pgoff * PAGE_SIZE]));
+    peyj = vmalloc_to_page((const void*) &(ctrl->chan->receiver_to_sender[offset]));
     get_page(peyj);
     retval = VM_FAULT_MINOR;
     break;
@@ -163,7 +172,6 @@ static int kbfish_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf) {
   return retval;
 }
 
-
 /*
  * Verify credentials for the sender, when it calls mmap
  * Returns:
@@ -171,22 +179,31 @@ static int kbfish_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf) {
  *  . -EINVAL if offset is not valid
  *  . 0 otherwise.
  */
-static int verify_credentials_for_sender(struct vm_area_struct *vma, struct kbfish_ctrl *ctrl) {
+static int verify_credentials_for_sender(struct vm_area_struct *vma,
+    struct kbfish_ctrl *ctrl)
+{
   int retval = 0;
 
-  switch(vma->vm_pgoff) {
+  switch (vma->vm_pgoff)
+  {
   case 1:
-    if ((vma->vm_flags & VM_WRITE) && !(vma->vm_flags & VM_READ)) {
-      printk(KERN_DEBUG "kbfish: process %i in kbfish_mmap is a sender and has access to the send area in WO\n", current->pid);
-    } else {
+    if ((vma->vm_flags & VM_WRITE) && !(vma->vm_flags & VM_READ))
+    {
+      printk    (KERN_DEBUG "kbfish: process %i in kbfish_mmap is a sender and has access to the send area in WO\n", current->pid);
+    }
+    else
+    {
       retval = -EACCES;
     }
     break;
 
   case 2:
-    if ((vma->vm_flags & VM_READ) && !(vma->vm_flags & VM_WRITE)) {
+    if ((vma->vm_flags & VM_READ) && !(vma->vm_flags & VM_WRITE))
+    {
       printk(KERN_DEBUG "kbfish: process %i in kbfish_mmap is a sender and has access to the read area in RO\n", current->pid);
-    } else {
+    }
+    else
+    {
       retval = -EACCES;
     }
     break;
@@ -206,22 +223,31 @@ static int verify_credentials_for_sender(struct vm_area_struct *vma, struct kbfi
  *  . -EINVAL if offset is not valid
  *  . 0 otherwise.
  */
-static int verify_credentials_for_receiver(struct vm_area_struct *vma, struct kbfish_ctrl *ctrl) {
+static int verify_credentials_for_receiver(struct vm_area_struct *vma,
+    struct kbfish_ctrl *ctrl)
+{
   int retval = 0;
 
-  switch(vma->vm_pgoff) {
+  switch (vma->vm_pgoff)
+  {
   case 1:
-    if ((vma->vm_flags & VM_READ) && !(vma->vm_flags & VM_WRITE)) {
-      printk(KERN_DEBUG "kbfish: process %i in kbfish_mmap is a receiver and has access to the send area in RO\n", current->pid);
-    } else {
+    if ((vma->vm_flags & VM_READ) && !(vma->vm_flags & VM_WRITE))
+    {
+      printk    (KERN_DEBUG "kbfish: process %i in kbfish_mmap is a receiver and has access to the send area in RO\n", current->pid);
+    }
+    else
+    {
       retval = -EACCES;
     }
     break;
 
   case 2:
-    if ((vma->vm_flags & VM_WRITE) && !(vma->vm_flags & VM_READ)) {
+    if ((vma->vm_flags & VM_WRITE) && !(vma->vm_flags & VM_READ))
+    {
       printk(KERN_DEBUG "kbfish: process %i in kbfish_mmap is a receiver and has access to the read area in WO\n", current->pid);
-    } else {
+    }
+    else
+    {
       retval = -EACCES;
     }
     break;
@@ -241,7 +267,8 @@ static int verify_credentials_for_receiver(struct vm_area_struct *vma, struct kb
  *  . -EINVAL if offset is not valid
  *  . 0 otherwise.
  */
-static int kbfish_mmap(struct file *filp, struct vm_area_struct *vma) {
+static int kbfish_mmap(struct file *filp, struct vm_area_struct *vma)
+{
   int r;
   struct kbfish_channel *chan; /* channel information */
   struct kbfish_ctrl *ctrl;
@@ -252,16 +279,23 @@ static int kbfish_mmap(struct file *filp, struct vm_area_struct *vma) {
   printk(KERN_DEBUG "kbfish: process %i in kbfish_mmap\n", current->pid);
   printk(KERN_DEBUG "kbfish: vm_start=%lu, vm_end=%lu, vm_pgoff=%lu, vm_flags=%lu\n", vma->vm_start, vma->vm_end, vma->vm_pgoff, vma->vm_flags);
 
-  if (ctrl->is_sender) {
+  if (ctrl->is_sender)
+  {
     r = verify_credentials_for_sender(vma, ctrl);
-  } else {
+  }
+  else
+  {
     r = verify_credentials_for_receiver(vma, ctrl);
   }
 
-  if (r < 0) {
-    if (r == -EINVAL) {
-      printk(KERN_ERR "kbfish: process %i in mmap does not have a valid offset: %lu\n", current->pid, vma->vm_pgoff);
-    } else if (r == -EACCES) {
+  if (r < 0)
+  {
+    if (r == -EINVAL)
+    {
+      printk    (KERN_ERR "kbfish: process %i in mmap does not have a valid offset: %lu\n", current->pid, vma->vm_pgoff);
+    }
+    else if (r == -EACCES)
+    {
       printk(KERN_ERR "kbfish: process %i in mmap does not have the rights for the requested credwentials\n", current->pid);
     }
 
@@ -280,6 +314,8 @@ static int kbfish_mmap(struct file *filp, struct vm_area_struct *vma) {
 static int kbfish_init_channel(struct kbfish_channel *channel, int chan_id,
     int max_msg_size, int channel_size, int init_lock)
 {
+  int i;
+
   channel->chan_id = chan_id;
   channel->sender = -1;
   channel->receiver = -1;
@@ -288,10 +324,17 @@ static int kbfish_init_channel(struct kbfish_channel *channel, int chan_id,
   channel->size_in_bytes = ROUND_UP_SIZE(channel_size * max_msg_size);
   channel->sender_to_receiver = vmalloc(channel->size_in_bytes);
   channel->receiver_to_sender = vmalloc(channel->size_in_bytes);
-  if (!channel->sender_to_receiver || !channel->receiver_to_sender) {
+  if (!channel->sender_to_receiver || !channel->receiver_to_sender)
+  {
     printk(KERN_ERR "kbfish: vmalloc error of %lu bytes: %p %p\n", channel->size_in_bytes, channel->sender_to_receiver, channel->receiver_to_sender);
     return -1;
   }
+
+  //FIXME: debug only
+  for (i=0; i<channel->size_in_bytes; i++) {
+    channel->sender_to_receiver[i] = channel->receiver_to_sender[i] = i/PAGE_SIZE;
+  }
+
 
   if (init_lock)
   {
@@ -302,8 +345,8 @@ static int kbfish_init_channel(struct kbfish_channel *channel, int chan_id,
 }
 
 // called when reading file /proc/<procfs_name>
-static int kbfish_read_proc_file(char *page, char **start, off_t off, int count,
-    int *eof, void *data)
+static int kbfish_read_proc_file(char *page, char **start, off_t off,
+    int count, int *eof, void *data)
 {
   int len, i;
 
@@ -316,7 +359,9 @@ static int kbfish_read_proc_file(char *page, char **start, off_t off, int count,
   len += sprintf(page + len, "default_max_msg_size = %i\n\n",
       default_max_msg_size);
 
-  len += sprintf(page + len, "chan_id\tchan_size\tmax_msg_size\tsize_in_bytes\tpid_sender\tpid_receiver\n");
+  len
+  += sprintf(page + len,
+      "chan_id\tchan_size\tmax_msg_size\tsize_in_bytes\tpid_sender\tpid_receiver\n");
   for (i = 0; i < nb_max_communication_channels; i++)
   {
     len += sprintf(page + len, "%i\t%i\t%i\t%lu\t%i\t%i\n",
@@ -359,7 +404,8 @@ static int kbfish_init_cdev(struct kbfish_channel *channel, int i)
 {
   int err, devno;
 
-  err = kbfish_init_channel(channel, i, default_max_msg_size, default_channel_size, 1);
+  err = kbfish_init_channel(channel, i, default_max_msg_size,
+      default_channel_size, 1);
   if (unlikely(err))
   {
     printk(KERN_ERR "kbfish: Error %i at initialization of channel %i", err, i);
@@ -389,7 +435,6 @@ static void kbfish_del_cdev(struct kbfish_channel *channel)
 
   cdev_del(&channel->cdev);
 }
-
 
 static int __init kbfish_start(void)
 {
@@ -455,5 +500,5 @@ static void __exit kbfish_end(void)
   unregister_chrdev_region(kbfish_dev_t, nb_max_communication_channels);
 }
 
-module_init(kbfish_start);
-module_exit(kbfish_end);
+module_init( kbfish_start);
+module_exit( kbfish_end);
