@@ -99,7 +99,13 @@ fi
 
 # wait for the end
 nbc=0
+n=0
 while [ $nbc -ne 1 ]; do
+  if [ $n -eq 100 ]; then
+      echo -e "\nkzimp_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize\n\tTAKES TOO MUCH TIME" >> results.txt
+      break
+   fi
+
    echo "Waiting for the end: nbc=$nbc / 1"
    sleep 10
 
@@ -110,6 +116,8 @@ while [ $nbc -ne 1 ]; do
          nbc=$(($nbc+1))
       fi
    done
+
+   n=$(($n+1))
 done
 
 
