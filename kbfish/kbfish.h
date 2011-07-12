@@ -56,42 +56,42 @@ static int kbfish_mmap(struct file *, struct vm_area_struct *);
 // an open file is associated with a set of functions
 static struct file_operations kbfish_fops =
 {
-   .owner = THIS_MODULE,
-   .open = kbfish_open,
-   .release = kbfish_release,
-   .mmap = kbfish_mmap,
+    .owner = THIS_MODULE,
+    .open = kbfish_open,
+    .release = kbfish_release,
+    .mmap = kbfish_mmap,
 };
-   
+
 
 // VMA OPERATIONS
 static int kbfish_vma_fault(struct vm_area_struct *, struct vm_fault *);
 
 // operations for mmap on the vmas
 static struct vm_operations_struct kbfish_vm_ops = {
-	.fault = kbfish_vma_fault,
+    .fault = kbfish_vma_fault,
 };
 
 
 // what is a channel (for this module)
 struct kbfish_channel {
-   int chan_id;                 /* id of this channel */
-   pid_t sender;                /* pid of the sender */
-   pid_t receiver;              /* pid of the receiver */
-   int channel_size;            /* max number of messages */
-   unsigned long size_in_bytes; /* channel size in bytes. Is a multiple of the page size */
-   int max_msg_size;            /* max message size */;
-   spinlock_t bcl;              /* the Big Channel Lock :) */
-   char* sender_to_receiver;    /* shared area used by the sender to send messages */
-   char* receiver_to_sender;    /* shared area used by the receiver to send messages */
-   
-   struct cdev cdev;            /* char device structure */
+  int chan_id;                 /* id of this channel */
+  pid_t sender;                /* pid of the sender */
+  pid_t receiver;              /* pid of the receiver */
+  int channel_size;            /* max number of messages */
+  unsigned long size_in_bytes; /* channel size in bytes. Is a multiple of the page size */
+  int max_msg_size;            /* max message size */;
+  spinlock_t bcl;              /* the Big Channel Lock :) */
+  char* sender_to_receiver;    /* shared area used by the sender to send messages */
+  char* receiver_to_sender;    /* shared area used by the receiver to send messages */
+
+  struct cdev cdev;            /* char device structure */
 };
 
 // Each process has a control structure.
 struct kbfish_ctrl {
-   pid_t pid;                   /* pid of this structure's owner */
-   struct kbfish_channel *chan; /* pointer to the channel */
-   int is_sender;               /* is this process a sender? */
+  pid_t pid;                   /* pid of this structure's owner */
+  struct kbfish_channel *chan; /* pointer to the channel */
+  int is_sender;               /* is this process a sender? */
 };
 
 
