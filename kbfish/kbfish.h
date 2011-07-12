@@ -13,6 +13,7 @@
 #include <linux/moduleparam.h>  /* This module takes arguments */
 #include <linux/fs.h>           /* (un)register the block device - file operations */
 #include <linux/cdev.h>         /* char device */
+#include <linux/mm.h>           /* about vma_struct */
 
 #define DRIVER_AUTHOR "Pierre Louis Aublin <pierre-louis.aublin@inria.fr>"
 #define DRIVER_DESC   "Kernel module of the Barrelfish Message Passing (UMP) communication mechanism"
@@ -24,6 +25,8 @@
 // The last modulo is to prevent the padding to add CACHE_LINE_SIZE bytes to the structure
 #define PADDING_SIZE(S) ((CACHE_LINE_SIZE - S % CACHE_LINE_SIZE) % CACHE_LINE_SIZE)
 
+// Round up S to a multiple of the page size
+#define ROUND_UP_SIZE(S) (S + (PAGE_SIZE - S % PAGE_SIZE) % PAGE_SIZE)
 
 // This module takes the following arguments:
 static int nb_max_communication_channels = 4;
@@ -48,7 +51,7 @@ MODULE_PARM_DESC(default_max_msg_size, " The default max size of the new channel
 // FILE OPERATIONS
 static int kbfish_open(struct inode *, struct file *);
 static int kbfish_release(struct inode *, struct file *);
-//TODO: mmap and munmap
+static int kbfish_mmap(struct file *, struct vm_area_struct *);
 
 // an open file is associated with a set of functions
 static struct file_operations kbfish_fops =
@@ -56,20 +59,35 @@ static struct file_operations kbfish_fops =
    .owner = THIS_MODULE,
    .open = kbfish_open,
    .release = kbfish_release,
+   .mmap = kbfish_mmap,
+};
+   
+
+// VMA OPERATIONS
+static void kbfish_vma_open(struct vm_area_struct *);
+static void kbfish_vma_close(struct vm_area_struct *);
+static int kbfish_vma_fault(struct vm_area_struct *, struct vm_fault *);
+
+// operations for mmap on the vmas
+static struct vm_operations_struct kbfish_vm_ops = {
+	.open = kbfish_vma_open,
+	.close = kbfish_vma_close,
+	.fault = kbfish_vma_fault,
 };
 
 // what is a channel (for this module)
 struct kbfish_channel {
-   int chan_id;      /* id of this channel */
-   pid_t sender;     /* pid of the sender */
-   pid_t receiver;   /* pid of the receiver */
-   int channel_size; /* max number of messages */
-   int max_msg_size; /* max message size */;
-   spinlock_t bcl;   /* the Big Channel Lock :) */
-
-   //TODO: shared areas addresses
+   int chan_id;                 /* id of this channel */
+   pid_t sender;                /* pid of the sender */
+   pid_t receiver;              /* pid of the receiver */
+   int channel_size;            /* max number of messages */
+   unsigned long size_in_bytes; /* channel size in bytes. Is a multiple of the page size */
+   int max_msg_size;            /* max message size */;
+   spinlock_t bcl;              /* the Big Channel Lock :) */
+   char* sender_to_receiver;    /* shared area used by the sender to send messages */
+   char* receiver_to_sender;    /* shared area used by the receiver to send messages */
    
-   struct cdev cdev; /* char device structure */
+   struct cdev cdev;            /* char device structure */
 };
 
 

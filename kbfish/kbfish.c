@@ -6,7 +6,7 @@
 #include <linux/sched.h>       /* current macro */
 #include <linux/fcntl.h>       /* some flags */
 #include <asm/uaccess.h>       /* copy_from_user function */
-
+#include <linux/vmalloc.h>      /* vmalloc */
 
 #include "kbfish.h"
 
@@ -70,6 +70,7 @@ static int kbfish_open(struct inode *inode, struct file *filp)
       chan->sender = current->pid;
    }
 
+   filp->private_data = chan;
    retval = 0;
 
 unlock:
@@ -104,6 +105,38 @@ static int kbfish_release(struct inode *inode, struct file *filp)
    return 0;
 }
 
+/*
+ * open and close: do nothing.
+ */
+static void kbfish_vma_open(struct vm_area_struct *vma)
+{
+}
+
+static void kbfish_vma_close(struct vm_area_struct *vma)
+{
+}
+
+static int kbfish_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf) {
+//TODO
+return 0;
+}
+
+/*
+ * kbfish mmap operation.
+ * Returns:
+ *  . 0: it always succeeds.
+ */
+static int kbfish_mmap(struct file *filp, struct vm_area_struct *vma) {
+	/* don't do anything here: "fault" will set up page table entries */
+	vma->vm_ops = &kbfish_vm_ops;
+	vma->vm_flags |= VM_RESERVED; //TODO: is that correct?
+	vma->vm_private_data = filp->private_data; // pointer to the channel
+   //TODO: vma protection (RO or WO)...
+	kbfish_vma_open(vma);
+
+	return 0;
+}
+
 static int kbfish_init_channel(struct kbfish_channel *channel, int chan_id,
       int max_msg_size, int channel_size, int init_lock)
 {
@@ -112,8 +145,13 @@ static int kbfish_init_channel(struct kbfish_channel *channel, int chan_id,
    channel->receiver = -1;
    channel->channel_size = channel_size;
    channel->max_msg_size = max_msg_size;
-
-   //TODO: create the memory areas
+   channel->size_in_bytes = ROUND_UP_SIZE(channel_size * max_msg_size); 
+   channel->sender_to_receiver = vmalloc(channel->size_in_bytes);
+   channel->receiver_to_sender = vmalloc(channel->size_in_bytes);
+   if (!channel->sender_to_receiver || !channel->receiver_to_sender) {
+      printk(KERN_ERR "kbfish: vmalloc error of %lu bytes: %p %p\n", channel->size_in_bytes, channel->sender_to_receiver, channel->receiver_to_sender);
+      return -1;
+   }
 
    if (init_lock)
    {
@@ -130,6 +168,7 @@ static int kbfish_read_proc_file(char *page, char **start, off_t off, int count,
    int len, i;
 
    len = sprintf(page, "kbfish %s @ %s\n\n", __DATE__, __TIME__);
+   len += sprintf(page + len, "page size = %lu\n", PAGE_SIZE);
    len += sprintf(page + len, "nb_max_communication_channels = %i\n",
          nb_max_communication_channels);
    len += sprintf(page + len, "default_channel_size = %i\n",
@@ -137,13 +176,13 @@ static int kbfish_read_proc_file(char *page, char **start, off_t off, int count,
    len += sprintf(page + len, "default_max_msg_size = %i\n\n",
          default_max_msg_size);
 
-   len += sprintf(page + len, "chan_id\tchan_size\tmax_msg_size\tpid_sender\tpid_receiver\n");
+   len += sprintf(page + len, "chan_id\tchan_size\tmax_msg_size\tsize_in_bytes\tpid_sender\tpid_receiver\n");
    for (i = 0; i < nb_max_communication_channels; i++)
    {
-      len += sprintf(page + len, "%i\t%i\t%i\t%i\t%i\n",
+      len += sprintf(page + len, "%i\t%i\t%i\t%lu\t%i\t%i\n",
             channels[i].chan_id, channels[i].channel_size,
-            channels[i].max_msg_size, channels[i].sender,
-            channels[i].receiver);
+            channels[i].max_msg_size, channels[i].size_in_bytes,
+            channels[i].sender, channels[i].receiver);
    }
 
    return len;
@@ -205,8 +244,9 @@ static int kbfish_init_cdev(struct kbfish_channel *channel, int i)
 
 static void kbfish_del_cdev(struct kbfish_channel *channel)
 {
-   //TODO: free the memory areas
-
+   vfree(channel->sender_to_receiver);
+   vfree(channel->receiver_to_sender);
+   
    cdev_del(&channel->cdev);
 }
 
