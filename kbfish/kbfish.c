@@ -330,12 +330,6 @@ static int kbfish_init_channel(struct kbfish_channel *channel, int chan_id,
     return -1;
   }
 
-  //FIXME: debug only
-  for (i=0; i<channel->size_in_bytes; i++) {
-    channel->sender_to_receiver[i] = channel->receiver_to_sender[i] = i/PAGE_SIZE;
-  }
-
-
   if (init_lock)
   {
     channel->bcl = SPIN_LOCK_UNLOCKED;
