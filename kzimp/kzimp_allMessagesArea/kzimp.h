@@ -130,19 +130,12 @@ struct kzimp_comm_chan
 // Each process that uses the channel to read has a control structure.
 struct kzimp_ctrl
 {
-   int next_read_idx;      /* index of the next read in the channel */
-   int bitmap_bit;         /* position of the bit in the multicast mask modified by this reader */
-   pid_t pid;              /* pid of this reader */
-   int online;             /* is this reader still active or not? */
-   struct list_head next;  /* pointer to the next reader on this channel */
-}__attribute__((__aligned__(CACHE_LINE_SIZE)));
-
-// This structure pointer is found at filp->private_data.
-// It allows a process to have local data + access to the global channel
-struct kzimp_file_private_data
-{
-   struct kzimp_comm_chan *channel;
-   struct kzimp_ctrl *ctrl;
+   int next_read_idx;               /* index of the next read in the channel */
+   int bitmap_bit;                  /* position of the bit in the multicast mask modified by this reader */
+   pid_t pid;                       /* pid of this reader */
+   int online;                      /* is this reader still active or not? */
+   struct list_head next;           /* pointer to the next reader on this channel */
+   struct kzimp_comm_chan *channel; /* pointer to the channel */
 }__attribute__((__aligned__(CACHE_LINE_SIZE)));
 
 // return 1 if the writer can writeits message, 0 otherwise

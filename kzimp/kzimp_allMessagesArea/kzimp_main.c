@@ -124,28 +124,28 @@ static int get_new_bitmap_bit(struct kzimp_comm_chan *chan)
 static int kzimp_open(struct inode *inode, struct file *filp)
 {
   struct kzimp_comm_chan *chan; /* channel information */
-  struct kzimp_file_private_data * private;
   struct kzimp_ctrl *ctrl;
 
   chan = container_of(inode->i_cdev, struct kzimp_comm_chan, cdev);
 
-  // the control structure is only for a reader
+  ctrl = my_kmalloc(sizeof(*ctrl), GFP_KERNEL);
+  if (unlikely(!ctrl))
+  {
+    printk(KERN_ERR "kzimp: kzimp_ctrl allocation error\n");
+    return -ENOMEM;
+  }
+
+  ctrl->pid = current->pid;
+  ctrl->channel = chan;
+
   if (filp->f_mode & FMODE_READ)
   {
-    ctrl = my_kmalloc(sizeof(*ctrl), GFP_KERNEL);
-    if (unlikely(!ctrl))
-    {
-      printk(KERN_ERR "kzimp: kzimp_ctrl allocation error\n");
-      return -ENOMEM;
-    }
-
     spin_lock(&chan->bcl);
 
     // we set next_read_idx to the next position where the writer is going to write
     // so that it gets the next message
     ctrl->next_read_idx = chan->next_write_idx;
     ctrl->bitmap_bit = get_new_bitmap_bit(chan);
-    ctrl->pid = current->pid;
     ctrl->online = 1;
 
     chan->nb_readers++;
@@ -161,42 +161,35 @@ static int kzimp_open(struct inode *inode, struct file *filp)
   }
   else
   {
-    ctrl = NULL;
+    ctrl->next_read_idx = -1;
+    ctrl->bitmap_bit = -1;
+    ctrl->online = -1;
+    ctrl->next.prev = ctrl->next.next = NULL;
   }
 
-  private = my_kmalloc(sizeof(*private), GFP_KERNEL);
-  if (unlikely(!private))
-  {
-    printk(KERN_ERR "kzimp: kzimp_file_private_data allocation error\n");
-    return -ENOMEM;
-  }
-
-  private->channel = chan;
-  private->ctrl = ctrl;
-  filp->private_data = private;
+  filp->private_data = ctrl;
 
   return 0;
 }
 
 /*
- * kzimp open operation.
+ * kzimp release operation.
  * Returns:
  *  . 0: it always succeeds
  */
 static int kzimp_release(struct inode *inode, struct file *filp)
 {
   int i;
+
   struct kzimp_comm_chan *chan; /* channel information */
-  struct kzimp_file_private_data * private;
   struct kzimp_ctrl *ctrl;
 
-  private = (struct kzimp_file_private_data*) filp->private_data;
+  ctrl = filp->private_data;
 
   // the control structure is only for a reader
   if (filp->f_mode & FMODE_READ)
   {
-    ctrl = private->ctrl;
-    chan = private->channel;
+    chan = ctrl->channel;
 
     spin_lock(&chan->bcl);
 
@@ -211,10 +204,9 @@ static int kzimp_release(struct inode *inode, struct file *filp)
 
     spin_unlock(&chan->bcl);
 
-    my_kfree(private->ctrl);
   }
 
-  my_kfree(private);
+  my_kfree(ctrl);
 
   return 0;
 }
@@ -238,12 +230,10 @@ static ssize_t kzimp_read
   DEFINE_WAIT(__wait);
 
   struct kzimp_comm_chan *chan; /* channel information */
-  struct kzimp_file_private_data * private;
   struct kzimp_ctrl *ctrl;
 
-  private = (struct kzimp_file_private_data*)filp->private_data;
-  chan = private->channel;
-  ctrl = private->ctrl;
+  ctrl = filp->private_data;
+  chan = ctrl->channel;
 
   m = &(chan->msgs[ctrl->next_read_idx]);
 
@@ -375,12 +365,10 @@ static ssize_t kzimp_write
   DEFINE_WAIT(__wait);
 
   struct kzimp_comm_chan *chan; /* channel information */
-  struct kzimp_file_private_data * private;
   struct kzimp_ctrl *ctrl;
 
-  private = (struct kzimp_file_private_data*)filp->private_data;
-  chan = private->channel;
-  ctrl = private->ctrl;
+  ctrl = filp->private_data;
+  chan = ctrl->channel;
 
   // Check the validity of the arguments
   if (unlikely(count <= 0 || count > chan->max_msg_size))
@@ -465,12 +453,10 @@ static unsigned int kzimp_poll(struct file *filp, poll_table *wait)
   struct kzimp_message *m;
 
   struct kzimp_comm_chan *chan; /* channel information */
-  struct kzimp_file_private_data * private;
   struct kzimp_ctrl *ctrl;
 
-  private = (struct kzimp_file_private_data*) filp->private_data;
-  chan = private->channel;
-  ctrl = private->ctrl;
+  ctrl = filp->private_data;
+  chan = ctrl->channel;
 
   poll_wait(filp, &chan->rq, wait);
 
