@@ -219,6 +219,7 @@ static int kzimp_release(struct inode *inode, struct file *filp)
  *  . -EAGAIN if the operations are non-blocking and the call would block.
  *  . -EBADF if this reader is no longer online (because the writer has experienced a timeout)
  *  . -EIO if the checksum is incorrect
+ *  . -EINTR if the process has been interrupted by a signal while waiting
  *  . 0 if there has been an error when reading (count is <= 0)
  *  . The number of read bytes otherwise
  */

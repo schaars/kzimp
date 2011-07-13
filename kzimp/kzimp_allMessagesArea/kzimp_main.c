@@ -219,6 +219,7 @@ static int kzimp_release(struct inode *inode, struct file *filp)
  *  . -EAGAIN if the operations are non-blocking and the call would block.
  *  . -EBADF if this reader is no longer online (because the writer has experienced a timeout)
  *  . -EIO if the checksum is incorrect
+ *  . -EINTR if the process has been interrupted by a signal while waiting
  *  . 0 if there has been an error when reading (count is <= 0)
  *  . The number of read bytes otherwise
  */
@@ -350,7 +351,6 @@ static void handle_timeout(struct kzimp_comm_chan *chan,
  * There can be only one writer at a time.
  * Returns:
  *  . 0 if the size of the user-level buffer is less or equal than 0 or greater than the maximal message size
- *  . -ENOMEM if the memory allocations fail
  *  . -EFAULT if the buffer *buf is not valid
  *  . -EINTR if the process has been interrupted by a signal while waiting
  *  . -EAGAIN if the operations are non-blocking and the call would block. Note that if this is the case, the buffer is copied
