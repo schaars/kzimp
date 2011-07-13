@@ -73,6 +73,10 @@ static int kbfish_open(struct inode *inode, struct file *filp)
     }
     chan->receiver = current->pid;
     ctrl->is_sender = 0;
+
+    // set the 2 areas to 0
+    memset(chan->sender_to_receiver, 0, chan->size_in_bytes);
+    memset(chan->receiver_to_sender, 0, chan->size_in_bytes);
   }
   else
   {
@@ -139,6 +143,16 @@ static int kbfish_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
   ctrl = vma->vm_private_data;
   offset = (vmf->pgoff-vma->vm_pgoff) * PAGE_SIZE;
+
+  // permissions of the vma?
+  if (vma->vm_flags & VM_WRITE)
+  {
+    printk(KERN_DEBUG "kbfish: process %i can write\n", current->pid);
+  }
+  if (vma->vm_flags & VM_READ)
+  {
+    printk(KERN_DEBUG "kbfish: process %i can read\n", current->pid);
+  }
 
   // vma->vm_pgoff is the same offset as used by verify_credentials.
   // vmf->pgoff is the offset of the page that we need to get.
@@ -314,8 +328,6 @@ static int kbfish_mmap(struct file *filp, struct vm_area_struct *vma)
 static int kbfish_init_channel(struct kbfish_channel *channel, int chan_id,
     int max_msg_size, int channel_size, int init_lock)
 {
-  int i;
-
   channel->chan_id = chan_id;
   channel->sender = -1;
   channel->receiver = -1;
