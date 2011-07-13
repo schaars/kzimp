@@ -87,5 +87,6 @@ done
 
 # save results
 ./stop_all.sh
+sleep 1 # if not present, then unloading the module fails because there is still a kzimp process
 cd $KZIMP_DIR; ./kzimp.sh unload; cd -
 mv results.txt kzimp_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B_${MSG_CHANNEL}channelSize.txt

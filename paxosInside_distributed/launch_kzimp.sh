@@ -146,5 +146,6 @@ fi
 
 # save results
 ./stop_all.sh
+sleep 1  # needed otherwise there is still a kzimp process and the module cannot be unloaded
 cd $KZIMP_DIR; ./kzimp.sh unload; cd -
 mv results.txt kzimp_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
