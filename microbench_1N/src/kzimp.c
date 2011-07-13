@@ -155,7 +155,38 @@ void IPC_sendToAll(int msg_size, char msg_id)
   rdtsc(cycle_start);
 #endif
 
-  write(fd, msg, msg_size);
+  int r = write(fd, msg, msg_size);
+  if (r == -1)
+  {
+    switch (errno)
+    {
+    case ENOMEM:
+      printf(
+          "Node %i: memory allocation failed while calling write @ %s:%i. Aborting.\n",
+          core_id, __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    case EFAULT:
+      printf("Node %i: write buffer is invalid @ %s:%i. Aborting.\n", core_id,
+          __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    case EINTR:
+      printf("Node %i: write call has been interrupted @ %s:%i. Aborting.\n",
+          core_id, __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    default:
+      perror("Error in write");
+      printf("Node %i: write error @ %s:%i. Aborting.\n", core_id, __FILE__,
+          __LINE__);
+      exit(-1);
+      break;
+    }
+  }
 
 #ifdef COMPUTE_CYCLES
   rdtsc(cycle_stop);
@@ -203,6 +234,50 @@ int IPC_receive(int msg_size, char *msg_id)
 #endif
 
   recv_size = read(fd, msg, msg_size);
+  if (recv_size == -1)
+  {
+    switch (errno)
+    {
+    case EAGAIN:
+      printf(
+          "Node %i: non-blocking ops and call would block while calling read @ %s:%i.\n",
+          core_id, __FILE__, __LINE__);
+      break;
+
+    case EFAULT:
+      printf("Node %i: read buffer is invalid @ %s:%i.\n", core_id, __FILE__,
+          __LINE__);
+      free(msg);
+      return 0;
+      break;
+
+    case EINTR:
+      printf("Node %i: read call has been interrupted @ %s:%i. Aborting.\n",
+          core_id, __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    case EBADF:
+      printf("Node %i: reader no longer online @ %s:%i. Aborting.\n", core_id,
+          __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    case EIO:
+      printf("Node %i: checksum is incorrect @ %s:%i.\n", core_id, __FILE__,
+          __LINE__);
+      free(msg);
+      return 0;
+      break;
+
+    default:
+      perror("Error in read");
+      printf("Node %i: read error @ %s:%i. Aborting.\n", core_id, __FILE__,
+          __LINE__);
+      exit(-1);
+      break;
+    }
+  }
 
 #ifdef COMPUTE_CYCLES
   rdtsc(cycle_stop);

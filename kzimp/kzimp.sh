@@ -76,6 +76,12 @@ if [ $? -eq 0 ]; then
    device_specific_post_load
 else
    echo " FAILED!"
+   echo "$ lsmod | grep ${DEVICE}"
+   lsmod | grep ${DEVICE}
+   echo "$ cat /proc/${DEVICE}"
+   cat /proc/${DEVICE}
+   echo "$ ps -A"
+   ps -A
    exit 1
 fi
 }

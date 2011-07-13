@@ -559,10 +559,11 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
   init_waitqueue_head(&channel->wq);
   INIT_LIST_HEAD(&channel->readers);
 
-  channel->msgs = my_vmalloc(sizeof(*channel->msgs) * channel->channel_size);
+  unsigned long size = sizeof(*channel->msgs) * channel->channel_size;
+  channel->msgs = my_vmalloc(size);
   if (unlikely(!channel->msgs))
   {
-    printk(KERN_ERR "kzimp: channel messages allocation error\n");
+    printk(KERN_ERR "kzimp: channel messages allocation of %lu bytes error\n", size);
     return -ENOMEM;
   }
 
