@@ -47,6 +47,92 @@ static int *learneri_to_client; // learner i -> client 0
 #else
 static int learners_to_client; // learners -> client 0
 #endif
+// write wrapper which handles the errors
+ssize_t Write(int fd, const void *buf, size_t count)
+{
+  int r = write(fd, buf, count);
+  if (r == -1)
+  {
+    switch (errno)
+    {
+    case ENOMEM:
+      printf(
+          "Node %i: memory allocation failed while calling write @ %s:%i. Aborting.\n",
+          node_id, __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    case EFAULT:
+      printf("Node %i: write buffer is invalid @ %s:%i. Aborting.\n", node_id,
+          __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    case EINTR:
+      printf("Node %i: write call has been interrupted @ %s:%i. Aborting.\n",
+          node_id, __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    default:
+      perror("Error in write");
+      printf("Node %i: write error @ %s:%i. Aborting.\n", node_id, __FILE__,
+          __LINE__);
+      exit(-1);
+      break;
+    }
+  }
+  return r;
+}
+
+// read wrapper which handles the errors
+ssize_t Read(int fd, void *buf, size_t count)
+{
+  int r = read(fd, buf, count);
+  if (r == -1)
+  {
+    switch (errno)
+    {
+    case EAGAIN:
+      printf(
+          "Node %i: non-blocking ops and call would block while calling read @ %s:%i.\n",
+          node_id, __FILE__, __LINE__);
+      break;
+
+    case EFAULT:
+      printf("Node %i: read buffer is invalid @ %s:%i.\n", node_id, __FILE__,
+          __LINE__);
+      return 0;
+      break;
+
+    case EINTR:
+      printf("Node %i: read call has been interrupted @ %s:%i. Aborting.\n",
+          node_id, __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    case EBADF:
+      printf("Node %i: reader no longer online @ %s:%i. Aborting.\n", node_id,
+          __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    case EIO:
+      printf("Node %i: checksum is incorrect @ %s:%i.\n", node_id, __FILE__,
+          __LINE__);
+      return 0;
+      break;
+
+    default:
+      perror("Error in read");
+      printf("Node %i: read error @ %s:%i. Aborting.\n", node_id, __FILE__,
+          __LINE__);
+      exit(-1);
+      break;
+    }
+  }
+  return r;
+}
 
 // Initialize resources for both the node and the clients
 // First initialization function called
@@ -252,20 +338,20 @@ void IPC_clean_client(void)
 // Indeed the only unicast is from 0 to 1
 void IPC_send_node_unicast(void *msg, size_t length)
 {
-  write(leader_to_acceptor, msg, length);
+  Write(leader_to_acceptor, msg, length);
 }
 
 // send the message msg of size length to all the nodes
 void IPC_send_node_multicast(void *msg, size_t length)
 {
-  write(acceptor_multicast, msg, length);
+  Write(acceptor_multicast, msg, length);
 }
 
 // send the message msg of size length to the node 0
 // called by a client
 void IPC_send_client_to_node(void *msg, size_t length)
 {
-  write(client_to_leader, msg, length);
+  Write(client_to_leader, msg, length);
 }
 
 // send the message msg of size length to the client of id cid
@@ -273,9 +359,9 @@ void IPC_send_client_to_node(void *msg, size_t length)
 void IPC_send_node_to_client(void *msg, size_t length, int cid)
 {
 #ifdef ONE_CHANNEL_PER_LEARNER
-  write(*learneri_to_client, msg, length);
+  Write(*learneri_to_client, msg, length);
 #else
-  write(learners_to_client, msg, length);
+  Write(learners_to_client, msg, length);
 #endif
 }
 
@@ -285,11 +371,11 @@ size_t IPC_receive(void *msg, size_t length)
 {
   if (node_id == 0)
   {
-    return read(client_to_leader, msg, length);
+    return Read(client_to_leader, msg, length);
   }
   else if (node_id == 1)
   {
-    return read(leader_to_acceptor, msg, length);
+    return Read(leader_to_acceptor, msg, length);
   }
   else if (node_id == nb_paxos_nodes)
   {
@@ -319,7 +405,7 @@ size_t IPC_receive(void *msg, size_t length)
         {
           if (FD_ISSET(learneri_to_client[i], &set_read))
           {
-            return read(learneri_to_client[i], msg, length);
+            return Read(learneri_to_client[i], msg, length);
           }
         }
       }
@@ -327,11 +413,11 @@ size_t IPC_receive(void *msg, size_t length)
 
     return 0;
 #else
-    return read(learners_to_client, msg, length);
+    return Read(learners_to_client, msg, length);
 #endif
   }
   else
   {
-    return read(acceptor_multicast, msg, length);
+    return Read(acceptor_multicast, msg, length);
   }
 }

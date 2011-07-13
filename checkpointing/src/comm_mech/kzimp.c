@@ -41,6 +41,108 @@ static int *nodei_to_0; // node i -> node 0 for all i. We do not use nodei_to_0[
 static int nodes_to_0; // all nodes but 0 -> node 0
 #endif
 
+// open wrapper which handles the errors
+int Open(const char* pathname, int flags)
+{
+  int r = open(pathname, flags);
+  if (r == -1)
+  {
+    printf(
+        "Node %i experiences an error at %i when opening file %s with flags %x\n",
+        node_id, __LINE__, pathname, flags);
+    perror(">>> Error while opening channel\n");
+    exit(-1);
+  }
+  return r;
+}
+
+// write wrapper which handles the errors
+ssize_t Write(int fd, const void *buf, size_t count)
+{
+  int r = write(fd, buf, count);
+  if (r == -1)
+  {
+    switch (errno)
+    {
+    case ENOMEM:
+      printf(
+          "Node %i: memory allocation failed while calling write @ %s:%i. Aborting.\n",
+          node_id, __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    case EFAULT:
+      printf("Node %i: write buffer is invalid @ %s:%i. Aborting.\n", node_id,
+          __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    case EINTR:
+      printf("Node %i: write call has been interrupted @ %s:%i. Aborting.\n",
+          node_id, __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    default:
+      perror("Error in write");
+      printf("Node %i: write error @ %s:%i. Aborting.\n", node_id, __FILE__,
+          __LINE__);
+      exit(-1);
+      break;
+    }
+  }
+  return r;
+}
+
+// read wrapper which handles the errors
+ssize_t Read(int fd, void *buf, size_t count)
+{
+  int r = read(fd, buf, count);
+  if (r == -1)
+  {
+    switch (errno)
+    {
+    case EAGAIN:
+      printf(
+          "Node %i: non-blocking ops and call would block while calling read @ %s:%i.\n",
+          node_id, __FILE__, __LINE__);
+      break;
+
+    case EFAULT:
+      printf("Node %i: read buffer is invalid @ %s:%i.\n", node_id, __FILE__,
+          __LINE__);
+      return 0;
+      break;
+
+    case EINTR:
+      printf("Node %i: read call has been interrupted @ %s:%i. Aborting.\n",
+          node_id, __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    case EBADF:
+      printf("Node %i: reader no longer online @ %s:%i. Aborting.\n", node_id,
+          __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    case EIO:
+      printf("Node %i: checksum is incorrect @ %s:%i.\n", node_id, __FILE__,
+          __LINE__);
+      return 0;
+      break;
+
+    default:
+      perror("Error in read");
+      printf("Node %i: read error @ %s:%i. Aborting.\n", node_id, __FILE__,
+          __LINE__);
+      exit(-1);
+      break;
+    }
+  }
+  return r;
+}
+
 // Initialize resources for both the node and the clients
 // First initialization function called
 void IPC_initialize(int _nb_nodes)
@@ -66,31 +168,31 @@ void IPC_initialize_node(int _node_id)
   if (node_id == 0)
   {
     snprintf(chaname, 256, "/dev/kzimp%i", 0);
-    multicast_0_to_all = open(chaname, O_WRONLY);
+    multicast_0_to_all = Open(chaname, O_WRONLY);
 
 #ifdef ONE_CHANNEL_PER_NODE
     int i;
     for (i = 1; i < nb_nodes; i++)
     {
       snprintf(chaname, 256, "/dev/kzimp%i", i);
-      nodei_to_0[i] = open(chaname, O_WRONLY);
+      nodei_to_0[i] = Open(chaname, O_WRONLY);
     }
 #else
     snprintf(chaname, 256, "/dev/kzimp%i", 1);
-    nodes_to_0 = open(chaname, O_RDONLY);
+    nodes_to_0 = Open(chaname, O_RDONLY);
 #endif
   }
   else
   {
     snprintf(chaname, 256, "/dev/kzimp%i", 0);
-    multicast_0_to_all = open(chaname, O_RDONLY);
+    multicast_0_to_all = Open(chaname, O_RDONLY);
 
 #ifdef ONE_CHANNEL_PER_NODE
     snprintf(chaname, 256, "/dev/kzimp%i", node_id);
-    nodei_to_0[node_id] = open(chaname, O_WRONLY);
+    nodei_to_0[node_id] = Open(chaname, O_WRONLY);
 #else
     snprintf(chaname, 256, "/dev/kzimp%i", 1);
-    nodes_to_0 = open(chaname, O_WRONLY);
+    nodes_to_0 = Open(chaname, O_WRONLY);
 #endif
   }
 }
@@ -130,16 +232,16 @@ void IPC_clean_node(void)
 // send the message msg of size length to all the nodes
 void IPC_send_multicast(void *msg, size_t length)
 {
-  write(multicast_0_to_all, msg, length);
+  Write(multicast_0_to_all, msg, length);
 }
 
 // send the message msg of size length to the node 0
 void IPC_send_unicast(void *msg, size_t length, int nid)
 {
 #ifdef ONE_CHANNEL_PER_NODE
-  write(nodei_to_0[node_id], msg, length);
+  Write(nodei_to_0[node_id], msg, length);
 #else
-  write(nodes_to_0, msg, length);
+  Write(nodes_to_0, msg, length);
 #endif
 }
 
@@ -178,7 +280,7 @@ size_t IPC_receive(void *msg, size_t length)
         {
           if (FD_ISSET(nodei_to_0[i], &set_read))
           {
-            return read(nodei_to_0[i], msg, length);
+            return Read(nodei_to_0[i], msg, length);
           }
         }
       }
@@ -186,12 +288,12 @@ size_t IPC_receive(void *msg, size_t length)
 
     recv_size = 0;
 #else
-    recv_size = read(nodes_to_0, msg, length);
+    recv_size = Read(nodes_to_0, msg, length);
 #endif
   }
   else
   {
-    recv_size = read(multicast_0_to_all, msg, length);
+    recv_size = Read(multicast_0_to_all, msg, length);
   }
 
   return (size_t) recv_size;
