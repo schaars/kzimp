@@ -1,7 +1,7 @@
 #!/bin/bash
-# Loads kbfish device driver
+# Loads kbfishmem device driver
 
-DEVICE="kbfish"
+DEVICE="kbfishmem"
 DEFAULT_NB_FILES=4
 OWNER="root"
 GROUP="root"
@@ -102,7 +102,7 @@ fi
 
 # print the status of the module: is it loaded or not?
 function get_status {
-grep kbfish /proc/modules &> /dev/null
+grep kbfishmem /proc/modules &> /dev/null
 if [ $? -eq 0 ]; then
    STATUS="LOADED"
 else

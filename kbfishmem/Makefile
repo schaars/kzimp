@@ -1,4 +1,4 @@
-obj-m := kbfish.o 
+obj-m := kbfishmem.o 
 
 KDIR := /lib/modules/$(shell uname -r)/build
 PWD := $(shell pwd)

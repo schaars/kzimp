@@ -43,37 +43,37 @@ MODULE_PARM_DESC(default_max_msg_size, " The default max size of the new channel
 
 
 // file /dev/<DEVICE_NAME>
-#define DEVICE_NAME "kbfish"
+#define DEVICE_NAME "kbfishmem"
 
 /* file /proc/<procfs_name> */
-#define procfs_name "kbfish"
+#define procfs_name "kbfishmem"
 
 // FILE OPERATIONS
-static int kbfish_open(struct inode *, struct file *);
-static int kbfish_release(struct inode *, struct file *);
-static int kbfish_mmap(struct file *, struct vm_area_struct *);
+static int kbfishmem_open(struct inode *, struct file *);
+static int kbfishmem_release(struct inode *, struct file *);
+static int kbfishmem_mmap(struct file *, struct vm_area_struct *);
 
 // an open file is associated with a set of functions
-static struct file_operations kbfish_fops =
+static struct file_operations kbfishmem_fops =
 {
     .owner = THIS_MODULE,
-    .open = kbfish_open,
-    .release = kbfish_release,
-    .mmap = kbfish_mmap,
+    .open = kbfishmem_open,
+    .release = kbfishmem_release,
+    .mmap = kbfishmem_mmap,
 };
 
 
 // VMA OPERATIONS
-static int kbfish_vma_fault(struct vm_area_struct *, struct vm_fault *);
+static int kbfishmem_vma_fault(struct vm_area_struct *, struct vm_fault *);
 
 // operations for mmap on the vmas
-static struct vm_operations_struct kbfish_vm_ops = {
-    .fault = kbfish_vma_fault,
+static struct vm_operations_struct kbfishmem_vm_ops = {
+    .fault = kbfishmem_vma_fault,
 };
 
 
 // what is a channel (for this module)
-struct kbfish_channel {
+struct kbfishmem_channel {
   int chan_id;                 /* id of this channel */
   pid_t sender;                /* pid of the sender */
   pid_t receiver;              /* pid of the receiver */
@@ -88,9 +88,9 @@ struct kbfish_channel {
 };
 
 // Each process has a control structure.
-struct kbfish_ctrl {
+struct kbfishmem_ctrl {
   pid_t pid;                   /* pid of this structure's owner */
-  struct kbfish_channel *chan; /* pointer to the channel */
+  struct kbfishmem_channel *chan; /* pointer to the channel */
   int is_sender;               /* is this process a sender? */
 };
 
