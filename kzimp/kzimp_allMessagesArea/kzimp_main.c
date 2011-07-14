@@ -193,10 +193,6 @@ static int kzimp_release(struct inode *inode, struct file *filp)
 
     spin_lock(&chan->bcl);
 
-    for (i = 0; i < chan->channel_size; i++)
-    {
-      clear_bit(ctrl->bitmap_bit, &(chan->msgs[i].bitmap));
-    }
     clear_bit(ctrl->bitmap_bit, &(chan->multicast_mask));
 
     list_del(&ctrl->next);
@@ -204,6 +200,10 @@ static int kzimp_release(struct inode *inode, struct file *filp)
 
     spin_unlock(&chan->bcl);
 
+    for (i = 0; i < chan->channel_size; i++)
+    {
+      clear_bit(ctrl->bitmap_bit, &(chan->msgs[i].bitmap));
+    }
   }
 
   my_kfree(ctrl);
@@ -322,6 +322,8 @@ static void handle_timeout(struct kzimp_comm_chan *chan,
 
   unsigned long bitmap = m->bitmap;
 
+  spin_lock(&chan->bcl);
+
   // remove the bits from all the messages
   for (i = 0; i < chan->channel_size; i++)
   {
@@ -342,13 +344,16 @@ static void handle_timeout(struct kzimp_comm_chan *chan,
     }
   }
 
+  spin_unlock(&chan->bcl);
 }
 
 /*
  * kzimp write operation.
  * Blocking call.
  * Sleeps until it can write the message.
- * There can be only one writer at a time.
+ * FIXME: if there are more writers than the number of messages in the channel, there can be
+ * FIXME: 2 writers on the same message. We assume the channel size is less than the number of writers.
+ * FIXME: To fix that we can add a counter.
  * Returns:
  *  . 0 if the size of the user-level buffer is less or equal than 0 or greater than the maximal message size
  *  . -EFAULT if the buffer *buf is not valid
@@ -377,12 +382,12 @@ static ssize_t kzimp_write
     return 0;
   }
 
-  //TODO: do we keep the lock? I.e.:
-  //        -1 writer in the critical section, which may experience the timeout, the other waiting behing.
-  //        -all the writers in the critical section, which may experience the timeout.     -> less spinning, better solution?
   spin_lock(&chan->bcl);
 
   m = &(chan->msgs[chan->next_write_idx]);
+  chan->next_write_idx = (chan->next_write_idx + 1) % chan->channel_size;
+
+  spin_unlock(&chan->bcl);
 
   // there is only 1 writer at a time, which will sleep until
   // the bitmap is empty or the timeout expires.
@@ -393,7 +398,6 @@ static ssize_t kzimp_write
     // file is open in no-blocking mode
     if (filp->f_flags & O_NONBLOCK)
     {
-      spin_unlock(&chan->bcl);
       return -EAGAIN;
     }
 
@@ -401,7 +405,6 @@ static ssize_t kzimp_write
 
     if (unlikely(signal_pending(current)))
     {
-      spin_unlock(&chan->bcl);
       printk(KERN_WARNING "kzimp: process %i in write has been interrupted\n", current->pid);
       return -EINTR;
     }
@@ -433,10 +436,6 @@ static ssize_t kzimp_write
   }
 
   m->bitmap = chan->multicast_mask;
-
-  chan->next_write_idx = (chan->next_write_idx + 1) % chan->channel_size;
-
-  spin_unlock(&chan->bcl);
 
   // wake up sleeping readers
   wake_up(&chan->rq);
