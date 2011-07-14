@@ -492,7 +492,7 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
   init_waitqueue_head(&channel->wq);
   INIT_LIST_HEAD(&channel->readers);
 
-  size = channel->max_msg_size * channel->channel_size;
+  size = (unsigned long)channel->max_msg_size * (unsigned long)channel->channel_size;
   channel->messages_area = my_vmalloc(size);
   if (unlikely(!channel->messages_area))
   {

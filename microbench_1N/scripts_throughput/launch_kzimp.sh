@@ -57,6 +57,7 @@ make kzimp_microbench
 timelimit -p -s 9 -t $((${DURATION_XP}+30)) ./bin/kzimp_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
 
 ./stop_all.sh
+sleep 1
 cd $KZIMP_DIR; ./kzimp.sh unload; cd -
 
 # save files
