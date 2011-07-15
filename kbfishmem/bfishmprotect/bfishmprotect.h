@@ -46,6 +46,7 @@ struct ump_message
 
 /// Type used for indices of UMP message slots
 typedef uint16_t ump_index_t;
+#define NBBY         (8)
 #define UMP_INDEX_BITS         (sizeof(ump_index_t) * NBBY)
 #define UMP_INDEX_MASK         ((((uintptr_t)1) << UMP_INDEX_BITS) - 1)
 
@@ -80,11 +81,15 @@ struct ump_channel
   struct ump_chan_state send_chan; ///< Outgoing UMP channel state
   struct ump_chan_state recv_chan; ///< Incoming UMP channel state
 
+  ump_index_t sent_id; ///< Sequence number of next message to be sent
+  ump_index_t seq_id; ///< Last sequence number received from remote
+  ump_index_t ack_id; ///< Last sequence number acknowledged by remote
+  ump_index_t last_ack; ///< Last acknowledgement we sent to remote
+
   ump_index_t max_send_msgs; ///< Number of messages that fit in the send channel
   ump_index_t max_recv_msgs; ///< Number of messages that fit in the recv channel
 
-  uintptr_t sendid; ///< id for tracing
-  uintptr_t recvid; ///< id for tracing
+  int fd; // file descriptor associated with the protected memory areas
 
   size_t inchanlen, outchanlen;
 };
@@ -128,9 +133,50 @@ int recv_msg_nonblocking(struct ump_channel *chan, char *msg, size_t len);
 // select on n channels that can be found in chans.
 // Note that you give an array of channel pointers.
 // Return NULL if there is no message, or a pointer to a channel on which a message is available.
-struct ump_channel* select(struct ump_channel** chans, int n);
+struct ump_channel* bfish_mprotect_select(struct ump_channel** chans, int n);
 
 /********************* inline "private" methods *********************/
-//todo if needed
+/**
+ * \brief Determine next position for an outgoing message on a channel, and
+ *   advance send pointer.
+ *
+ * \param c     Pointer to UMP channel-state structure.
+ * \param ctrl  Pointer to storage for control word for next message, to be filled in
+ *
+ * \return Pointer to message if outstanding, or NULL.
+ */
+static inline struct ump_message *ump_impl_get_next(struct ump_chan_state *c,
+    struct ump_control *ctrl)
+{
+  // construct header
+  ctrl->epoch = c->epoch;
+
+  struct ump_message *msg = &c->buf[c->pos];
+
+  // update pos
+  if (++c->pos == c->bufmsgs)
+  {
+    c->pos = 0;
+    c->epoch = !c->epoch;
+  }
+
+  return msg;
+}
+
+/// Prepare a "control" word (header for each UMP message fragment)
+static inline void ump_control_fill(struct ump_channel *s,
+    struct ump_control *ctrl, int msgtype)
+{
+  ctrl->header = ((uintptr_t) msgtype << UMP_INDEX_BITS)
+      | (uintptr_t) s->seq_id;
+  s->last_ack = s->seq_id;
+  s->sent_id++;
+}
+
+/// Computes (from seq/ack numbers) whether we can currently send on the channel
+static inline int ump_can_send(struct ump_channel *s)
+{
+  return (ump_index_t) (s->sent_id - s->ack_id) < s->max_send_msgs;
+}
 
 #endif

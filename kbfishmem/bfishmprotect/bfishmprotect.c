@@ -4,10 +4,30 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <string.h>
 
 #include "bfishmprotect.h"
 
-/********************* exported interface *********************/
+// WAIT is a macro for usleep(1) or nothing, if you want to busy-wait
+#define WAIT() usleep(1)
+
+#define SENDER_TO_RECEIVER_OFFSET 4096
+#define RECEIVER_TO_SENDER_OFFSET 8192
+
+#define BARRIER()   __asm volatile ("" : : : "memory")
+
+/// Special message types
+enum ump_msgtype
+{
+  UMP_MSG = 0, UMP_ACK = 1,
+};
+
 /*
  * open a channel using the special file mprotectfile for memory protection.
  * The channel size is (for both direction) nb_messages * message_size.
@@ -18,8 +38,87 @@ struct ump_channel open_channel(char *mprotectfile, int nb_messages,
     int message_size, int is_receiver)
 {
   struct ump_channel chan;
+  ump_index_t i;
 
-  //todo
+  chan.inchanlen = (size_t) nb_messages * (size_t) message_size;
+  chan.outchanlen = (size_t) nb_messages * (size_t) message_size;
+
+  if (is_receiver)
+  {
+    chan.fd = open(mprotectfile, O_RDWR | O_CREAT);
+    if (chan.fd < 0)
+    {
+      perror("Reader opening file");
+      exit(-1);
+    }
+
+    chan.recv_chan.buf = mmap(NULL, chan.inchanlen, PROT_READ, MAP_SHARED,
+        chan.fd, SENDER_TO_RECEIVER_OFFSET);
+    if (!chan.recv_chan.buf)
+    {
+      perror("Reader read_area mmap");
+      exit(-1);
+    }
+
+    chan.send_chan.buf = mmap(NULL, chan.outchanlen, PROT_WRITE, MAP_SHARED,
+        chan.fd, RECEIVER_TO_SENDER_OFFSET);
+    if (!chan.send_chan.buf)
+    {
+      perror("Reader write_area mmap");
+      exit(-1);
+    }
+  }
+  else
+  {
+    chan.fd = open(mprotectfile, O_RDWR);
+    if (chan.fd < 0)
+    {
+      perror("Reader opening file");
+      exit(-1);
+    }
+
+    chan.recv_chan.buf = mmap(NULL, chan.inchanlen, PROT_READ, MAP_SHARED,
+        chan.fd, RECEIVER_TO_SENDER_OFFSET);
+    if (!chan.recv_chan.buf)
+    {
+      perror("Reader read_area mmap");
+      exit(-1);
+    }
+
+    chan.send_chan.buf = mmap(NULL, chan.outchanlen, PROT_WRITE, MAP_SHARED,
+        chan.fd, SENDER_TO_RECEIVER_OFFSET);
+    if (!chan.send_chan.buf)
+    {
+      perror("Reader write_area mmap");
+      exit(-1);
+    }
+  }
+
+  chan.recv_chan.dir = UMP_INCOMING;
+  chan.send_chan.dir = UMP_OUTGOING;
+
+  chan.recv_chan.bufmsgs = nb_messages;
+  chan.send_chan.bufmsgs = nb_messages;
+
+  for (i = 0; i < chan.send_chan.bufmsgs; i++)
+  {
+    chan.send_chan.buf[i].header.raw = 0;
+  }
+
+  chan.max_recv_msgs = nb_messages;
+  chan.max_send_msgs = nb_messages;
+
+  chan.recv_chan.epoch = 1;
+  chan.recv_chan.pos = 0;
+
+  chan.send_chan.epoch = 1;
+  chan.send_chan.pos = 0;
+
+  chan.sent_id = 1;
+  chan.seq_id = 0;
+  chan.ack_id = 0;
+  chan.last_ack = 0;
+
   return chan;
 }
 
@@ -28,7 +127,10 @@ struct ump_channel open_channel(char *mprotectfile, int nb_messages,
  */
 void close_channel(struct ump_channel *chan)
 {
-  //todo
+  munmap(chan->recv_chan.buf, chan->inchanlen);
+  munmap(chan->send_chan.buf, chan->outchanlen);
+
+  close(chan->fd);
 }
 
 /*
@@ -38,8 +140,27 @@ void close_channel(struct ump_channel *chan)
  */
 int send_msg(struct ump_channel *chan, char *msg, size_t len)
 {
-  //todo
-  return 0;
+  struct ump_control ctrl;
+  struct ump_message *ump_msg;
+
+  while (!ump_can_send(chan))
+  {
+    WAIT();
+  }
+
+  //code to send:
+  ump_msg = ump_impl_get_next(&chan->send_chan, &ctrl);
+  memcpy(ump_msg->data, msg, len);
+  ump_control_fill(chan, &ctrl, UMP_MSG);
+  BARRIER();
+  ump_msg->header.control = ctrl;
+
+  if (1/*ump_recv_ack_is_needed(TODO)*/)
+  {
+    //todo: recv an ack
+  }
+
+  return len;
 }
 
 /*
@@ -50,6 +171,9 @@ int send_msg(struct ump_channel *chan, char *msg, size_t len)
 int recv_msg(struct ump_channel *chan, char *msg, size_t len)
 {
   //todo
+  //switch msg type: if ack then continue.
+  //send an ack if needed
+
   return 0;
 }
 
@@ -67,7 +191,7 @@ int recv_msg_nonblocking(struct ump_channel *chan, char *msg, size_t len)
 // select on n channels that can be found in chans.
 // Note that you give an array of channel pointers.
 // Return NULL if there is no message, or a pointer to a channel on which a message is available.
-struct ump_channel* select(struct ump_channel** chans, int n)
+struct ump_channel* bfish_mprotect_select(struct ump_channel** chans, int n)
 {
   //todo
   return NULL;
