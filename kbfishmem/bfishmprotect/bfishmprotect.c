@@ -19,6 +19,9 @@
 
 #define BARRIER()   __asm volatile ("" : : : "memory")
 
+#define max(a, b) (a > b ? a : b)
+#define min(a, b) (a < b ? a : b)
+
 /// Special message types
 enum ump_msgtype
 {
@@ -187,7 +190,8 @@ int send_msg(struct ump_channel *chan, char *msg, size_t len)
 
   //code to send:
   ump_msg = ump_impl_get_next(&chan->send_chan, &ctrl);
-  memcpy(ump_msg->data, msg, len); //todo: check len agains MESSAGE_BYTES
+  len = min(MESSAGE_BYTES, len);
+  memcpy(ump_msg->data, msg, len);
   ump_control_fill(chan, &ctrl, UMP_MSG);
   BARRIER();
   ump_msg->header.control = ctrl;
@@ -233,7 +237,8 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
     break;
   case UMP_MSG: // this is a message, we return it
     //printf("[%s:%i] Has received a message\n", __func__, __LINE__);
-    memcpy(msg, ump_msg->data, len); //todo: check len agains MESSAGE_BYTES
+    len = min(len, MESSAGE_BYTES);
+    memcpy(msg, ump_msg->data, len);
     call_recv_again = 0;
     break;
   default:

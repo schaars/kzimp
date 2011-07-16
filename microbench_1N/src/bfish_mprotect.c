@@ -171,8 +171,7 @@ void IPC_sendToAll(int msg_size, char msg_id)
   {
     // writing the content
     rdtsc(cycle_start);
-    //todo
-    //urpc_transport_send(&conn[i], msg, URPC_MSG_WORDS);
+    send_msg(&conn[i], msg, msg_size);
     rdtsc(cycle_stop);
 
     nb_cycles_send += cycle_stop - cycle_start;
@@ -208,10 +207,7 @@ int IPC_receive(int msg_size, char *msg_id)
   uint64_t cycle_start, cycle_stop;
 
   rdtsc(cycle_start);
-  //todo
-  recv_size = 0;
-  //int recv_size = urpc_transport_recv(consumer_connection, (void*) msg,
-  //    URPC_MSG_WORDS);
+  recv_size = recv_msg(&consumer_connection, msg, msg_size);
   rdtsc(cycle_stop);
 
   nb_cycles_recv += cycle_stop - cycle_start;
