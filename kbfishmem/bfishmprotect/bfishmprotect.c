@@ -177,6 +177,9 @@ int send_msg(struct ump_channel *chan, char *msg, size_t len)
   struct ump_control ctrl;
   struct ump_message *ump_msg;
 
+  printf("[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n", __func__,
+      __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs, chan->seq_id, chan->last_ack);
+
   while (!ump_can_send(chan))
   {
     printf("[%s:%i] Going to receive an ack\n", __func__, __LINE__);
@@ -204,6 +207,9 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
   struct ump_message *ump_msg;
   int call_recv_again;
 
+  printf("[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n", __func__,
+      __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs, chan->seq_id, chan->last_ack);
+
   while (!ump_endpoint_can_recv(&chan->recv_chan))
   {
     WAIT();
@@ -225,7 +231,7 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
     call_recv_again = 1;
     break;
   case UMP_MSG: // this is a message, we return it
-    printf("[%s:%i] Has received a message\n", __func__, __LINE__);
+    //printf("[%s:%i] Has received a message\n", __func__, __LINE__);
     memcpy(msg, ump_msg->data, len);
     call_recv_again = 0;
     break;
@@ -238,6 +244,10 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
 
   if (ump_send_ack_is_needed(chan))
   {
+    printf("[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n", __func__,
+        __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs, chan->seq_id, chan->last_ack);
+    printf("[%s:%i] I need to send an ack\n", __func__, __LINE__);
+
     // this shouldn't happen: I have received a message, thus I have updated my information
     // concerning acks.
     if (!ump_can_send(chan))

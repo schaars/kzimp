@@ -191,7 +191,7 @@ static inline int ump_can_send(struct ump_channel *s)
 // return 1 if an ack is needed (to be sent), 0 otherwise
 static inline int ump_send_ack_is_needed(struct ump_channel *s)
 {
-  return (ump_index_t) (s->seq_id - s->last_ack) >= s->max_send_msgs;
+  return (ump_index_t) (s->seq_id - s->last_ack) >= s->max_send_msgs - 1;
 }
 
 /**
