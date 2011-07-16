@@ -119,14 +119,14 @@ int send_msg(struct ump_channel *chan, char *msg, size_t len);
 /*
  * receive a message and place it in msg of size len.
  * Is blocking.
- * Return the size of the received message.
+ * Return the size of the received message or -1 if an error has occured (cannot send the ack)
  */
 int recv_msg(struct ump_channel *chan, char *msg, size_t len);
 
 /*
  * receive a message and place it in msg of size len.
  * Is not blocking.
- * Return the size of the received message or 0 if there is no message
+ * Return the size of the received message or 0 if there is no message or -1 if an error has occured (cannot send the ack)
  */
 int recv_msg_nonblocking(struct ump_channel *chan, char *msg, size_t len);
 
@@ -173,10 +173,110 @@ static inline void ump_control_fill(struct ump_channel *s,
   s->sent_id++;
 }
 
+/// Process a "control" word
+static inline int ump_control_process(struct ump_channel *s,
+    struct ump_control ctrl)
+{
+  s->ack_id = ctrl.header & UMP_INDEX_MASK;
+  s->seq_id++;
+  return ctrl.header >> UMP_INDEX_BITS;
+}
+
 /// Computes (from seq/ack numbers) whether we can currently send on the channel
 static inline int ump_can_send(struct ump_channel *s)
 {
   return (ump_index_t) (s->sent_id - s->ack_id) < s->max_send_msgs;
+}
+
+// return 1 if an ack is needed (at reception), 0 otherwise
+static inline int ump_recv_ack_is_needed(struct ump_channel *s)
+{
+  //todo
+  return 0;
+}
+
+// return 1 if an ack is needed (to be sent), 0 otherwise
+static inline int ump_send_ack_is_needed(struct ump_channel *s)
+{
+  //todo
+  return 0;
+}
+
+/**
+ * \brief Return pointer to a message if outstanding on 'c'.
+ *
+ * \param c     Pointer to UMP channel-state structure.
+ *
+ * \return Pointer to message if outstanding, or NULL.
+ */
+static inline struct ump_message *ump_impl_poll(struct ump_chan_state *c)
+{
+  struct ump_control ctrl = c->buf[c->pos].header.control;
+  if (ctrl.epoch == c->epoch)
+  {
+    return &c->buf[c->pos];
+  }
+  else
+  {
+    return NULL;
+  }
+}
+
+/**
+ * \brief Return pointer to a message if outstanding on 'c' and
+ * advance pointer.
+ *
+ * \param c     Pointer to UMP channel-state structure.
+ *
+ * \return Pointer to message if outstanding, or NULL.
+ */
+static inline struct ump_message *ump_impl_recv(struct ump_chan_state *c)
+{
+  struct ump_message *msg = ump_impl_poll(c);
+
+  if (msg != NULL)
+  {
+    if (++c->pos == c->bufmsgs)
+    {
+      c->pos = 0;
+      c->epoch = !c->epoch;
+    }
+    return msg;
+  }
+  else
+  {
+    return NULL;
+  }
+}
+
+/**
+ * \brief Returns true iff there is a message pending on the given UMP channel
+ */
+static inline int ump_endpoint_can_recv(struct ump_chan_state *chan)
+{
+  return ump_impl_poll(chan) != NULL;
+}
+
+/**
+ * \brief Retrieve a message from the given UMP channel, if possible
+ *
+ * Non-blocking, may fail if there are no messages available.
+ *
+ * Return 0 if there is a message, 1 otherwise
+ */
+static inline int ump_endpoint_recv(struct ump_chan_state *chan,
+    volatile struct ump_message **msg)
+{
+  *msg = ump_impl_recv(chan);
+
+  if (*msg != NULL)
+  {
+    return 0;
+  }
+  else
+  {
+    return 1;
+  }
 }
 
 #endif

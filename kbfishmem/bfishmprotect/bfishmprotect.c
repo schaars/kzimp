@@ -48,7 +48,7 @@ struct ump_channel open_channel(char *mprotectfile, int nb_messages,
     chan.fd = open(mprotectfile, O_RDWR | O_CREAT);
     if (chan.fd < 0)
     {
-      perror("Reader opening file");
+      perror("Reader opening file.");
       exit(-1);
     }
 
@@ -56,7 +56,7 @@ struct ump_channel open_channel(char *mprotectfile, int nb_messages,
         chan.fd, SENDER_TO_RECEIVER_OFFSET);
     if (!chan.recv_chan.buf)
     {
-      perror("Reader read_area mmap");
+      perror("Reader read_area mmap.");
       exit(-1);
     }
 
@@ -64,7 +64,7 @@ struct ump_channel open_channel(char *mprotectfile, int nb_messages,
         chan.fd, RECEIVER_TO_SENDER_OFFSET);
     if (!chan.send_chan.buf)
     {
-      perror("Reader write_area mmap");
+      perror("Reader write_area mmap.");
       exit(-1);
     }
   }
@@ -73,7 +73,7 @@ struct ump_channel open_channel(char *mprotectfile, int nb_messages,
     chan.fd = open(mprotectfile, O_RDWR);
     if (chan.fd < 0)
     {
-      perror("Reader opening file");
+      perror("Reader opening file.");
       exit(-1);
     }
 
@@ -81,7 +81,7 @@ struct ump_channel open_channel(char *mprotectfile, int nb_messages,
         chan.fd, RECEIVER_TO_SENDER_OFFSET);
     if (!chan.recv_chan.buf)
     {
-      perror("Reader read_area mmap");
+      perror("Reader read_area mmap.");
       exit(-1);
     }
 
@@ -89,7 +89,7 @@ struct ump_channel open_channel(char *mprotectfile, int nb_messages,
         chan.fd, SENDER_TO_RECEIVER_OFFSET);
     if (!chan.send_chan.buf)
     {
-      perror("Reader write_area mmap");
+      perror("Reader write_area mmap.");
       exit(-1);
     }
   }
@@ -155,37 +155,117 @@ int send_msg(struct ump_channel *chan, char *msg, size_t len)
   BARRIER();
   ump_msg->header.control = ctrl;
 
-  if (1/*ump_recv_ack_is_needed(TODO)*/)
+  if (ump_recv_ack_is_needed(chan))
   {
-    //todo: recv an ack
+    printf("[%s:%i] Going to receive an ack\n", __func__, __LINE__);
+    recv_msg(chan, msg, len);
   }
 
   return len;
 }
 
+int _recv_msg(struct ump_channel *chan, char *msg, size_t len, int nonblocking)
+{
+  struct ump_control ctrl;
+  struct ump_message *ump_msg;
+  int call_recv_again;
+
+  ump_msg = ump_impl_recv(&chan->recv_chan);
+  if (ump_msg == NULL)
+  {
+    if (nonblocking)
+    {
+      return 0;
+    }
+    else
+    {
+      printf("[%s:%i] Error: ump_msg should not be null\n", __func__, __LINE__);
+      return recv_msg(chan, msg, len);
+    }
+  }
+
+  // what kind of message is this?
+  int msgtype = ump_control_process(chan, ump_msg->header.control);
+  switch (msgtype)
+  {
+  case UMP_ACK: // this is an ack, we need to call recv again
+    printf("[%s:%i] Has received an ack\n", __func__, __LINE__);
+    call_recv_again = 1;
+    break;
+  case UMP_MSG: // this is a message, we return it
+    printf("[%s:%i] Has received a message\n", __func__, __LINE__);
+    memcpy(msg, ump_msg->data, len);
+    call_recv_again = 0;
+    break;
+  default:
+    printf("[%s:%i] Error: unknown message type %i\n", __func__, __LINE__,
+        msgtype);
+    call_recv_again = 1;
+    break;
+  }
+
+  if (ump_send_ack_is_needed(chan))
+  {
+    if (!ump_can_send(chan))
+    {
+      printf("[%s:%i] I need to send an ack but I cannot\n", __func__, __LINE__);
+      return -1;
+    }
+
+    ump_msg = ump_impl_get_next(&chan->send_chan, &ctrl);
+    ump_control_fill(chan, &ctrl, UMP_ACK);
+    BARRIER();
+    ump_msg->header.control = ctrl;
+  }
+
+  if (call_recv_again)
+  {
+    if (!nonblocking)
+    {
+      printf("[%s:%i] Going to receive again\n", __func__, __LINE__);
+      return recv_msg(chan, msg, len);
+    }
+    else
+    {
+      return 0;
+    }
+  }
+  else
+  {
+    return len;
+  }
+}
+
 /*
  * receive a message and place it in msg of size len.
  * Is blocking.
- * Return the size of the received message.
+ * Return the size of the received message or -1 if an error has occured (cannot send the ack)
  */
 int recv_msg(struct ump_channel *chan, char *msg, size_t len)
 {
-  //todo
-  //switch msg type: if ack then continue.
-  //send an ack if needed
+  while (!ump_endpoint_can_recv(&chan->recv_chan))
+  {
+    WAIT();
+  }
 
-  return 0;
+  return _recv_msg(chan, msg, len, 0);
 }
 
 /*
  * receive a message and place it in msg of size len.
  * Is not blocking.
- * Return the size of the received message or 0 if there is no message
+ * Return the size of the received message or 0 if there is no message or -1 if an error has occured (cannot send the ack)
  */
 int recv_msg_nonblocking(struct ump_channel *chan, char *msg, size_t len)
 {
-  //todo
-  return 0;
+  if (ump_endpoint_can_recv(&chan->recv_chan))
+  {
+    return _recv_msg(chan, msg, len, 1);
+  }
+  else
+  {
+    return 0;
+  }
 }
 
 // select on n channels that can be found in chans.
