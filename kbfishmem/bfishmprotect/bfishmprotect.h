@@ -7,18 +7,20 @@
 
 #include <stdint.h>
 
+// Define MESSAGE_BYTES as the size of a message in bytes at compile time.
+// Define WAIT_TYPE as either USLEEP or BUSY, depending on whether you want to sleep or to busy wait
+// when waiting for a message to receive.
+
 /********************* types & structures *********************/
 
-// Define MESSAGE_BYTES as the size of a message in bytes at compile time.
-//FIXME: remove this define since it is set at compile time
-#define MESSAGE_BYTES 64
+#if WAIT_TYPE == USLEEP
+#define WAIT() do { usleep(1); } while (0);
+#elif WAIT_TYPE == BUSY
+#define WAIT() do { ; } while (0);
+#endif
 
 #define CACHELINE_BYTES 64
-#define MESSAGE_BYTES_PLUS_ONE (MESSAGE_BYTES + sizeof(uintptr_t))
-
-#define UMP_PAYLOAD_WORDS  (CACHELINE_BYTES / sizeof(uintptr_t) - 1)
-#define UMP_MSG_WORDS      (UMP_PAYLOAD_WORDS + 1)
-#define UMP_MSG_BYTES      (UMP_MSG_WORDS * sizeof(uintptr_t))
+#define UMP_PAYLOAD_WORDS  (MESSAGE_BYTES / sizeof(uintptr_t))
 
 /// Default size of a unidirectional UMP message buffer, in bytes
 #define DEFAULT_UMP_BUFLEN  (BASE_PAGE_SIZE / 2 / UMP_MSG_BYTES * UMP_MSG_BYTES)

@@ -1,5 +1,5 @@
 C:=gcc
-CFLAGS:=-Wall -Werror -g -lm -ltcmalloc
+CFLAGS:=-Wall -Werror -g -lm -ltcmalloc -DMESSAGE_BYTES=64 -DWAIT_TYPE=USLEEP
 DEPS:= bfishmprotect.c bfishmprotect_test.c
 TARGETS:= bfishmprotect_simple_test bfishmprotect_writer_test bfishmprotect_reader_test
 

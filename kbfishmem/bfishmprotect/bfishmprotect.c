@@ -14,9 +14,6 @@
 
 #include "bfishmprotect.h"
 
-// WAIT is a macro for usleep(1) or nothing, if you want to busy-wait
-#define WAIT() usleep(1)
-
 #define SENDER_TO_RECEIVER_OFFSET 4096
 #define RECEIVER_TO_SENDER_OFFSET 8192
 
@@ -177,8 +174,10 @@ int send_msg(struct ump_channel *chan, char *msg, size_t len)
   struct ump_control ctrl;
   struct ump_message *ump_msg;
 
-  printf("[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n", __func__,
-      __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs, chan->seq_id, chan->last_ack);
+  printf(
+      "[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n",
+      __func__, __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs,
+      chan->seq_id, chan->last_ack);
 
   while (!ump_can_send(chan))
   {
@@ -188,7 +187,7 @@ int send_msg(struct ump_channel *chan, char *msg, size_t len)
 
   //code to send:
   ump_msg = ump_impl_get_next(&chan->send_chan, &ctrl);
-  memcpy(ump_msg->data, msg, len);
+  memcpy(ump_msg->data, msg, len); //todo: check len agains MESSAGE_BYTES
   ump_control_fill(chan, &ctrl, UMP_MSG);
   BARRIER();
   ump_msg->header.control = ctrl;
@@ -207,8 +206,10 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
   struct ump_message *ump_msg;
   int call_recv_again;
 
-  printf("[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n", __func__,
-      __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs, chan->seq_id, chan->last_ack);
+  printf(
+      "[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n",
+      __func__, __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs,
+      chan->seq_id, chan->last_ack);
 
   while (!ump_endpoint_can_recv(&chan->recv_chan))
   {
@@ -232,7 +233,7 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
     break;
   case UMP_MSG: // this is a message, we return it
     //printf("[%s:%i] Has received a message\n", __func__, __LINE__);
-    memcpy(msg, ump_msg->data, len);
+    memcpy(msg, ump_msg->data, len); //todo: check len agains MESSAGE_BYTES
     call_recv_again = 0;
     break;
   default:
@@ -244,8 +245,10 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
 
   if (ump_send_ack_is_needed(chan))
   {
-    printf("[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n", __func__,
-        __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs, chan->seq_id, chan->last_ack);
+    printf(
+        "[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n",
+        __func__, __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs,
+        chan->seq_id, chan->last_ack);
     printf("[%s:%i] I need to send an ack\n", __func__, __LINE__);
 
     // this shouldn't happen: I have received a message, thus I have updated my information

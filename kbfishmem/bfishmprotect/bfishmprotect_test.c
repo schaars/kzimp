@@ -7,7 +7,8 @@
 #include "bfishmprotect.h"
 
 #define NB_MSG 20
-#define MSG_SIZE 64
+// MESSAGE_BYTES is defined at compile time. Must be a multiple of the cache line size
+#define MSG_SIZE MESSAGE_BYTES
 
 void print_msg(char *msg, int len)
 {
@@ -108,6 +109,7 @@ void do_writer(void)
   char msg[MSG_SIZE];
 
   // open channels
+  // note that the receiver should already have opened the file
   sender_to_receiver = open_channel("/dev/kbfishmem0", 10, MSG_SIZE, 0);
 
   // send 10 messages
