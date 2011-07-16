@@ -152,10 +152,10 @@ static void init_node(int _node_id)
 
   if (node_id == 0)
   {
-    snprintf(chaname, 256, "/dev/kzimp%i", 0);
+    snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 0);
     client_to_leader = open(chaname, O_RDONLY);
 
-    snprintf(chaname, 256, "/dev/kzimp%i", 1);
+    snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 1);
     leader_to_acceptor = open(chaname, O_WRONLY);
 
     if (client_to_leader < 0 || leader_to_acceptor < 0)
@@ -166,10 +166,10 @@ static void init_node(int _node_id)
   }
   else if (node_id == 1)
   {
-    snprintf(chaname, 256, "/dev/kzimp%i", 1);
+    snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 1);
     leader_to_acceptor = open(chaname, O_RDONLY);
 
-    snprintf(chaname, 256, "/dev/kzimp%i", 2);
+    snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 2);
     acceptor_multicast = open(chaname, O_WRONLY);
 
     if (leader_to_acceptor < 0 || acceptor_multicast < 0)
@@ -191,7 +191,7 @@ static void init_node(int _node_id)
     int i;
     for (i = 0; i < nb_learners; i++)
     {
-      snprintf(chaname, 256, "/dev/kzimp%i", i+3);
+      snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, i+3);
       learneri_to_client[i] = open(chaname, O_RDONLY);
 
       if (learneri_to_client[i] < 0)
@@ -201,7 +201,7 @@ static void init_node(int _node_id)
       }
     }
 #else
-    snprintf(chaname, 256, "/dev/kzimp%i", 3);
+    snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 3);
     learners_to_client = open(chaname, O_RDONLY);
 
     if (learners_to_client < 0)
@@ -213,7 +213,7 @@ static void init_node(int _node_id)
   }
   else if (node_id > nb_paxos_nodes)
   {
-    snprintf(chaname, 256, "/dev/kzimp%i", 0);
+    snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 0);
     client_to_leader = open(chaname, O_WRONLY);
 
     if (client_to_leader < 0)
@@ -224,7 +224,7 @@ static void init_node(int _node_id)
   }
   else
   {
-    snprintf(chaname, 256, "/dev/kzimp%i", 2);
+    snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 2);
     acceptor_multicast = open(chaname, O_RDONLY);
 
     if (acceptor_multicast < 0)
@@ -241,7 +241,7 @@ static void init_node(int _node_id)
       exit(-1);
     }
 
-    snprintf(chaname, 256, "/dev/kzimp%i", node_id - 2 + 3);
+    snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, node_id - 2 + 3);
     *learneri_to_client = open(chaname, O_WRONLY);
 
     if (*learneri_to_client < 0)
@@ -251,7 +251,7 @@ static void init_node(int _node_id)
     }
 
 #else
-    snprintf(chaname, 256, "/dev/kzimp%i", 3);
+    snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 3);
     learners_to_client = open(chaname, O_WRONLY);
 
     if (learners_to_client < 0)

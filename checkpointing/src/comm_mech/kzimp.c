@@ -167,31 +167,31 @@ void IPC_initialize_node(int _node_id)
 
   if (node_id == 0)
   {
-    snprintf(chaname, 256, "/dev/kzimp%i", 0);
+    snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 0);
     multicast_0_to_all = Open(chaname, O_WRONLY);
 
 #ifdef ONE_CHANNEL_PER_NODE
     int i;
     for (i = 1; i < nb_nodes; i++)
     {
-      snprintf(chaname, 256, "/dev/kzimp%i", i);
+      snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, i);
       nodei_to_0[i] = Open(chaname, O_WRONLY);
     }
 #else
-    snprintf(chaname, 256, "/dev/kzimp%i", 1);
+    snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 1);
     nodes_to_0 = Open(chaname, O_RDONLY);
 #endif
   }
   else
   {
-    snprintf(chaname, 256, "/dev/kzimp%i", 0);
+    snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 0);
     multicast_0_to_all = Open(chaname, O_RDONLY);
 
 #ifdef ONE_CHANNEL_PER_NODE
-    snprintf(chaname, 256, "/dev/kzimp%i", node_id);
+    snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, node_id);
     nodei_to_0[node_id] = Open(chaname, O_WRONLY);
 #else
-    snprintf(chaname, 256, "/dev/kzimp%i", 1);
+    snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 1);
     nodes_to_0 = Open(chaname, O_WRONLY);
 #endif
   }
