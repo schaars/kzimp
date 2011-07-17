@@ -52,7 +52,7 @@ struct ump_channel open_channel(char *mprotectfile, int nb_messages,
       exit(-1);
     }
 
-    chan.recv_chan.buf = mmap(NULL, chan.inchanlen, PROT_READ, MAP_SHARED,
+    chan.recv_chan.buf = (struct ump_message*)mmap(NULL, chan.inchanlen, PROT_READ, MAP_SHARED,
         chan.fd, SENDER_TO_RECEIVER_OFFSET);
     if (!chan.recv_chan.buf)
     {
@@ -60,7 +60,7 @@ struct ump_channel open_channel(char *mprotectfile, int nb_messages,
       exit(-1);
     }
 
-    chan.send_chan.buf = mmap(NULL, chan.outchanlen, PROT_WRITE, MAP_SHARED,
+    chan.send_chan.buf = (struct ump_message*)mmap(NULL, chan.outchanlen, PROT_WRITE, MAP_SHARED,
         chan.fd, RECEIVER_TO_SENDER_OFFSET);
     if (!chan.send_chan.buf)
     {
@@ -77,7 +77,7 @@ struct ump_channel open_channel(char *mprotectfile, int nb_messages,
       exit(-1);
     }
 
-    chan.recv_chan.buf = mmap(NULL, chan.inchanlen, PROT_READ, MAP_SHARED,
+    chan.recv_chan.buf = (struct ump_message*)mmap(NULL, chan.inchanlen, PROT_READ, MAP_SHARED,
         chan.fd, RECEIVER_TO_SENDER_OFFSET);
     if (!chan.recv_chan.buf)
     {
@@ -85,7 +85,7 @@ struct ump_channel open_channel(char *mprotectfile, int nb_messages,
       exit(-1);
     }
 
-    chan.send_chan.buf = mmap(NULL, chan.outchanlen, PROT_WRITE, MAP_SHARED,
+    chan.send_chan.buf = (struct ump_message*)mmap(NULL, chan.outchanlen, PROT_WRITE, MAP_SHARED,
         chan.fd, SENDER_TO_RECEIVER_OFFSET);
     if (!chan.send_chan.buf)
     {

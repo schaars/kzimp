@@ -1,6 +1,6 @@
 /* This file is part of multicore_replication_microbench.
  *
- * Communication mechanism: Barrelfish message-passing
+ * Communication mechanism: Barrelfish message-passing with kbfish memory protection module
  */
 
 #include <stdio.h>
