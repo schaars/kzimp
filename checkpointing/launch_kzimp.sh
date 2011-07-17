@@ -21,8 +21,8 @@ COMPUTE_CHKSUM=0
 # Writer's timeout
 KZIMP_TIMEOUT=60000
 
-# macro for the version with 1 channel per learner i -> client 0
-# set it to 1 if you want 1 channel per learner, 0 otherwise.
+# macro for the version with 1 channel per node i -> 0
+# set it to 1 if you want 1 channel per node, 0 otherwise.
 ONE_CHANNEL_PER_NODE=0
 
 
@@ -46,7 +46,7 @@ rm -f /tmp/checkpointing_node_0_finished
 
 # compile and load module
 if [ $ONE_CHANNEL_PER_NODE -eq 1 ]; then
-   NB_MAX_CHANNELS=6
+   NB_MAX_CHANNELS=$NB_NODES
 else
    NB_MAX_CHANNELS=2
 fi
