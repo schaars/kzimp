@@ -16,7 +16,7 @@
 #include <linux/mm.h>           /* about vma_struct */
 
 #define DRIVER_AUTHOR "Pierre Louis Aublin <pierre-louis.aublin@inria.fr>"
-#define DRIVER_DESC   "Kernel module of the Barrelfish Message Passing (UMP) communication mechanism"
+#define DRIVER_DESC   "Kernel module which offers protected memory for the Barrelfish Message Passing (UMP) communication mechanism"
 
 // even if all the machines do not necessarily have lines of 64B, we don't really care
 #define CACHE_LINE_SIZE 64
