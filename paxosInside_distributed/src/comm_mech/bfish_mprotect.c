@@ -14,13 +14,10 @@
 
 #include "ipc_interface.h"
 #include "../../../kbfishmem/bfishmprotect/bfishmprotect.h"
-#include "../MessageTag.h"
-#include "../Message.h"
 
 // debug macro
 #define DEBUG
 #undef DEBUG
-
 
 /********** All the variables needed by Barrelfish message passing **********/
 
@@ -36,10 +33,10 @@ static int nb_clients;
 static int nb_learners;
 static int total_nb_nodes;
 
-static struct ump_channel *clients_to_leader; // connection between client i and the leader
+static struct ump_channel client_to_leader; // connection between client 1 and the leader
 static struct ump_channel leader_to_acceptor; // connection between leader and acceptor
 static struct ump_channel *acceptor_to_learners; // connection between the acceptor and learner i
-static struct ump_channel **learners_to_clients; // connection between the learner l and the client c
+static struct ump_channel *learners_to_clients; // connection between the learner i and the client 0
 
 
 // Initialize resources for both the node and the clients
@@ -52,55 +49,118 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
   total_nb_nodes = nb_paxos_nodes + nb_clients;
 }
 
+static void init_node(int _node_id)
+{
+  char chaname[256];
+  int i;
+
+  node_id = _node_id;
+
+  if (node_id == 0) // leader
+  {
+    snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, 0);
+    client_to_leader = open_channel(chaname, NB_MESSAGES, MESSAGE_BYTES, 1);
+
+    // ensure that the receivers have opened the file
+    sleep(2);
+
+    snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, 1);
+    leader_to_acceptor = open_channel(chaname, NB_MESSAGES, MESSAGE_BYTES, 0);
+  }
+  else if (node_id == 1) // acceptor
+  {
+    snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, 1);
+    leader_to_acceptor = open_channel(chaname, NB_MESSAGES, MESSAGE_BYTES, 1);
+
+    // ensure that the receivers have opened the file
+    sleep(2);
+
+    acceptor_to_learners = (typeof(acceptor_to_learners)) malloc(
+        sizeof(*acceptor_to_learners) * nb_learners);
+    if (!acceptor_to_learners)
+    {
+      perror("Allocation error of the acceptor_to_learners channels");
+      exit(-1);
+    }
+
+    for (i = 0; i < nb_learners; i++)
+    {
+      snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, i + 2);
+      acceptor_to_learners[i] = open_channel(chaname, NB_MESSAGES,
+          MESSAGE_BYTES, 0);
+    }
+  }
+  else if (node_id == nb_paxos_nodes) // client 0
+  {
+    learners_to_clients = (typeof(learners_to_clients)) malloc(
+        sizeof(*learners_to_clients) * nb_learners);
+    if (!learners_to_clients)
+    {
+      perror("Allocation error of the learners_to_clients channels");
+      exit(-1);
+    }
+
+    for (i = 0; i < nb_learners; i++)
+    {
+      snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, i + 2
+          + nb_learners);
+      learners_to_clients[i] = open_channel(chaname, NB_MESSAGES,
+          MESSAGE_BYTES, 1);
+    }
+  }
+  else if (node_id > nb_paxos_nodes) // client 1
+  {
+    // ensure that the receivers have opened the file
+    sleep(2);
+
+    snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, 0);
+    client_to_leader = open_channel(chaname, NB_MESSAGES, MESSAGE_BYTES, 0);
+  }
+  else // learners
+  {
+    acceptor_to_learners = (typeof(acceptor_to_learners)) malloc(
+        sizeof(*acceptor_to_learners));
+    if (!acceptor_to_learners)
+    {
+      perror("Allocation error of the acceptor_to_learners channels");
+      exit(-1);
+    }
+
+    snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, node_id);
+    acceptor_to_learners[0] = open_channel(chaname, NB_MESSAGES, MESSAGE_BYTES,
+        1);
+
+    // ensure that the receivers have opened the file
+    sleep(2);
+
+    learners_to_clients = (typeof(learners_to_clients)) malloc(
+        sizeof(*learners_to_clients));
+    if (!learners_to_clients)
+    {
+      perror("Allocation error of the learners_to_clients channels");
+      exit(-1);
+    }
+
+    for (i = 0; i < nb_learners; i++)
+    {
+      snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, node_id
+          + nb_learners);
+      learners_to_clients[0] = open_channel(chaname, NB_MESSAGES,
+          MESSAGE_BYTES, 0);
+    }
+  }
+}
+
 // Initialize resources for the node
 void IPC_initialize_node(int _node_id)
 {
-  node_id = _node_id;
-
-  //todo
-
-  /*
-  if (node_id == 0)
-  {
-    nb_messages_in_transit_multi = (int*) malloc(sizeof(int) * nb_clients);
-    if (!nb_messages_in_transit_multi)
-    {
-      perror("Allocation error");
-      exit(errno);
-    }
-
-    for (int i = 0; i < nb_clients; i++)
-    {
-      nb_messages_in_transit_multi[i] = 0;
-    }
-  }
-  else
-  {
-    nb_messages_in_transit_multi = NULL;
-  }
-*/
+  init_node(_node_id);
 }
 
 // Initialize resources for the client of id _client_id
 void IPC_initialize_client(int _client_id)
 {
-  node_id = _client_id;
-
-  //todo
-
-  /*
-  nb_messages_in_transit_multi = (int*) malloc(sizeof(int) * nb_learners);
-  if (!nb_messages_in_transit_multi)
-  {
-    perror("Allocation error");
-    exit(errno);
-  }
-
-  for (int i = 0; i < nb_learners; i++)
-  {
-    nb_messages_in_transit_multi[i] = 0;
-  }
-  */
+  init_node(_client_id);
 }
 
 // Clean resources
@@ -109,36 +169,64 @@ void IPC_clean(void)
 {
 }
 
+static void clean_node(void)
+{
+  int i;
+
+  if (node_id == 0) // leader
+  {
+    close_channel(&leader_to_acceptor);
+    close_channel(&client_to_leader);
+  }
+  else if (node_id == 1) // acceptor
+  {
+    for (i = 0; i < nb_learners; i++)
+    {
+      close_channel(&acceptor_to_learners[i]);
+    }
+    free(acceptor_to_learners);
+
+    close_channel(&leader_to_acceptor);
+  }
+  else if (node_id == nb_paxos_nodes) // client 0
+  {
+    for (i = 0; i < nb_learners; i++)
+    {
+      close_channel(&learners_to_clients[i]);
+    }
+    free(learners_to_clients);
+  }
+  else if (node_id > nb_paxos_nodes) // client 1
+  {
+    close_channel(&client_to_leader);
+  }
+  else // learners
+  {
+    close_channel(&learners_to_clients[0]);
+    free(learners_to_clients);
+
+    close_channel(&acceptor_to_learners[0]);
+    free(acceptor_to_learners);
+  }
+}
+
 // Clean resources created for the (paxos) node.
 void IPC_clean_node(void)
 {
-  //todo
-
-  /*
-  if (node_id == 0)
-  {
-    free(nb_messages_in_transit_multi);
-  }
-  */
+  clean_node();
 }
 
 // Clean resources created for the client.
 void IPC_clean_client(void)
 {
-  //todo
-
-  /*
-  free(nb_messages_in_transit_multi);
-  */
+  clean_node();
 }
 
 // send the message msg of size length to the node 1
 // Indeed the only unicast is from 0 to 1
 void IPC_send_node_unicast(void *msg, size_t length)
 {
-  //todo
-
-  //urpc_transport_send(&leader_to_acceptor, msg, length / sizeof(uint64_t));
+  send_msg(&leader_to_acceptor, (char*) msg, length);
 }
 
 // send the message msg of size length to all the learners
@@ -150,9 +238,7 @@ void IPC_send_node_multicast(void *msg, size_t length)
     printf("Node %i is going to send a multicast message to learner %i\n",
         node_id, l + 2);
 #endif
-    //todo
-    //urpc_transport_send(&acceptor_to_learners[l], msg, length
-    //    / sizeof(uint64_t));
+    send_msg(&acceptor_to_learners[l], (char*) msg, length);
   }
 
 #ifdef DEBUG
@@ -164,10 +250,7 @@ void IPC_send_node_multicast(void *msg, size_t length)
 // called by a client
 void IPC_send_client_to_node(void *msg, size_t length)
 {
-  //todo
-
-  //urpc_transport_send(&clients_to_leader[node_id - nb_paxos_nodes], msg, length
-  //    / sizeof(uint64_t));
+  send_msg(&client_to_leader, (char*) msg, length);
 }
 
 // send the message msg of size length to the client of id cid
@@ -178,151 +261,39 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid)
   printf("Node %i is going to send a message to client %i\n", node_id, cid);
 #endif
 
-  //todo
-  //urpc_transport_send(&learners_to_clients[node_id - 2][0], msg, length
-  //    / sizeof(uint64_t));
-}
-
-// return a message received by node 0
-// This is the leader. It receives messages from the clients
-size_t recv_for_node0(void *msg, size_t length)
-{
-  Message m;
-  size_t recv_size;
-
-  //todo
-
-  /*
-  while (1)
-  {
-    for (int i = 0; i < nb_clients; i++)
-    {
-      recv_size = urpc_transport_recv_nonblocking(&clients_to_leader[i],
-          (void*) msg, length / sizeof(uint64_t));
-
-      if (recv_size > 0)
-      {
-        nb_messages_in_transit_multi[i]++;
-
-        if (nb_messages_in_transit_multi[i] == NB_MSG_MAX_IN_TRANSIT)
-        {
-#ifdef DEBUG
-          printf("Node %i is sending an ack to client %i\n", node_id, i);
-#endif
-
-          urpc_transport_send(&clients_to_leader[i], m.content(), ACK_SIZE);
-
-          nb_messages_in_transit_multi[i] = 0;
-        }
-
-        return recv_size;
-      }
-    }
-  }
-  */
-
-  return recv_size;
-}
-
-// return a message received by node 0
-// This is the leader. It receives messages from the clients
-size_t recv_for_client(void *msg, size_t length)
-{
-  Message m;
-  size_t recv_size;
-
-  //todo
-
-  /*
-  while (1)
-  {
-    for (int i = 0; i < nb_learners; i++)
-    {
-      recv_size = urpc_transport_recv_nonblocking(
-          &learners_to_clients[i][node_id - nb_paxos_nodes], (void*) msg,
-          length / sizeof(uint64_t));
-
-      if (recv_size > 0)
-      {
-        nb_messages_in_transit_multi[i]++;
-
-        if (nb_messages_in_transit_multi[i] == NB_MSG_MAX_IN_TRANSIT)
-        {
-#ifdef DEBUG
-          printf("Node %i is sending an ack to learner %i\n", node_id, i);
-#endif
-
-          urpc_transport_send(
-              &learners_to_clients[i][node_id - nb_paxos_nodes], m.content(),
-              ACK_SIZE);
-
-          nb_messages_in_transit_multi[i] = 0;
-        }
-
-        return recv_size;
-      }
-    }
-  }
-  */
-
-  return recv_size;
+  send_msg(&learners_to_clients[0], (char*) msg, length);
 }
 
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
 size_t IPC_receive(void *msg, size_t length)
 {
-  Message m;
   size_t recv_size;
+  struct ump_channel* rc;
 
-  //todo
-
-  /*
-  if (node_id == 0)
+  if (node_id == 0) // leader
   {
-    recv_size = recv_for_node0(msg, length);
+    recv_size = recv_msg(&client_to_leader, (char*) msg, length);
   }
-  else if (node_id == 1)
+  else if (node_id == 1) // acceptor
   {
-    recv_size = urpc_transport_recv(&leader_to_acceptor, msg, length / sizeof(uint64_t));
-
-    nb_messages_in_transit_rcv++;
-
-    if (nb_messages_in_transit_rcv == NB_MSG_MAX_IN_TRANSIT)
-    {
-#ifdef DEBUG
-      printf("Node %i is sending an ack to the leader\n", node_id);
-#endif
-
-      urpc_transport_send(&leader_to_acceptor, m.content(), ACK_SIZE);
-
-      nb_messages_in_transit_rcv = 0;
-    }
+    recv_size = recv_msg(&leader_to_acceptor, (char*) msg, length);
   }
-  else if (node_id < nb_paxos_nodes)
+  else if (node_id == nb_paxos_nodes) // client 0
   {
-    recv_size = urpc_transport_recv(&acceptor_to_learners[node_id - 2], msg,
-        length / sizeof(uint64_t));
-
-    nb_messages_in_transit_rcv++;
-
-    if (nb_messages_in_transit_rcv == NB_MSG_MAX_IN_TRANSIT)
-    {
-#ifdef DEBUG
-      printf("Node %i is sending an ack to the acceptor\n", node_id);
-#endif
-
-      urpc_transport_send(&acceptor_to_learners[node_id - 2], m.content(),
-          ACK_SIZE);
-
-      nb_messages_in_transit_rcv = 0;
-    }
+    // the call is blocking because of the 3rd argument equal to 0
+    rc = bfish_mprotect_select(learners_to_clients, nb_learners, 0);
+    recv_size = recv_msg(rc, (char*) msg, length);
   }
-  else
+  else if (node_id > nb_paxos_nodes) // client 1
   {
-    recv_size = recv_for_client(msg, length);
+    // client 1 never receives anything
+    recv_size = 0;
   }
-  */
+  else // learners
+  {
+    recv_size = recv_msg(&acceptor_to_learners[0], (char*) msg, length);
+  }
 
-  return recv_size * sizeof(uint64_t);
+  return recv_size;
 }
