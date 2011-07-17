@@ -21,6 +21,7 @@ fi
   ./launch_ulm.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 50 profile
   ./launch_barrelfish_mp.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 500 profile
   ./launch_kzimp.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 10000 profile
+  ./launch_bfish_mprotect.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 1000 profile
   
 done
 done

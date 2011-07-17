@@ -2,15 +2,11 @@ toplevel:
 	-mkdir -p bin
 	-$(MAKE) $(MLAGS) all
 
-all: barrelfish_mp_checkpointing ulm_checkpointing kzimp_checkpointing
+all: barrelfish_mp_checkpointing ulm_checkpointing kzimp_checkpointing bfish_mprotect_checkpointing
 
 C:=g++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
 DEPS:=src/time.h src/checkpointing.cc src/Checkpointer.cc src/Message.cc src/Checkpoint_request.cc src/Checkpoint_response.cc
-
-posix_msg_queue_checkpointing: $(DEPS) src/comm_mech/posix_msg_queue.c
-	$(shell if [ ! -e POSIX_MSG_QUEUE_PROPERTIES ]; then echo "" > POSIX_MSG_QUEUE_PROPERTIES; fi)
-	$(C) $(CFLAGS) $(shell cat POSIX_MSG_QUEUE_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
 	
 barrelfish_mp_checkpointing: $(DEPS) src/comm_mech/urpc.h src/comm_mech/urpc_transport.c src/comm_mech/barrelfish_mp.c
 	$(shell if [ ! -e BARRELFISH_MP_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64 -DURPC_MSG_WORDS=16 -DURPC_MSG_WORDS_CHKPT=16" > BARRELFISH_MP_PROPERTIES; fi)
@@ -23,6 +19,10 @@ ulm_checkpointing: $(DEPS) src/comm_mech/mpsoc.c src/comm_mech/ulm.c
 kzimp_checkpointing: $(DEPS) src/comm_mech/kzimp.c
 	$(shell if [ ! -e KZIMP_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64" > KZIMP_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat KZIMP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
+
+bfish_mprotect_paxosInside: $(DEPS) src/comm_mech/bfish_mprotect.c ../kbfishmem/bfishmprotect/bfishmprotect.c
+	$(shell if [ ! -e BFISH_MPROTECT_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64 -DMESSAGE_BYTES=64 -DWAIT_TYPE=USLEEP" > BFISH_MPROTECT_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell cat BFISH_MPROTECT_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	
 clean:
 	-rm *.o
@@ -30,10 +30,12 @@ clean:
 	-rm BARRELFISH_MP_PROPERTIES
 	-rm ULM_PROPERTIES
 	-rm KZIMP_PROPERTIES
+	-rm BFISH_MPROTECT_PROPERTIES
 
 clobber:
 	-rm *.o
 	-rm *~
 	-rm bin/barrelfish_mp_checkpointing
 	-rm bin/ulm_checkpointing
-	-rm bimnkzimp_checkpointing
+	-rm bim/kzimp_checkpointing
+	-rm bin/bfish_mprotect_paxosInside

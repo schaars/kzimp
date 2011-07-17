@@ -8,7 +8,6 @@
 
 
 KBFISH_MEM_DIR="../kbfishmem"
-BFISH_MPROTECT_DIR="../kzimp/kzimp"
 
 
 # get arguments
