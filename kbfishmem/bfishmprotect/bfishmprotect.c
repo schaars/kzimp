@@ -377,7 +377,7 @@ int recv_msg_nonblocking(struct ump_channel *chan, char *msg, size_t len)
 // Return NULL if there is no message, or a pointer to a channel on which a message is available.
 // Before returning NULL (if there is no message), performs nb_iter iterations.
 // If nb_iter is 0 then the call is blocking.
-struct ump_channel* bfish_mprotect_select(struct ump_channel** chans, int l,
+struct ump_channel* bfish_mprotect_select(struct ump_channel* chans, int l,
     int nb_iter)
 {
   int i, n;
@@ -387,9 +387,9 @@ struct ump_channel* bfish_mprotect_select(struct ump_channel** chans, int l,
   {
     for (i = 0; i < l; i++)
     {
-      if (ump_endpoint_can_recv(&chans[i]->recv_chan))
+      if (ump_endpoint_can_recv(&chans[i].recv_chan))
       {
-        return chans[i];
+        return &chans[i];
       }
     }
 
