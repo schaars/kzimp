@@ -154,7 +154,7 @@ void recv_ack(struct ump_channel *chan)
   switch (msgtype)
   {
   case UMP_ACK: // this is an ack, we need to call recv again
-    printf("[%s:%i] Has received an ack\n", __func__, __LINE__);
+    //printf("[%s:%i] Has received an ack\n", __func__, __LINE__);
     break;
   case UMP_MSG: // this is a message, we return it
     printf("[%s:%i] Should not have received a message; expecting an ack\n",
@@ -177,14 +177,16 @@ int send_msg(struct ump_channel *chan, char *msg, size_t len)
   struct ump_control ctrl;
   struct ump_message *ump_msg;
 
+  /*
   printf(
       "[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n",
       __func__, __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs,
       chan->seq_id, chan->last_ack);
+  */
 
   while (!ump_can_send(chan))
   {
-    printf("[%s:%i] Going to receive an ack\n", __func__, __LINE__);
+    //printf("[%s:%i] Going to receive an ack\n", __func__, __LINE__);
     recv_ack(chan);
   }
 
@@ -210,10 +212,12 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
   struct ump_message *ump_msg;
   int call_recv_again;
 
+  /*
   printf(
       "[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n",
       __func__, __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs,
       chan->seq_id, chan->last_ack);
+  */
 
   while (!ump_endpoint_can_recv(&chan->recv_chan))
   {
@@ -232,7 +236,7 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
   switch (msgtype)
   {
   case UMP_ACK: // this is an ack, we need to call recv again
-    printf("[%s:%i] Has received an ack\n", __func__, __LINE__);
+    //printf("[%s:%i] Has received an ack\n", __func__, __LINE__);
     call_recv_again = 1;
     break;
   case UMP_MSG: // this is a message, we return it
@@ -250,11 +254,13 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
 
   if (ump_send_ack_is_needed(chan))
   {
+    /*
     printf(
         "[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n",
         __func__, __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs,
         chan->seq_id, chan->last_ack);
     printf("[%s:%i] I need to send an ack\n", __func__, __LINE__);
+    */
 
     // this shouldn't happen: I have received a message, thus I have updated my information
     // concerning acks.
@@ -272,7 +278,7 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
 
   if (call_recv_again)
   {
-    printf("[%s:%i] Going to receive again\n", __func__, __LINE__);
+    //printf("[%s:%i] Going to receive again\n", __func__, __LINE__);
     return recv_msg(chan, msg, len);
   }
   else
@@ -300,3 +306,4 @@ struct ump_channel* bfish_mprotect_select(struct ump_channel** chans, int n)
   //todo
   return NULL;
 }
+
