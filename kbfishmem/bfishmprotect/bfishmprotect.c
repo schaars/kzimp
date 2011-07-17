@@ -178,11 +178,11 @@ int send_msg(struct ump_channel *chan, char *msg, size_t len)
   struct ump_message *ump_msg;
 
   /*
-  printf(
-      "[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n",
-      __func__, __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs,
-      chan->seq_id, chan->last_ack);
-  */
+   printf(
+   "[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n",
+   __func__, __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs,
+   chan->seq_id, chan->last_ack);
+   */
 
   while (!ump_can_send(chan))
   {
@@ -213,11 +213,11 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
   int call_recv_again;
 
   /*
-  printf(
-      "[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n",
-      __func__, __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs,
-      chan->seq_id, chan->last_ack);
-  */
+   printf(
+   "[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n",
+   __func__, __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs,
+   chan->seq_id, chan->last_ack);
+   */
 
   while (!ump_endpoint_can_recv(&chan->recv_chan))
   {
@@ -255,12 +255,12 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
   if (ump_send_ack_is_needed(chan))
   {
     /*
-    printf(
-        "[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n",
-        __func__, __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs,
-        chan->seq_id, chan->last_ack);
-    printf("[%s:%i] I need to send an ack\n", __func__, __LINE__);
-    */
+     printf(
+     "[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n",
+     __func__, __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs,
+     chan->seq_id, chan->last_ack);
+     printf("[%s:%i] I need to send an ack\n", __func__, __LINE__);
+     */
 
     // this shouldn't happen: I have received a message, thus I have updated my information
     // concerning acks.
@@ -294,16 +294,114 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
  */
 int recv_msg_nonblocking(struct ump_channel *chan, char *msg, size_t len)
 {
-  //todo
-  return 0;
+  struct ump_control ctrl;
+  struct ump_message *ump_msg;
+  int call_recv_again;
+
+  /*
+   printf(
+   "[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n",
+   __func__, __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs,
+   chan->seq_id, chan->last_ack);
+   */
+
+  if (!ump_endpoint_can_recv(&chan->recv_chan))
+  {
+    return 0;
+  }
+
+  ump_msg = ump_impl_recv(&chan->recv_chan);
+  if (ump_msg == NULL)
+  {
+    printf("[%s:%i] Error: ump_msg should not be null\n", __func__, __LINE__);
+    exit(-1);
+  }
+
+  // what kind of message is this?
+  int msgtype = ump_control_process(chan, ump_msg->header.control);
+  switch (msgtype)
+  {
+  case UMP_ACK: // this is an ack, we need to call recv again
+    //printf("[%s:%i] Has received an ack\n", __func__, __LINE__);
+    call_recv_again = 1;
+    break;
+  case UMP_MSG: // this is a message, we return it
+    //printf("[%s:%i] Has received a message\n", __func__, __LINE__);
+    len = min(len, MESSAGE_BYTES);
+    memcpy(msg, ump_msg->data, len);
+    call_recv_again = 0;
+    break;
+  default:
+    printf("[%s:%i] Error: unknown message type %i\n", __func__, __LINE__,
+        msgtype);
+    call_recv_again = 1;
+    break;
+  }
+
+  if (ump_send_ack_is_needed(chan))
+  {
+    /*
+     printf(
+     "[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n",
+     __func__, __LINE__, chan->sent_id, chan->ack_id, chan->max_send_msgs,
+     chan->seq_id, chan->last_ack);
+     printf("[%s:%i] I need to send an ack\n", __func__, __LINE__);
+     */
+
+    // this shouldn't happen: I have received a message, thus I have updated my information
+    // concerning acks.
+    if (!ump_can_send(chan))
+    {
+      printf("[%s:%i] I need to send an ack but I cannot\n", __func__, __LINE__);
+      exit(-1);
+    }
+
+    ump_msg = ump_impl_get_next(&chan->send_chan, &ctrl);
+    ump_control_fill(chan, &ctrl, UMP_ACK);
+    BARRIER();
+    ump_msg->header.control = ctrl;
+  }
+
+  if (call_recv_again)
+  {
+    return 0;
+  }
+  else
+  {
+    return len;
+  }
 }
 
 // select on n channels that can be found in chans.
 // Note that you give an array of channel pointers.
 // Return NULL if there is no message, or a pointer to a channel on which a message is available.
-struct ump_channel* bfish_mprotect_select(struct ump_channel** chans, int n)
+// Before returning NULL (if there is no message), performs nb_iter iterations.
+// If nb_iter is 0 then the call is blocking.
+struct ump_channel* bfish_mprotect_select(struct ump_channel** chans, int l,
+    int nb_iter)
 {
-  //todo
+  int i, n;
+
+  n = 1;
+  while (1)
+  {
+    for (i = 0; i < l; i++)
+    {
+      if (ump_endpoint_can_recv(&chans[i]->recv_chan))
+      {
+        return chans[i];
+      }
+    }
+
+    n++;
+    if (nb_iter > 0 && n >= nb_iter)
+    {
+      break;
+    }
+
+    WAIT();
+  }
+
   return NULL;
 }
 

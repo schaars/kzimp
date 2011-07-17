@@ -135,7 +135,10 @@ int recv_msg_nonblocking(struct ump_channel *chan, char *msg, size_t len);
 // select on n channels that can be found in chans.
 // Note that you give an array of channel pointers.
 // Return NULL if there is no message, or a pointer to a channel on which a message is available.
-struct ump_channel* bfish_mprotect_select(struct ump_channel** chans, int n);
+// Before returning NULL (if there is no message), performs nb_iter iterations.
+// If nb_iter is 0 then the call is blocking.
+struct ump_channel* bfish_mprotect_select(struct ump_channel** chans, int l,
+    int nb_iter);
 
 /********************* inline "private" methods *********************/
 /**
