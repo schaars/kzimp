@@ -33,8 +33,8 @@ static struct kbfish_channel *channels;
  * otherwise it will be considered as a sender.
  * Returns:
  *  . -ENOMEM memory allocation failed
- *  . -EACCESS if the requested access is not allowed (must be RW)
  *  . -EEXIST if there is already a registered process
+ *  . -EACCESS if the requested access is not allowed (must be RW)
  *  . 0 otherwise
  */
 static int kbfish_open(struct inode *inode, struct file *filp)
@@ -45,15 +45,14 @@ static int kbfish_open(struct inode *inode, struct file *filp)
   ump_index_t i;
   int retval;
 
+  chan = container_of(inode->i_cdev, struct kbfish_channel, cdev);
+
   // the file must be opened in RW, otherwise we cannot mmap the areas
   if (!(filp->f_mode & FMODE_READ) && !(filp->f_mode & FMODE_WRITE))
   {
-    printk(KERN_ERR "kbfish: process %i in open has not the right credentials\n", current->pid);
-    retval = -EACCES;
-    goto out;
+    printk(KERN_ERR "kbfishmem: process %i in open has not the right credentials\n", current->pid);
+    return -EACCES;
   }
-
-  chan = container_of(inode->i_cdev, struct kbfish_channel, cdev);
 
   ctrl = kmalloc(sizeof(*ctrl), GFP_KERNEL);
   if (unlikely(!ctrl))
@@ -71,7 +70,7 @@ static int kbfish_open(struct inode *inode, struct file *filp)
 
   spin_lock(&chan->bcl);
 
-  // the receiver needs the O_CREAT flag
+  // the receiver needs to open the file with O_CREAT
   if (filp->f_flags & O_CREAT)
   {
     if (chan->receiver != -1)
@@ -148,7 +147,7 @@ static int kbfish_open(struct inode *inode, struct file *filp)
   retval = 0;
 
   unlock: spin_unlock(&chan->bcl);
-  out: return retval;
+  return retval;
 }
 
 /*
@@ -485,7 +484,6 @@ static int kbfish_read_proc_file(char *page, char **start, off_t off,
   int len, i;
 
   len = sprintf(page, "kbfish %s @ %s\n\n", __DATE__, __TIME__);
-  len += sprintf(page + len, "page size = %lu\n", PAGE_SIZE);
   len += sprintf(page + len, "nb_max_communication_channels = %i\n",
       nb_max_communication_channels);
   len += sprintf(page + len, "default_channel_size = %i\n",
