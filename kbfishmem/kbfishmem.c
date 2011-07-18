@@ -333,7 +333,7 @@ static int kbfishmem_init_channel(struct kbfishmem_channel *channel, int chan_id
   channel->receiver = -1;
   channel->channel_size = channel_size;
   channel->max_msg_size = max_msg_size;
-  channel->size_in_bytes = ROUND_UP_SIZE(channel_size * max_msg_size);
+  channel->size_in_bytes = ROUND_UP_SIZE((unsigned long)channel_size * (unsigned long)max_msg_size);
   channel->sender_to_receiver = vmalloc(channel->size_in_bytes);
   channel->receiver_to_sender = vmalloc(channel->size_in_bytes);
   if (!channel->sender_to_receiver || !channel->receiver_to_sender)

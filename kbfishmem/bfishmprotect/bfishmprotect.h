@@ -22,9 +22,6 @@
 #define CACHELINE_BYTES 64
 #define UMP_PAYLOAD_WORDS  (MESSAGE_BYTES / sizeof(uintptr_t))
 
-/// Default size of a unidirectional UMP message buffer, in bytes
-#define DEFAULT_UMP_BUFLEN  (BASE_PAGE_SIZE / 2 / UMP_MSG_BYTES * UMP_MSG_BYTES)
-
 // control word is 32-bit, because it must be possible to atomically write it
 typedef uint32_t ump_control_t;
 #define UMP_EPOCH_BITS  1
@@ -71,12 +68,6 @@ struct ump_chan_state
   int epoch; ///< Next Message epoch
   enum ump_direction dir; ///< Channel direction
 };
-
-/// Round up n to the next multiple of size
-#define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
-
-/// Cache-aligned size of a #ump_chan_state struct
-#define UMP_CHAN_STATE_SIZE ROUND_UP(sizeof(struct ump_chan_state), CACHELINE_BYTES)
 
 struct ump_channel
 {
