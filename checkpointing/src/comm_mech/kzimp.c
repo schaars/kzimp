@@ -175,7 +175,7 @@ void IPC_initialize_node(int _node_id)
     for (i = 1; i < nb_nodes; i++)
     {
       snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, i);
-      nodei_to_0[i] = Open(chaname, O_WRONLY);
+      nodei_to_0[i] = Open(chaname, O_RDONLY);
     }
 #else
     snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 1);

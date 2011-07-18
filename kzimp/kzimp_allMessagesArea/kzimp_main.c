@@ -256,7 +256,7 @@ static ssize_t kzimp_read
       return -EINTR;
     }
 
-    schedule();
+    schedule_timeout(HZ/100);
   }
   finish_wait(&chan->rq, &__wait);
 

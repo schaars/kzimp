@@ -13,19 +13,19 @@
 CONFIG_FILE=config
 PROFDIR=../profiler
 
-KZIMP_DIR="../kzimp/kzimp"
+#KZIMP_DIR="../kzimp/kzimp"
 #KZIMP_DIR="../kzimp/kzimp_smallbuff"
-#KZIMP_DIR="../kzimp/kzimp_allMessagesArea"
+KZIMP_DIR="../kzimp/kzimp_allMessagesArea"
 
 # Do we compute the checksum?
-COMPUTE_CHKSUM=0
+COMPUTE_CHKSUM=1
 
 # Writer's timeout
 KZIMP_TIMEOUT=60000
 
 # macro for the version with 1 channel per learner i -> client 0
 # set it to 1 if you want 1 channel per learner, 0 otherwise.
-ONE_CHANNEL_PER_LEARNER=1
+ONE_CHANNEL_PER_LEARNER=0
 
 
 if [ $# -eq 6 ]; then

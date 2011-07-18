@@ -11,7 +11,7 @@ for chkpt_size in ${CHKPT_SIZE_ARRAY[@]}; do
 
          ./launch_ulm.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 50
          ./launch_barrelfish_mp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 1000
-         ./launch_kzimp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 10000
+         ./launch_kzimp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 500
          ./launch_bfish_mprotect.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 1000
          ./launch_kbfish.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 1000
 
