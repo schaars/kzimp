@@ -55,6 +55,7 @@ cd -
 
 # launch XP
 #./get_memory_usage.sh  $MEMORY_DIR &
+echo "" > KZIMP_PROPERTIES
 make kzimp_microbench
 ./bin/kzimp_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP &
 

@@ -73,10 +73,6 @@ static int kbfishmem_open(struct inode *inode, struct file *filp)
     }
     chan->receiver = current->pid;
     ctrl->is_sender = 0;
-
-    // set the 2 areas to 0
-    memset(chan->sender_to_receiver, 0, chan->size_in_bytes);
-    memset(chan->receiver_to_sender, 0, chan->size_in_bytes);
   }
   else
   {
@@ -137,22 +133,14 @@ static int kbfishmem_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
   unsigned long offset;
   int retval;
 
+  /*
   printk(KERN_DEBUG "kbfishmem: process %i in kbfishmem_vma_fault\n", current->pid);
   printk(KERN_DEBUG "kbfishmem: vm_start=%lu, vm_end=%lu, vm_pgoff=%lu, vm_flags=%lu\n", vma->vm_start, vma->vm_end, vma->vm_pgoff, vma->vm_flags);
   printk(KERN_DEBUG "kbfishmem: flags=%u, pgoff=%lu, virtual_addr=%p, page=%p\n", vmf->flags, vmf->pgoff, vmf->virtual_address, vmf->page);
+  */
 
   ctrl = vma->vm_private_data;
   offset = (vmf->pgoff-vma->vm_pgoff) * PAGE_SIZE;
-
-  // permissions of the vma?
-  if (vma->vm_flags & VM_WRITE)
-  {
-    printk(KERN_DEBUG "kbfishmem: process %i can write\n", current->pid);
-  }
-  if (vma->vm_flags & VM_READ)
-  {
-    printk(KERN_DEBUG "kbfishmem: process %i can read\n", current->pid);
-  }
 
   // vma->vm_pgoff is the same offset as used by verify_credentials.
   // vmf->pgoff is the offset of the page that we need to get.
@@ -160,7 +148,7 @@ static int kbfishmem_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
   {
   case 1:
     // access sender->receiver
-    printk(KERN_DEBUG "kbfishmem: process %i: getting a page for the sender->receiver area\n", current->pid);
+    //printk(KERN_DEBUG "kbfishmem: process %i: getting a page for the sender->receiver area\n", current->pid);
     peyj = vmalloc_to_page((const void*) &(ctrl->chan->sender_to_receiver[offset]));
     get_page(peyj);
     retval = VM_FAULT_MINOR;
@@ -168,7 +156,7 @@ static int kbfishmem_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
   case 2:
     // access receiver->sender
-    printk(KERN_DEBUG "kbfishmem: process %i: getting a page for the receiver->sender area\n", current->pid);
+    //printk(KERN_DEBUG "kbfishmem: process %i: getting a page for the receiver->sender area\n", current->pid);
     peyj = vmalloc_to_page((const void*) &(ctrl->chan->receiver_to_sender[offset]));
     get_page(peyj);
     retval = VM_FAULT_MINOR;
@@ -203,7 +191,7 @@ static int verify_credentials_for_sender(struct vm_area_struct *vma,
   case 1:
     if ((vma->vm_flags & VM_WRITE) && !(vma->vm_flags & VM_READ))
     {
-      printk    (KERN_DEBUG "kbfishmem: process %i in kbfishmem_mmap is a sender and has access to the send area in WO\n", current->pid);
+      //printk    (KERN_DEBUG "kbfishmem: process %i in kbfishmem_mmap is a sender and has access to the send area in WO\n", current->pid);
     }
     else
     {
@@ -214,7 +202,7 @@ static int verify_credentials_for_sender(struct vm_area_struct *vma,
   case 2:
     if ((vma->vm_flags & VM_READ) && !(vma->vm_flags & VM_WRITE))
     {
-      printk(KERN_DEBUG "kbfishmem: process %i in kbfishmem_mmap is a sender and has access to the read area in RO\n", current->pid);
+      //printk(KERN_DEBUG "kbfishmem: process %i in kbfishmem_mmap is a sender and has access to the read area in RO\n", current->pid);
     }
     else
     {
@@ -247,7 +235,7 @@ static int verify_credentials_for_receiver(struct vm_area_struct *vma,
   case 1:
     if ((vma->vm_flags & VM_READ) && !(vma->vm_flags & VM_WRITE))
     {
-      printk    (KERN_DEBUG "kbfishmem: process %i in kbfishmem_mmap is a receiver and has access to the send area in RO\n", current->pid);
+      //printk    (KERN_DEBUG "kbfishmem: process %i in kbfishmem_mmap is a receiver and has access to the send area in RO\n", current->pid);
     }
     else
     {
@@ -258,7 +246,7 @@ static int verify_credentials_for_receiver(struct vm_area_struct *vma,
   case 2:
     if ((vma->vm_flags & VM_WRITE) && !(vma->vm_flags & VM_READ))
     {
-      printk(KERN_DEBUG "kbfishmem: process %i in kbfishmem_mmap is a receiver and has access to the read area in WO\n", current->pid);
+      //printk(KERN_DEBUG "kbfishmem: process %i in kbfishmem_mmap is a receiver and has access to the read area in WO\n", current->pid);
     }
     else
     {
@@ -290,8 +278,10 @@ static int kbfishmem_mmap(struct file *filp, struct vm_area_struct *vma)
   ctrl = filp->private_data;
   chan = ctrl->chan;
 
+  /*
   printk(KERN_DEBUG "kbfishmem: process %i in kbfishmem_mmap\n", current->pid);
   printk(KERN_DEBUG "kbfishmem: vm_start=%lu, vm_end=%lu, vm_pgoff=%lu, vm_flags=%lu\n", vma->vm_start, vma->vm_end, vma->vm_pgoff, vma->vm_flags);
+  */
 
   if (ctrl->is_sender)
   {
@@ -341,6 +331,10 @@ static int kbfishmem_init_channel(struct kbfishmem_channel *channel, int chan_id
     printk(KERN_ERR "kbfishmem: vmalloc error of %lu bytes: %p %p\n", channel->size_in_bytes, channel->sender_to_receiver, channel->receiver_to_sender);
     return -1;
   }
+
+  // set the 2 areas to 0
+  memset(channel->sender_to_receiver, 0, channel->size_in_bytes);
+  memset(channel->receiver_to_sender, 0, channel->size_in_bytes);
 
   if (init_lock)
   {

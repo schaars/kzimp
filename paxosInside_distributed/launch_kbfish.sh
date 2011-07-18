@@ -59,7 +59,7 @@ fi
 cd -
 
 # compile
-echo "-DMESSAGE_BYTES=${MSG_SIZE}" > KBFISH_PROPERTIES
+echo "-DMESSAGE_MAX_SIZE=${MSG_SIZE}" > KBFISH_PROPERTIES
 make kbfish_paxosInside
 
 
@@ -120,7 +120,7 @@ OUTPUT_DIR=kbfish_profiling_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MES
 mkdir $OUTPUT_DIR
 
 for e in 0 1 2; do
-   $PROFDIR/parser-sampling /tmp/perf.data.* --c 0 --c 1 --c 2 --c 3 --c 4 --c 5 --c 6 --base-event ${e} --app bfish_mprotect_ > $OUTPUT_DIR/perf_everyone_event_${e}.log
+   $PROFDIR/parser-sampling /tmp/perf.data.* --c 0 --c 1 --c 2 --c 3 --c 4 --c 5 --c 6 --base-event ${e} --app kbfish_mprotect > $OUTPUT_DIR/perf_everyone_event_${e}.log
 done
 
 rm /tmp/perf.data.* -f

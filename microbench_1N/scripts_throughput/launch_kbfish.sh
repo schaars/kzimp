@@ -48,7 +48,7 @@ cd -
 
 # launch XP
 #./get_memory_usage.sh  $MEMORY_DIR &
-echo "-DNB_MESSAGES=${MAX_NB_MSG} -DMESSAGE_BYTES=${MSG_SIZE} -DWAIT_TYPE=${WAIT_TYPE}" > BFISH_MPROTECT_PROPERTIES
+echo "" > KBFISH_PROPERTIES
 make kbfish_microbench
 timelimit -p -s 9 -t $((${DURATION_XP}+30)) ./bin/kbfish_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
 

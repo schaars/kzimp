@@ -13,9 +13,6 @@ CONFIG_FILE=config
 
 KBFISH_DIR="../kbfish"
 
-# WAIT_TYPE is either USLEEP or BUSY
-WAIT_TYPE=USLEEP
-
 if [ $# -eq 5 ]; then
    NB_NODES=$1
    NB_ITER=$2
@@ -49,11 +46,11 @@ fi
 cd -
 
 # compile
-echo "-DNB_MESSAGES=${MSG_CHANNEL} -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_BYTES=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE} -DWAIT_TYPE=${WAIT_TYPE}" > BFISH_MPROTECT_PROPERTIES
+ echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE}" > KBFISH_PROPERTIES;
 make kbfish_paxosInside
 
 # launch
-./bin/bfish_mprotect_paxosInside $CONFIG_FILE &
+./bin/kbfish_paxosInside $CONFIG_FILE &
 
 # wait for the end
 F=/tmp/checkpointing_node_0_finished

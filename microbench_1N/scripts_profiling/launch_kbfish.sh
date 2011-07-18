@@ -36,7 +36,7 @@ fi
 
 #compile and load module
 cd $KBFISH_DIR
-echo "-DMESSAGE_BYTES=${MSG_SIZE}" > KBFISH_PROPERTIES
+echo "" > KBFISH_PROPERTIES
 make
 ./kbfish.sh load nb_max_communication_channels=1 default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE} 
 if [ $? -eq 1 ]; then

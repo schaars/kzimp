@@ -83,10 +83,6 @@ static int kbfish_open(struct inode *inode, struct file *filp)
     chan->receiver = current->pid;
     ctrl->is_sender = 0;
 
-    // set the 2 areas to 0
-    memset(chan->sender_to_receiver, 0, chan->size_in_bytes);
-    memset(chan->receiver_to_sender, 0, chan->size_in_bytes);
-
     ump_chan->recv_chan.buf
         = (typeof(ump_chan->recv_chan.buf)) chan->sender_to_receiver;
     ump_chan->send_chan.buf
@@ -210,9 +206,11 @@ static ssize_t kbfish_read
   ump_chan = kbf_ctrl->ump_chan;
   chan = kbf_ctrl->chan;
 
+  /*
   printk(KERN_DEBUG "{%i}[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n", current->pid,
       __func__, __LINE__, ump_chan->sent_id, ump_chan->ack_id, ump_chan->max_send_msgs,
       ump_chan->seq_id, ump_chan->last_ack);
+  */
 
   while (!ump_endpoint_can_recv(&ump_chan->recv_chan))
   {
@@ -235,9 +233,9 @@ static ssize_t kbfish_read
   finish_wait(&chan->rq, &__wait);
 
   ump_msg = ump_impl_recv(&ump_chan->recv_chan);
-  if (ump_msg == NULL)
+  if (unlikely(ump_msg == NULL))
   {
-    printk(KERN_DEBUG "{%i}[%s:%i] Error: ump_msg should not be null\n", current->pid, __func__, __LINE__);
+    printk(KERN_WARNING "{%i}[%s:%i] Error: ump_msg should not be null\n", current->pid, __func__, __LINE__);
     return -EIO;
   }
 
@@ -246,12 +244,12 @@ static ssize_t kbfish_read
   switch (msgtype)
   {
     case UMP_ACK: // this is an ack, we need to call recv again
-    printk(KERN_DEBUG "{%i}[%s:%i] Has received an ack\n", current->pid, __func__, __LINE__);
+    //printk(KERN_DEBUG "{%i}[%s:%i] Has received an ack\n", current->pid, __func__, __LINE__);
     call_recv_again = 1;
     break;
 
     case UMP_MSG: // this is a message, we return it
-    printk(KERN_DEBUG "{%i}[%s:%i] Has received a message\n", current->pid, __func__, __LINE__);
+    //printk(KERN_DEBUG "{%i}[%s:%i] Has received a message\n", current->pid, __func__, __LINE__);
     count = (MESSAGE_BYTES < count ? MESSAGE_BYTES : count);
 
     // copy_from_user returns the number of bytes left to copy
@@ -265,22 +263,24 @@ static ssize_t kbfish_read
     break;
 
     default:
-    printk(KERN_DEBUG "{%i}[%s:%i] Error: unknown message type %i\n", current->pid, __func__, __LINE__,
-        msgtype);
+    //printk(KERN_DEBUG "{%i}[%s:%i] Error: unknown message type %i\n", current->pid, __func__, __LINE__,
+    //   msgtype);
     call_recv_again = 1;
     break;
   }
 
   if (ump_send_ack_is_needed(ump_chan))
   {
+    /*
     printk(KERN_DEBUG "{%i}[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n", current->pid,
         __func__, __LINE__, ump_chan->sent_id, ump_chan->ack_id, ump_chan->max_send_msgs,
         ump_chan->seq_id, ump_chan->last_ack);
     printk(KERN_DEBUG "{%i}[%s:%i] I need to send an ack\n", current->pid, __func__, __LINE__);
+    */
 
     // this shouldn't happen: I have received a message, thus I have updated my information
     // concerning acks.
-    if (!ump_can_send(ump_chan))
+    if (unlikely(!ump_can_send(ump_chan)))
     {
       printk(KERN_DEBUG "{%i}[%s:%i] I need to send an ack but I cannot\n", current->pid, __func__, __LINE__);
       return -EIO;
@@ -291,13 +291,13 @@ static ssize_t kbfish_read
     BARRIER();
     ump_msg->header.control = ctrl;
 
-    // wake up writers
-    wake_up(&chan->wq);
+    // wake up the other end
+    wake_up(&chan->rq);
   }
 
   if (call_recv_again)
   {
-    printk(KERN_DEBUG "{%i}[%s:%i] Going to receive again\n", current->pid, __func__, __LINE__);
+    //printk(KERN_DEBUG "{%i}[%s:%i] Going to receive again\n", current->pid, __func__, __LINE__);
     return kbfish_read(filp, buf, count, f_pos);
   }
   else
@@ -335,7 +335,7 @@ static int recv_ack(struct file* filp)
       return -EAGAIN;
     }
 
-    prepare_to_wait(&kb_chan->wq, &__wait, TASK_INTERRUPTIBLE);
+    prepare_to_wait(&kb_chan->rq, &__wait, TASK_INTERRUPTIBLE);
 
     if (unlikely(signal_pending(current)))
     {
@@ -345,10 +345,10 @@ static int recv_ack(struct file* filp)
 
     schedule();
   }
-  finish_wait(&kb_chan->wq, &__wait);
+  finish_wait(&kb_chan->rq, &__wait);
 
   ump_msg = ump_impl_recv(&chan->recv_chan);
-  if (ump_msg == NULL)
+  if (unlikely(ump_msg == NULL))
   {
     printk(KERN_DEBUG "{%i} [%s:%i] Error: ump_msg should not be null\n", current->pid, __func__, __LINE__);
     return -EIO;
@@ -359,15 +359,15 @@ static int recv_ack(struct file* filp)
   switch (msgtype)
   {
   case UMP_ACK: // this is an ack, we need to call recv again
-    printk(KERN_DEBUG "[%s:%i] Has received an ack\n", __func__, __LINE__);
+    //printk(KERN_DEBUG "[%s:%i] Has received an ack\n", __func__, __LINE__);
     break;
   case UMP_MSG: // this is a message, we return it
-    printk(KERN_DEBUG "{%i} [%s:%i] Should not have received a message; expecting an ack\n", current->pid,
-        __func__, __LINE__);
+    //printk(KERN_DEBUG "{%i} [%s:%i] Should not have received a message; expecting an ack\n", current->pid,
+    //    __func__, __LINE__);
     break;
   default:
-    printk(KERN_DEBUG "{%i} [%s:%i] Error: unknown message type %i\n", current->pid, __func__, __LINE__,
-        msgtype);
+    //printk(KERN_DEBUG "{%i} [%s:%i] Error: unknown message type %i\n", current->pid, __func__, __LINE__,
+    //    msgtype);
     break;
   }
 
@@ -400,9 +400,11 @@ static ssize_t kbfish_write(struct file *filp, const char __user *buf, size_t co
   ump_chan = kbf_ctrl->ump_chan;
   chan = kbf_ctrl->chan;
 
+  /*
   printk(KERN_DEBUG "{%i} [%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n", current->pid,
       __func__, __LINE__, ump_chan->sent_id, ump_chan->ack_id, ump_chan->max_send_msgs,
       ump_chan->seq_id, ump_chan->last_ack);
+  */
 
   // Check the validity of the arguments
   if (unlikely(count <= 0 || count > chan->max_msg_size))
@@ -413,7 +415,7 @@ static ssize_t kbfish_write(struct file *filp, const char __user *buf, size_t co
 
   while (!ump_can_send(ump_chan))
   {
-    printk(KERN_DEBUG "{%i} [%s:%i] Going to receive an ack\n", current->pid, __func__, __LINE__);
+    //printk(KERN_DEBUG "{%i} [%s:%i] Going to receive an ack\n", current->pid, __func__, __LINE__);
     r = recv_ack(filp);
     if (r < 0)
     {
@@ -485,8 +487,11 @@ static int kbfish_init_channel(struct kbfish_channel *channel, int chan_id,
     return -1;
   }
 
+  // set the 2 areas to 0
+  memset(channel->sender_to_receiver, 0, channel->size_in_bytes);
+  memset(channel->receiver_to_sender, 0, channel->size_in_bytes);
+
   init_waitqueue_head(&channel->rq);
-  init_waitqueue_head(&channel->wq);
 
   if (init_lock)
   {
