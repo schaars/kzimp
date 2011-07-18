@@ -1,4 +1,13 @@
+*~
 *.svn
 *.o
 *.ko
 *.cmd
+modules.order
+.tmp_versions
+Module.symvers
+.cproject
+*.mod.c
+.project
+makefile.dep
+
