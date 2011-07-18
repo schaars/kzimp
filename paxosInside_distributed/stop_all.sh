@@ -9,3 +9,5 @@ pkill -f posix_msg_queue_paxosInside
 pkill -f barrelfish_mp_paxosInside
 pkill -f ulm_paxosInside
 pkill -f kzimp_paxosInside
+pkill -f bfish_mprotect_paxosInside
+pkill -f kbfish_paxosInside

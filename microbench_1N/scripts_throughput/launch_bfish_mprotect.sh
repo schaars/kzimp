@@ -35,6 +35,7 @@ fi
 #compile and load module
 cd $KBFISH_MEM_DIR
 make
+./kbfishmem.sh unload
 ./kbfishmem.sh load nb_max_communication_channels=1 default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE} 
 if [ $? -eq 1 ]; then
    echo "An error has occured when loading kbfishmem. Aborting the experiment $OUTPUT_DIR"

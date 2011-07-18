@@ -50,7 +50,8 @@ NB_MAX_CHANNELS=8
 cd $KBFISH_DIR
 echo "-DMESSAGE_BYTES=${MSG_SIZE}" > KBFISH_PROPERTIES
 make
-./kbfishmem.sh load nb_max_communication_channels=${NB_MAX_CHANNELS} default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE} 
+./kbfish.sh unload
+./kbfish.sh load nb_max_communication_channels=${NB_MAX_CHANNELS} default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE} 
 if [ $? -eq 1 ]; then
    echo "An error has occured when loading kbfishmem. Aborting the experiment $OUTPUT_DIR"
    exit 0
@@ -130,5 +131,5 @@ fi
 # save results
 ./stop_all.sh
 sleep 1
-cd $KBFISH_DIR; ./kbfishmem.sh unload; cd -
+cd $KBFISH_DIR; ./kbfish.sh unload; cd -
 mv results.txt kbfish_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt

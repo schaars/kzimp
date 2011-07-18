@@ -49,6 +49,7 @@ rm -f /tmp/paxosInside_client_*_finished
 NB_MAX_CHANNELS=8
 cd $KBFISH_MEM_DIR
 make
+./kbfishmem.sh unload
 ./kbfishmem.sh load nb_max_communication_channels=${NB_MAX_CHANNELS} default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE} 
 if [ $? -eq 1 ]; then
    echo "An error has occured when loading kbfishmem. Aborting the experiment $OUTPUT_DIR"

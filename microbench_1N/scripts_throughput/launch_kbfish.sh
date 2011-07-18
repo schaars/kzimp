@@ -7,8 +7,10 @@
 #  $4: max nb of messages in the circular buffer
 
 
-KBFISH_DIR="../kbfishmem"
+KBFISH_DIR="../kbfish"
 
+# USLEEP or BUSY
+WAIT_TYPE=USLEEP
 
 # get arguments
 if [ $# -eq 4 ]; then
@@ -36,6 +38,7 @@ fi
 cd $KBFISH_DIR
 echo "-DMESSAGE_BYTES=${MSG_SIZE}" > KBFISH_PROPERTIES
 make
+./kbfish.sh unload
 ./kbfish.sh load nb_max_communication_channels=1 default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE} 
 if [ $? -eq 1 ]; then
    echo "An error has occured when loading kbfishmem. Aborting the experiment $OUTPUT_DIR"
@@ -45,6 +48,7 @@ cd -
 
 # launch XP
 #./get_memory_usage.sh  $MEMORY_DIR &
+echo "-DNB_MESSAGES=${MAX_NB_MSG} -DMESSAGE_BYTES=${MSG_SIZE} -DWAIT_TYPE=${WAIT_TYPE}" > BFISH_MPROTECT_PROPERTIES
 make kbfish_microbench
 timelimit -p -s 9 -t $((${DURATION_XP}+30)) ./bin/kbfish_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
 

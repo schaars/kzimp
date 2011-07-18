@@ -38,6 +38,7 @@ rm -f /tmp/checkpointing_node_0_finished
 NB_MAX_CHANNELS=$(($NB_NODES-1))
 cd $KBFISH_MEM_DIR
 make
+./kbfishmem.sh unload
 ./kbfishmem.sh load nb_max_communication_channels=${NB_MAX_CHANNELS} default_channel_size=${MSG_CHANNEL} default_max_msg_size=${MESSAGE_MAX_SIZE}
 if [ $? -eq 1 ]; then
    echo "An error has occured when loading kzimp. Aborting the experiment"
