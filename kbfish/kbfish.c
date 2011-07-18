@@ -40,7 +40,9 @@ static struct kbfish_channel *channels;
 static int kbfish_open(struct inode *inode, struct file *filp)
 {
   struct kbfish_channel *chan; /* channel information */
+  struct ump_channel *ump_chan; /* channel information */
   struct kbfish_ctrl *ctrl;
+  ump_index_t i;
   int retval;
 
   // the file must be opened in RW, otherwise we cannot mmap the areas
@@ -60,6 +62,13 @@ static int kbfish_open(struct inode *inode, struct file *filp)
     return -ENOMEM;
   }
 
+  ump_chan = (typeof(ump_chan)) kmalloc(sizeof(*ump_chan), GFP_KERNEL);
+  if (!ump_chan)
+  {
+    printk(KERN_ERR "kbfish: ump_chan allocation error\n");
+    return -ENOMEM;
+  }
+
   spin_lock(&chan->bcl);
 
   // the receiver needs the O_CREAT flag
@@ -69,6 +78,7 @@ static int kbfish_open(struct inode *inode, struct file *filp)
     {
       printk(KERN_ERR "kbfish: process %i in open but there is already a receiver: %i\n", current->pid, chan->receiver);
       retval = -EEXIST;
+      kfree(ump_chan);
       goto unlock;
     }
     chan->receiver = current->pid;
@@ -77,6 +87,11 @@ static int kbfish_open(struct inode *inode, struct file *filp)
     // set the 2 areas to 0
     memset(chan->sender_to_receiver, 0, chan->size_in_bytes);
     memset(chan->receiver_to_sender, 0, chan->size_in_bytes);
+
+    ump_chan->recv_chan.buf
+    = (typeof(ump_chan->recv_chan.buf)) chan->sender_to_receiver;
+    ump_chan->send_chan.buf
+    = (typeof(ump_chan->send_chan.buf)) chan->receiver_to_sender;
   }
   else
   {
@@ -84,13 +99,50 @@ static int kbfish_open(struct inode *inode, struct file *filp)
     {
       printk(KERN_ERR "kbfish: process %i in open but there is already a sender: %i\n", current->pid, chan->sender);
       retval = -EEXIST;
+      kfree(ump_chan);
       goto unlock;
     }
     chan->sender = current->pid;
     ctrl->is_sender = 1;
+
+    ump_chan->recv_chan.buf
+    = (typeof(ump_chan->recv_chan.buf)) chan->receiver_to_sender;
+    ump_chan->send_chan.buf
+    = (typeof(ump_chan->send_chan.buf)) chan->sender_to_receiver;
   }
 
+  ump_chan->inchanlen = (size_t) chan->channel_size
+      * (size_t) chan->max_msg_size;
+  ump_chan->outchanlen = (size_t) chan->channel_size
+      * (size_t) chan->max_msg_size;
+
+  ump_chan->recv_chan.dir = UMP_INCOMING;
+  ump_chan->send_chan.dir = UMP_OUTGOING;
+
+  ump_chan->recv_chan.bufmsgs = chan->channel_size;
+  ump_chan->send_chan.bufmsgs = chan->channel_size;
+
+  for (i = 0; i < ump_chan->send_chan.bufmsgs; i++)
+  {
+    ump_chan->send_chan.buf[i].header.raw = 0;
+  }
+
+  ump_chan->max_recv_msgs = chan->channel_size;
+  ump_chan->max_send_msgs = chan->channel_size;
+
+  ump_chan->recv_chan.epoch = 1;
+  ump_chan->recv_chan.pos = 0;
+
+  ump_chan->send_chan.epoch = 1;
+  ump_chan->send_chan.pos = 0;
+
+  ump_chan->sent_id = 1;
+  ump_chan->seq_id = 0;
+  ump_chan->ack_id = 0;
+  ump_chan->last_ack = 0;
+
   ctrl->pid = current->pid;
+  ctrl->ump_chan = ump_chan;
   ctrl->chan = chan;
   filp->private_data = ctrl;
   retval = 0;
@@ -125,8 +177,275 @@ static int kbfish_release(struct inode *inode, struct file *filp)
 
   spin_unlock(&chan->bcl);
 
+  kfree(ctrl->ump_chan);
+
   kfree(ctrl);
 
+  return 0;
+}
+
+/*
+ * recv a message.
+ * Return values:
+ *  . 0 if the size of the user-level buffer is less or equal than 0 or greater than the maximal message size
+ *  . -EIO if there is an I/O error (e.g. there should be a message)
+ *  . -EFAULT if the buffer *buf is not valid
+ *  . -EINTR if the process has been interrupted by a signal while waiting
+ *  . -EAGAIN if the operations are non-blocking and the call would block.
+ *  . The number of written bytes otherwise
+ */
+static ssize_t kbfish_read
+(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
+{
+  struct kbfish_channel *chan; /* channel information */
+  struct ump_channel *ump_chan; /* channel information */
+  struct kbfish_ctrl *kbf_ctrl;
+
+  struct ump_control ctrl;
+  struct ump_message *ump_msg;
+  int call_recv_again;
+  int msgtype;
+  DEFINE_WAIT(__wait);
+
+  kbf_ctrl = (typeof(kbf_ctrl))filp->private_data;
+  ump_chan = kbf_ctrl->ump_chan;
+  chan = kbf_ctrl->chan;
+
+  printk(KERN_DEBUG "{%i}[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n", current->pid,
+      __func__, __LINE__, ump_chan->sent_id, ump_chan->ack_id, ump_chan->max_send_msgs,
+      ump_chan->seq_id, ump_chan->last_ack);
+
+  while (!ump_endpoint_can_recv(&ump_chan->recv_chan))
+  {
+    // file is open in no-blocking mode
+    if (filp->f_flags & O_NONBLOCK)
+    {
+      return -EAGAIN;
+    }
+
+    prepare_to_wait(&chan->rq, &__wait, TASK_INTERRUPTIBLE);
+
+    if (unlikely(signal_pending(current)))
+    {
+      printk(KERN_WARNING "kbfish: process %i in write has been interrupted\n", current->pid);
+      return -EINTR;
+    }
+
+    schedule();
+  }
+  finish_wait(&chan->rq, &__wait);
+
+  ump_msg = ump_impl_recv(&ump_chan->recv_chan);
+  if (ump_msg == NULL)
+  {
+    printk(KERN_DEBUG "{%i}[%s:%i] Error: ump_msg should not be null\n", current->pid, __func__, __LINE__);
+    return -EIO;
+  }
+
+  // what kind of message is this?
+  msgtype = ump_control_process(ump_chan, ump_msg->header.control);
+  switch (msgtype)
+  {
+  case UMP_ACK: // this is an ack, we need to call recv again
+    printk(KERN_DEBUG "{%i}[%s:%i] Has received an ack\n", current->pid, __func__, __LINE__);
+    call_recv_again = 1;
+    break;
+
+  case UMP_MSG: // this is a message, we return it
+    printk(KERN_DEBUG "{%i}[%s:%i] Has received a message\n", current->pid, __func__, __LINE__);
+    count = (MESSAGE_BYTES < count ? MESSAGE_BYTES : count);
+
+    // copy_from_user returns the number of bytes left to copy
+    if (unlikely(copy_to_user(buf, ump_msg->data, count)))
+    {
+      printk(KERN_ERR "kbfish: copy_to_user failed for process %i in write\n", current->pid);
+      return -EFAULT;
+    }
+
+    call_recv_again = 0;
+    break;
+
+  default:
+    printk(KERN_DEBUG "{%i}[%s:%i] Error: unknown message type %i\n", current->pid, __func__, __LINE__,
+        msgtype);
+    call_recv_again = 1;
+    break;
+  }
+
+  if (ump_send_ack_is_needed(ump_chan))
+  {
+    printk(KERN_DEBUG "{%i}[%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n", current->pid,
+        __func__, __LINE__, ump_chan->sent_id, ump_chan->ack_id, ump_chan->max_send_msgs,
+        ump_chan->seq_id, ump_chan->last_ack);
+    printk(KERN_DEBUG "{%i}[%s:%i] I need to send an ack\n", current->pid, __func__, __LINE__);
+
+    // this shouldn't happen: I have received a message, thus I have updated my information
+    // concerning acks.
+    if (!ump_can_send(ump_chan))
+    {
+      printk(KERN_DEBUG "{%i}[%s:%i] I need to send an ack but I cannot\n", current->pid, __func__, __LINE__);
+      return -EIO;
+    }
+
+    ump_msg = ump_impl_get_next(&ump_chan->send_chan, &ctrl);
+    ump_control_fill(ump_chan, &ctrl, UMP_ACK);
+    BARRIER();
+    ump_msg->header.control = ctrl;
+
+    // wake up writers
+    wake_up(&chan->wq);
+  }
+
+  if (call_recv_again)
+  {
+    printk(KERN_DEBUG "{%i}[%s:%i] Going to receive again\n", current->pid, __func__, __LINE__);
+    return kbfish_read(filp, buf, count, f_pos);
+  }
+  else
+  {
+    return count;
+  }
+}
+
+/*
+ * wait for an ack
+ * Return 0 if there was no error, the error otherwise.
+ * Possible errors:
+ *  . -EIO: there should be a message but there isn't
+ *  . -EINTR if the process has been interrupted by a signal while waiting
+ *  . -EAGAIN if the operations are non-blocking and the call would block.
+ */
+static int recv_ack(struct file* filp)
+{
+  struct kbfish_ctrl *ctrl;
+  struct ump_channel *chan;
+  struct kbfish_channel *kb_chan;
+  struct ump_message *ump_msg;
+  int msgtype;
+  DEFINE_WAIT(__wait);
+
+  ctrl = (typeof(ctrl)) filp->private_data;
+  chan = ctrl->ump_chan;
+  kb_chan = ctrl->chan;
+
+  while (!ump_endpoint_can_recv(&chan->recv_chan))
+  {
+    // file is open in no-blocking mode
+    if (filp->f_flags & O_NONBLOCK)
+    {
+      return -EAGAIN;
+    }
+
+    prepare_to_wait(&kb_chan->wq, &__wait, TASK_INTERRUPTIBLE);
+
+    if (unlikely(signal_pending(current)))
+    {
+      printk(KERN_WARNING "kbfish: process %i in write has been interrupted\n", current->pid);
+      return -EINTR;
+    }
+
+    schedule();
+  }
+  finish_wait(&kb_chan->wq, &__wait);
+
+  ump_msg = ump_impl_recv(&chan->recv_chan);
+  if (ump_msg == NULL)
+  {
+    printk(KERN_DEBUG "{%i} [%s:%i] Error: ump_msg should not be null\n", current->pid, __func__, __LINE__);
+    return -EIO;
+  }
+
+  // what kind of message is this?
+  msgtype = ump_control_process(chan, ump_msg->header.control);
+  switch (msgtype)
+  {
+  case UMP_ACK: // this is an ack, we need to call recv again
+    printk(KERN_DEBUG "[%s:%i] Has received an ack\n", __func__, __LINE__);
+    break;
+  case UMP_MSG: // this is a message, we return it
+    printk(KERN_DEBUG "{%i} [%s:%i] Should not have received a message; expecting an ack\n", current->pid,
+        __func__, __LINE__);
+    break;
+  default:
+    printk(KERN_DEBUG "{%i} [%s:%i] Error: unknown message type %i\n", current->pid, __func__, __LINE__,
+        msgtype);
+    break;
+  }
+
+  return 0;
+}
+
+/*
+ * kzimp write operation.
+ * Blocking call.
+ * Sleeps until it can write the message.
+ * Returns:
+ *  . 0 if the size of the user-level buffer is less or equal than 0 or greater than the maximal message size
+ *  . -EIO if there should be a message but there is not
+ *  . -EFAULT if the buffer *buf is not valid
+ *  . -EINTR if the process has been interrupted by a signal while waiting
+ *  . -EAGAIN if the operations are non-blocking and the call would block.
+ *  . The number of written bytes otherwise
+ */
+static ssize_t kbfish_write(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
+{
+  struct kbfish_channel *chan; /* channel information */
+  struct ump_channel *ump_chan; /* channel information */
+  struct kbfish_ctrl *kbf_ctrl;
+
+  struct ump_control ctrl;
+  struct ump_message *ump_msg;
+  int r;
+
+  kbf_ctrl = (typeof(kbf_ctrl))filp->private_data;
+  ump_chan = kbf_ctrl->ump_chan;
+  chan = kbf_ctrl->chan;
+
+  printk(KERN_DEBUG "{%i} [%s:%i] sent_id=%hu, ack_id=%hu, max_send_msgs=%hu, seq_id=%hu, last_ack=%hu\n", current->pid,
+      __func__, __LINE__, ump_chan->sent_id, ump_chan->ack_id, ump_chan->max_send_msgs,
+      ump_chan->seq_id, ump_chan->last_ack);
+
+  // Check the validity of the arguments
+  if (unlikely(count <= 0 || count > chan->max_msg_size))
+  {
+    printk(KERN_ERR "kbfish: count is not valid: %lu (process %i in write on channel %i)\n", (unsigned long)count, current->pid, chan->chan_id);
+    return 0;
+  }
+
+  while (!ump_can_send(ump_chan))
+  {
+    printk(KERN_DEBUG "{%i} [%s:%i] Going to receive an ack\n", current->pid, __func__, __LINE__);
+    r = recv_ack(filp);
+    if (r < 0)
+    {
+      return r;
+    }
+  }
+
+  //code to send:
+  ump_msg = ump_impl_get_next(&ump_chan->send_chan, &ctrl);
+  count = (MESSAGE_BYTES < count ? MESSAGE_BYTES : count);
+
+  // copy_from_user returns the number of bytes left to copy
+  if (unlikely(copy_from_user(ump_msg->data, buf, count)))
+  {
+    printk(KERN_ERR "kbfish: copy_from_user failed for process %i in write\n", current->pid);
+    return -EFAULT;
+  }
+
+  ump_control_fill(ump_chan, &ctrl, UMP_MSG);
+  BARRIER();
+  ump_msg->header.control = ctrl;
+
+  // wake up sleeping readers
+  wake_up(&chan->rq);
+
+  return count;
+}
+
+static unsigned int kbfish_poll(struct file *filp, poll_table *wait)
+{
+  //todo
   return 0;
 }
 
@@ -138,7 +457,8 @@ static int kbfish_init_channel(struct kbfish_channel *channel, int chan_id,
   channel->receiver = -1;
   channel->channel_size = channel_size;
   channel->max_msg_size = max_msg_size;
-  channel->size_in_bytes = ROUND_UP_SIZE(channel_size * max_msg_size);
+  channel->size_in_bytes = (unsigned long) channel_size
+      * (unsigned long) max_msg_size;
   channel->sender_to_receiver = vmalloc(channel->size_in_bytes);
   channel->receiver_to_sender = vmalloc(channel->size_in_bytes);
   if (!channel->sender_to_receiver || !channel->receiver_to_sender)
@@ -146,6 +466,9 @@ static int kbfish_init_channel(struct kbfish_channel *channel, int chan_id,
     printk(KERN_ERR "kbfish: vmalloc error of %lu bytes: %p %p\n", channel->size_in_bytes, channel->sender_to_receiver, channel->receiver_to_sender);
     return -1;
   }
+
+  init_waitqueue_head(&channel->rq);
+  init_waitqueue_head(&channel->wq);
 
   if (init_lock)
   {
@@ -241,8 +564,8 @@ static int kbfish_init_cdev(struct kbfish_channel *channel, int i)
 
 static void kbfish_del_cdev(struct kbfish_channel *channel)
 {
-  vfree(channel->sender_to_receiver);
   vfree(channel->receiver_to_sender);
+  vfree(channel->sender_to_receiver);
 
   cdev_del(&channel->cdev);
 }
@@ -251,6 +574,13 @@ static int __init kbfish_start(void)
 {
   int i;
   int result;
+
+  //check that the max message size is equal to the macro MESSAGE_BYTES
+  if (default_max_msg_size != MESSAGE_BYTES)
+  {
+    printk(KERN_ERR "kbfish: default_max_msg_size != MESSAGE_BYTES (%i != %i). You need to recompile the module with the appropriate value, or change default_max_msg_size\n", default_max_msg_size, MESSAGE_BYTES);
+    return -1;
+  }
 
   // ADDING THE DEVICE FILES
   result = alloc_chrdev_region(&kbfish_dev_t, kbfish_minor, nb_max_communication_channels, DEVICE_NAME);
