@@ -5,7 +5,7 @@ toplevel:
 all: inet_tcp_microbench inet_udp_microbench unix_microbench pipe_microbench \
 	 pipe_vmsplice_microbench ipc_msg_queue_microbench posix_msg_queue_microbench \
 	 barrelfish_message_passing local_multicast_microbench ul_lm_0copy_microbench \
-	 kzimp_microbench bfish_mprotect_microbench
+	 kzimp_microbench bfish_mprotect_microbench kbfish_microbench
 
 C:=gcc
 CFLAGS:=-Wall -Werror -g -lm -ltcmalloc
@@ -60,6 +60,10 @@ bfish_mprotect_microbench: $(DEPS) src/bfish_mprotect.c ../kbfishmem/bfishmprote
 	$(shell if [ ! -e BFISH_MPROTECT_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DMESSAGE_BYTES=64 -DWAIT_TYPE=USLEEP" > BFISH_MPROTECT_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell grep -v '#' BFISH_MPROTECT_PROPERTIES 2>/dev/null) -o bin/$@ $^
 
+kbfish_microbench: $(DEPS) src/kbfish.c
+	$(shell if [ ! -e KBFISH_PROPERTIES ]; then echo "" > KBFISH_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell grep -v '#' KBFISH_PROPERTIES 2>/dev/null) -o bin/$@ $^
+
 
 clean:
 	-rm *.o
@@ -75,6 +79,7 @@ clean:
 	-rm UL_LM_0COPY_PROPERTIES
 	-rm KZIMP_PROPERTIES
 	-rm BFISH_MPROTECT_PROPERTIES
+	-rm KBFISH_PROPERTIES
 
 clobber:
 	-rm *.o
@@ -90,3 +95,4 @@ clobber:
 	-rm bin/ul_lm_0copy_microbench
 	-rm bin/kzimp_microbench
 	-rm bin/bfish_mprotect_microbench
+	-rm bin/kbfish_microbench
