@@ -9,8 +9,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
 
 #include "ipc_interface.h"
 #include "../../../kbfishmem/bfishmprotect/bfishmprotect.h"

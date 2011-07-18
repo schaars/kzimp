@@ -47,10 +47,10 @@ int Open(const char* pathname, int flags)
   int r = open(pathname, flags);
   if (r == -1)
   {
+    perror(">>> Error while opening channel\n");
     printf(
         "Node %i experiences an error at %i when opening file %s with flags %x\n",
         node_id, __LINE__, pathname, flags);
-    perror(">>> Error while opening channel\n");
     exit(-1);
   }
   return r;

@@ -7,6 +7,8 @@
  *  represents the whole memory.
  */
 
+// Note that you need to define MESSAGE_BYTES at compile time
+
 #ifndef _KZIMP_MODULE_
 #define _KZIMP_MODULE_
 
@@ -63,7 +65,6 @@ static struct file_operations kbfish_fops =
     .poll = kbfish_poll,
 };
 
-// Note that you need to define MESSAGE_BYTES at compile time
 #define UMP_PAYLOAD_WORDS  (MESSAGE_BYTES / sizeof(uintptr_t))
 
 // control word is 32-bit, because it must be possible to atomically write it
