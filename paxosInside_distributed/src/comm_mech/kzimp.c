@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/select.h>
 
 #ifdef ONE_CHANNEL_PER_LEARNER
 #include <time.h>

@@ -6,7 +6,7 @@ toplevel:
 #all: inet_tcp_paxosInside inet_udp_paxosInside unix_paxosInside \
 	 pipe_paxosInside ipc_msg_queue_paxosInside posix_msg_queue_paxosInside \
 	 barrelfish_mp_paxosInside ulm_paxosInside
-all: barrelfish_mp_paxosInside ulm_paxosInside kzimp_paxosInside bfish_mprotect_paxosInside
+all: barrelfish_mp_paxosInside ulm_paxosInside kzimp_paxosInside bfish_mprotect_paxosInside kbfish_paxosInside
 
 C:=g++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
@@ -52,6 +52,10 @@ kzimp_paxosInside: $(DEPS) src/comm_mech/kzimp.c
 bfish_mprotect_paxosInside: $(DEPS) src/comm_mech/bfish_mprotect.c ../kbfishmem/bfishmprotect/bfishmprotect.c
 	$(shell if [ ! -e BFISH_MPROTECT_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DMESSAGE_MAX_SIZE=128 -DMESSAGE_BYTES=128 -DWAIT_TYPE=USLEEP" > BFISH_MPROTECT_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat BFISH_MPROTECT_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
+
+kbfish_paxosInside: $(DEPS) src/comm_mech/kbfish.c
+	$(shell if [ ! -e KBFISH_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=128" > KBFISH_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell cat KBFISH_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	
 clean:
 	-rm *.o
@@ -66,6 +70,7 @@ clean:
 	-rm ULM_PROPERTIES
 	-rm KZIMP_PROPERTIES
 	-rm BFISH_MPROTECT_PROPERTIES
+	-rm KBFISH_PROPERTIES
 
 clobber:
 	-rm *.o
@@ -80,3 +85,4 @@ clobber:
 	-rm bin/ulm_paxosInside
 	-rm bin/kzimp_paxosInside
 	-rm bin/bfish_mprotect_paxosInside
+	-rm bin/kbfish_paxosInside
