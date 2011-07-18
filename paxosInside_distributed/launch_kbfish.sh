@@ -91,7 +91,7 @@ nbc=0
 n=0
 while [ $nbc -ne 1 ]; do
   if [ $n -eq 100 ]; then
-      echo -e "\nbfish_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize\n\tTAKES TOO MUCH TIME" >> results.txt
+      echo -e "\nkbfish_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize\n\tTAKES TOO MUCH TIME" >> results.txt
       break
    fi
 

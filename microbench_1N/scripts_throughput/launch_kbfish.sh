@@ -9,9 +9,6 @@
 
 KBFISH_DIR="../kbfish"
 
-# USLEEP or BUSY
-WAIT_TYPE=USLEEP
-
 # get arguments
 if [ $# -eq 4 ]; then
    NB_CONSUMERS=$1
@@ -34,12 +31,19 @@ fi
 
 ./stop_all.sh
 
+# Min size is the size of a uintptr_t: 8 bytes
+if [ $MSG_SIZE -lt 8 ]; then
+   REAL_MSG_SIZE=8
+else
+   REAL_MSG_SIZE=$MSG_SIZE
+fi
+
 #compile and load module
 cd $KBFISH_DIR
-echo "-DMESSAGE_BYTES=${MSG_SIZE}" > KBFISH_PROPERTIES
+echo "-DMESSAGE_BYTES=${REAL_MSG_SIZE}" > KBFISH_PROPERTIES
 make
 ./kbfish.sh unload
-./kbfish.sh load nb_max_communication_channels=1 default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE} 
+./kbfish.sh load nb_max_communication_channels=1 default_channel_size=${MAX_NB_MSG} default_max_msg_size=${REAL_MSG_SIZE} 
 if [ $? -eq 1 ]; then
    echo "An error has occured when loading kbfishmem. Aborting the experiment $OUTPUT_DIR"
    exit 0
