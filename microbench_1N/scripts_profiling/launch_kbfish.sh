@@ -45,7 +45,7 @@ fi
 cd $KBFISH_DIR
 echo "-DMESSAGE_BYTES=${REAL_MSG_SIZE}" > KBFISH_PROPERTIES
 make
-./kbfish.sh load nb_max_communication_channels=1 default_channel_size=${MAX_NB_MSG} default_max_msg_size=${REAL_MSG_SIZE} 
+./kbfish.sh load nb_max_communication_channels=${NB_CONSUMERS} default_channel_size=${MAX_NB_MSG} default_max_msg_size=${REAL_MSG_SIZE} 
 if [ $? -eq 1 ]; then
    echo "An error has occured when loading kbfishmem. Aborting the experiment $OUTPUT_DIR"
    exit 0
