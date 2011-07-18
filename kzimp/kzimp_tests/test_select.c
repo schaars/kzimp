@@ -23,7 +23,6 @@ void do_reader(void)
   for (i = 0; i < NB_CHANNELS; i++)
   {
     snprintf(chaname, 50, "/dev/kzimp%i", i);
-    //snprintf(chaname, 50, "/tmp/kzimp%i", i);
     fd[i] = open(chaname, O_RDONLY);
     if (fd[i] < 0)
     {
