@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Launch a Checkpointing XP with bfish_mprotect
+# Launch a Checkpointing XP with kbfish
 # Args:
 #   $1: nb nodes
 #   $2: nb iter
@@ -11,7 +11,7 @@
 
 CONFIG_FILE=config
 
-KBFISH_MEM_DIR="../kbfishmem"
+KBFISH_DIR="../kbfish"
 
 # WAIT_TYPE is either USLEEP or BUSY
 WAIT_TYPE=USLEEP
@@ -36,9 +36,10 @@ rm -f /tmp/checkpointing_node_0_finished
 
 # compile and load module
 NB_MAX_CHANNELS=$(($NB_NODES-1))
-cd $KBFISH_MEM_DIR
+cd $KBFISH_DIR
+echo "-DMESSAGE_BYTES=${MESSAGE_MAX_SIZE}" > KBFISH_PROPERTIES
 make
-./kbfishmem.sh load nb_max_communication_channels=${NB_MAX_CHANNELS} default_channel_size=${MSG_CHANNEL} default_max_msg_size=${MESSAGE_MAX_SIZE}
+./kbfish.sh load nb_max_communication_channels=${NB_MAX_CHANNELS} default_channel_size=${MSG_CHANNEL} default_max_msg_size=${MESSAGE_MAX_SIZE}
 if [ $? -eq 1 ]; then
    echo "An error has occured when loading kzimp. Aborting the experiment"
    exit 0
@@ -48,7 +49,7 @@ cd -
 
 # compile
 echo "-DNB_MESSAGES=${MSG_CHANNEL} -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_BYTES=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE} -DWAIT_TYPE=${WAIT_TYPE}" > BFISH_MPROTECT_PROPERTIES
-make bfish_mprotect_paxosInside
+make kbfish_paxosInside
 
 # launch
 ./bin/bfish_mprotect_paxosInside $CONFIG_FILE &
@@ -58,7 +59,7 @@ F=/tmp/checkpointing_node_0_finished
 n=0
 while [ ! -e $F ]; do
    if [ $n -eq 100 ]; then
-      echo -e "\nbfish_mprotect_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B_${MSG_CHANNEL}channelSize\n\tTAKES TOO MUCH TIME" >> results.txt
+      echo -e "\nkbfish_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B_${MSG_CHANNEL}channelSize\n\tTAKES TOO MUCH TIME" >> results.txt
       break
    fi
 
@@ -70,5 +71,5 @@ done
 # save results
 ./stop_all.sh
 sleep 1
-cd $KBFISH_MEM_DIR; ./kbfishmem.sh unload; cd -
-mv results.txt bfish_mprotect_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B_${MSG_CHANNEL}channelSize.txt
+cd $KBFISH_DIR; ./kbfish.sh unload; cd -
+mv results.txt kbfish_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B_${MSG_CHANNEL}channelSize.txt

@@ -2,7 +2,7 @@ toplevel:
 	-mkdir -p bin
 	-$(MAKE) $(MLAGS) all
 
-all: barrelfish_mp_checkpointing ulm_checkpointing kzimp_checkpointing bfish_mprotect_checkpointing
+all: barrelfish_mp_checkpointing ulm_checkpointing kzimp_checkpointing bfish_mprotect_checkpointing kbfish_paxosInside
 
 C:=g++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
@@ -20,9 +20,13 @@ kzimp_checkpointing: $(DEPS) src/comm_mech/kzimp.c
 	$(shell if [ ! -e KZIMP_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64" > KZIMP_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat KZIMP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 
-bfish_mprotect_paxosInside: $(DEPS) src/comm_mech/bfish_mprotect.c ../kbfishmem/bfishmprotect/bfishmprotect.c
+bfish_mprotect_checkpointing: $(DEPS) src/comm_mech/bfish_mprotect.c ../kbfishmem/bfishmprotect/bfishmprotect.c
 	$(shell if [ ! -e BFISH_MPROTECT_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64 -DMESSAGE_BYTES=64 -DWAIT_TYPE=USLEEP" > BFISH_MPROTECT_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat BFISH_MPROTECT_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
+
+kbfish_paxosInside: $(DEPS) src/comm_mech/kbfish.c
+	$(shell if [ ! -e KBFISH_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64" > KBFISH_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell cat KBFISH_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	
 clean:
 	-rm *.o
@@ -31,6 +35,7 @@ clean:
 	-rm ULM_PROPERTIES
 	-rm KZIMP_PROPERTIES
 	-rm BFISH_MPROTECT_PROPERTIES
+	-rm KBFISH_PROPERTIES
 
 clobber:
 	-rm *.o
@@ -38,4 +43,5 @@ clobber:
 	-rm bin/barrelfish_mp_checkpointing
 	-rm bin/ulm_checkpointing
 	-rm bim/kzimp_checkpointing
-	-rm bin/bfish_mprotect_paxosInside
+	-rm bin/bfish_mprotect_checkpointing
+	-rm bin/kbfish_paxosInside
