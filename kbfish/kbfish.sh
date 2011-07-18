@@ -43,6 +43,8 @@ else
    NB_FILES=$DEFAULT_NB_FILES
 fi
 
+echo Creating $NB_FILES files
+
 i=0
 while [ $i -lt ${NB_FILES} ]; do
    file=/dev/${DEVICE}$i

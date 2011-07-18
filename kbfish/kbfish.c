@@ -88,9 +88,9 @@ static int kbfish_open(struct inode *inode, struct file *filp)
     memset(chan->receiver_to_sender, 0, chan->size_in_bytes);
 
     ump_chan->recv_chan.buf
-    = (typeof(ump_chan->recv_chan.buf)) chan->sender_to_receiver;
+        = (typeof(ump_chan->recv_chan.buf)) chan->sender_to_receiver;
     ump_chan->send_chan.buf
-    = (typeof(ump_chan->send_chan.buf)) chan->receiver_to_sender;
+        = (typeof(ump_chan->send_chan.buf)) chan->receiver_to_sender;
   }
   else
   {
@@ -105,9 +105,9 @@ static int kbfish_open(struct inode *inode, struct file *filp)
     ctrl->is_sender = 1;
 
     ump_chan->recv_chan.buf
-    = (typeof(ump_chan->recv_chan.buf)) chan->receiver_to_sender;
+        = (typeof(ump_chan->recv_chan.buf)) chan->receiver_to_sender;
     ump_chan->send_chan.buf
-    = (typeof(ump_chan->send_chan.buf)) chan->sender_to_receiver;
+        = (typeof(ump_chan->send_chan.buf)) chan->sender_to_receiver;
   }
 
   ump_chan->inchanlen = (size_t) chan->channel_size
@@ -245,12 +245,12 @@ static ssize_t kbfish_read
   msgtype = ump_control_process(ump_chan, ump_msg->header.control);
   switch (msgtype)
   {
-  case UMP_ACK: // this is an ack, we need to call recv again
+    case UMP_ACK: // this is an ack, we need to call recv again
     printk(KERN_DEBUG "{%i}[%s:%i] Has received an ack\n", current->pid, __func__, __LINE__);
     call_recv_again = 1;
     break;
 
-  case UMP_MSG: // this is a message, we return it
+    case UMP_MSG: // this is a message, we return it
     printk(KERN_DEBUG "{%i}[%s:%i] Has received a message\n", current->pid, __func__, __LINE__);
     count = (MESSAGE_BYTES < count ? MESSAGE_BYTES : count);
 
@@ -264,7 +264,7 @@ static ssize_t kbfish_read
     call_recv_again = 0;
     break;
 
-  default:
+    default:
     printk(KERN_DEBUG "{%i}[%s:%i] Error: unknown message type %i\n", current->pid, __func__, __LINE__,
         msgtype);
     call_recv_again = 1;
@@ -442,10 +442,29 @@ static ssize_t kbfish_write(struct file *filp, const char __user *buf, size_t co
   return count;
 }
 
+// Called by select(), poll() and epoll() syscalls.
+// pre-condition: must be called by a reader. The call does not work
+// (and does not have sense) for a writer.
 static unsigned int kbfish_poll(struct file *filp, poll_table *wait)
 {
-  //todo
-  return 0;
+  unsigned int mask = 0;
+
+  struct kbfish_channel *chan; /* channel information */
+  struct ump_channel *ump_chan; /* channel information */
+  struct kbfish_ctrl *kbf_ctrl;
+
+  kbf_ctrl = (typeof(kbf_ctrl)) filp->private_data;
+  ump_chan = kbf_ctrl->ump_chan;
+  chan = kbf_ctrl->chan;
+
+  poll_wait(filp, &chan->rq, wait);
+
+  if (ump_endpoint_can_recv(&ump_chan->recv_chan))
+  {
+    mask |= POLLIN | POLLRDNORM;
+  }
+
+  return mask;
 }
 
 static int kbfish_init_channel(struct kbfish_channel *channel, int chan_id,
@@ -492,8 +511,8 @@ static int kbfish_read_proc_file(char *page, char **start, off_t off,
       default_max_msg_size);
 
   len
-  += sprintf(page + len,
-      "chan_id\tchan_size\tmax_msg_size\tsize_in_bytes\tpid_sender\tpid_receiver\n");
+      += sprintf(page + len,
+          "chan_id\tchan_size\tmax_msg_size\tsize_in_bytes\tpid_sender\tpid_receiver\n");
   for (i = 0; i < nb_max_communication_channels; i++)
   {
     len += sprintf(page + len, "%i\t%i\t%i\t%lu\t%i\t%i\n",
