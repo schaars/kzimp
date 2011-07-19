@@ -9,7 +9,7 @@
 if [ $(hostname) == "sci73" ] || [ $(hostname) == "sci74" ] || [ $(hostname) == "sci75" ] || [ $(hostname) == "sci76" ] || [ $(hostname) == "sci77" ]; then
   NB_THREADS_PER_CORE=2
 else
-  NB_THREADS_PER_CORE=1
+  NB_THREADS_PER_CORE=2
 fi
 
 if [ $# -eq 2 ]; then

@@ -59,7 +59,6 @@ void IPC_initialize(int _nb_paxos_nodes, int _nb_clients)
  *  -listen for incoming connection, using backlog as the backlog.
  * Return the new socket.
  */
-
 int create_socket(int port, int backlog)
 {
   int s;

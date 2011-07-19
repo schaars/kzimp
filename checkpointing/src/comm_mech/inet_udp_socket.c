@@ -29,9 +29,6 @@
 
 #define PORT_CORE_0 4242 // ports on which the nodes bind.  They recv on PORT_CORE_0+node_id
 #define PORT_RECV_0 6000 // ports on which the nodes send to node 0. They send to PORT_RECV_0+node_id
-// Define NB_MESSAGES as the max number of messages in the channel
-// Define MESSAGE_BYTES as the max size of the messages in bytes
-// Define WAIT_TYPE as USLEEP or BUSY
 
 static int node_id;
 static int nb_nodes;
