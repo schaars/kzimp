@@ -61,7 +61,7 @@ void Client::recv(void)
 
 #ifdef MSG_DEBUG
     printf(
-        "Client %i has received a message of size %lu (%lu received) and tag %i\n",
+        "\nClient %i has received a message of size %lu (%lu received) and tag %i\n\n",
         cid, (unsigned long) m.length(), (unsigned long) s, m.tag());
 #endif
 
@@ -144,6 +144,8 @@ void Client::send(void)
 #else
     IPC_send_client_to_node(r.content(), r.length());
 #endif
+
+    sleep(1);
   }
 }
 
@@ -189,7 +191,7 @@ void Client::run(void)
 #endif
 
       if (s > MESSAGE_HEADER_SIZE && m.tag() == RESPONSE && handle_response(
-          (Response*) &m))
+              (Response*) &m))
       {
         quorum_size++;
       }
@@ -250,9 +252,9 @@ bool Client::handle_response(Response* r)
 {
   uint64_t value = r->value();
 
-  return (value == expected_value);
-
 #ifdef MSG_DEBUG
-  printf("Client %i handles response %lu\n", cid, value);
+  printf("Client %i handles response %lu, expecting %lu\n", cid, value, expected_value);
 #endif
+
+  return (value == expected_value);
 }
