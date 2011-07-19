@@ -50,7 +50,7 @@ if [ -e /proc/local_multicast ]; then
    sudo ./root_set_value.sh "0 0 0" /proc/local_multicast
 fi
 
-sudo sysctl -p inet_sysctl.conf
+sudo sysctl -p ../inet_sysctl.conf
 
 # launch XP
 .#/get_memory_usage.sh  $MEMORY_DIR &

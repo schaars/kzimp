@@ -25,7 +25,7 @@ fi
 
 ./stop_all.sh
 
-sudo sysctl -p inet_sysctl.conf
+sudo sysctl -p ../inet_sysctl.conf
 
 # wait for TIME_WAIT connections
 nbc=$(netstat -tn | grep TIME_WAIT | grep -v ":22 " | wc -l)

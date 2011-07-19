@@ -33,6 +33,8 @@ fi
 
 ./stop_all.sh
 
+sudo sysctl -p ../inet_sysctl.conf
+
 # modify the max number of datagrams
 sudo ./root_set_value.sh $NB_DATAGRAMS /proc/sys/net/unix/max_dgram_qlen
 

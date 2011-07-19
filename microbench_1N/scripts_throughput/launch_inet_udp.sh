@@ -52,7 +52,7 @@ if [ -e /proc/local_multicast ]; then
    sudo ./root_set_value.sh "0 0 0" /proc/local_multicast
 fi
 
-sudo sysctl -p inet_sysctl.conf
+sudo sysctl -p ../inet_sysctl.conf
 
 # launch XP
 ./bin/inet_udp_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
