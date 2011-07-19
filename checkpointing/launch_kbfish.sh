@@ -56,10 +56,10 @@ make kbfish_paxosInside
 F=/tmp/checkpointing_node_0_finished
 n=0
 while [ ! -e $F ]; do
-   if [ $n -eq 100 ]; then
-      echo -e "\nkbfish_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B_${MSG_CHANNEL}channelSize\n\tTAKES TOO MUCH TIME" >> results.txt
-      break
-   fi
+   #if [ $n -eq 100 ]; then
+   #   echo -e "\nkbfish_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B_${MSG_CHANNEL}channelSize\n\tTAKES TOO MUCH TIME" >> results.txt
+   #   break
+   #fi
 
    echo "Waiting for the end"
    sleep 10
