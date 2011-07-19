@@ -277,13 +277,13 @@ int get_fd_for_receive(void)
 
       maxsock = client0_sock[0];
       FD_SET(client0_sock[0], &file_descriptors);
-      printf("Node %i is going to select on %i\n", node_id, client0_sock[0]);
+//      printf("Node %i is going to select on %i\n", node_id, client0_sock[0]);
 
       for (int j = 1; j < nb_learners; j++)
       {
         FD_SET(client0_sock[j], &file_descriptors);
         maxsock = MAX(maxsock, client0_sock[j]);
-        printf("Node %i is going to select on %i\n", node_id, client0_sock[j]);
+//        printf("Node %i is going to select on %i\n", node_id, client0_sock[j]);
       }
 
       listen_time.tv_sec = 1;
