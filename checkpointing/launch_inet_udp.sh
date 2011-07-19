@@ -29,7 +29,7 @@ rm -f /tmp/checkpointing_node_0_finished
 ./create_config.sh $NB_NODES $NB_ITER > $CONFIG_FILE
 
 # set new parameters
-#sudo sysctl -p ../inet_sysctl.conf
+sudo sysctl -p ../inet_sysctl.conf
 
 # compile
 echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE}" > INET_UDP_PROPERTIES
