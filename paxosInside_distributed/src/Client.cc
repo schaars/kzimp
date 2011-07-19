@@ -144,8 +144,6 @@ void Client::send(void)
 #else
     IPC_send_client_to_node(r.content(), r.length());
 #endif
-
-    sleep(1);
   }
 }
 
