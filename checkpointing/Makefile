@@ -2,7 +2,9 @@ toplevel:
 	-mkdir -p bin
 	-$(MAKE) $(MLAGS) all
 
-all: barrelfish_mp_checkpointing ulm_checkpointing kzimp_checkpointing bfish_mprotect_checkpointing kbfish_paxosInside
+all: barrelfish_mp_checkpointing ulm_checkpointing kzimp_checkpointing \
+	 bfish_mprotect_checkpointing kbfish_checkpointing inet_tcp_checkpoiting \
+	 inet_udp_checkpointincheckpointing
 
 C:=g++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
@@ -24,9 +26,17 @@ bfish_mprotect_checkpointing: $(DEPS) src/comm_mech/bfish_mprotect.c ../kbfishme
 	$(shell if [ ! -e BFISH_MPROTECT_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64 -DMESSAGE_BYTES=64 -DWAIT_TYPE=USLEEP" > BFISH_MPROTECT_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat BFISH_MPROTECT_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 
-kbfish_paxosInside: $(DEPS) src/comm_mech/kbfish.c
+kbfish_checkpoiting: $(DEPS) src/comm_mech/kbfish.c
 	$(shell if [ ! -e KBFISH_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64" > KBFISH_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat KBFISH_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
+	
+inet_tcp_checkpointing: $(DEPS) src/comm_mech/tcp_net.c src/comm_mech/inet_tcp_socket.c
+	$(shell if [ ! -e INET_TCP_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64 -DTCP_NAGLE" > INET_TCP_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell cat INET_TCP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
+	
+inet_udp_checkpointing: $(DEPS) src/comm_mech/inet_udp_socket.c
+	$(shell if [ ! -e INET_UDP_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64" > INET_UDP_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell cat INET_UDP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	
 clean:
 	-rm *.o
@@ -36,6 +46,8 @@ clean:
 	-rm KZIMP_PROPERTIES
 	-rm BFISH_MPROTECT_PROPERTIES
 	-rm KBFISH_PROPERTIES
+	-rm INET_TCP_PROPERTIES
+	-rm INET_UDP_PROPERTIES
 
 clobber:
 	-rm *.o
@@ -44,4 +56,6 @@ clobber:
 	-rm bin/ulm_checkpointing
 	-rm bim/kzimp_checkpointing
 	-rm bin/bfish_mprotect_checkpointing
-	-rm bin/kbfish_paxosInside
+	-rm bin/kbfish_checkpointing
+	-rm bin/inet_tcp_checkpointing
+	-rm bin/inet_udp_checkpointing

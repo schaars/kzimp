@@ -14,6 +14,8 @@ for chkpt_size in ${CHKPT_SIZE_ARRAY[@]}; do
          ./launch_kzimp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 500
          ./launch_bfish_mprotect.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 1000
          ./launch_kbfish.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 1000
+         ./launch_inet_tcp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
+         ./launch_inet_udp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
 
       done
    done
