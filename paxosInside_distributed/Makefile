@@ -6,7 +6,7 @@ toplevel:
 #all: inet_tcp_paxosInside inet_udp_paxosInside unix_paxosInside \
 	 pipe_paxosInside ipc_msg_queue_paxosInside posix_msg_queue_paxosInside \
 	 barrelfish_mp_paxosInside ulm_paxosInside
-all: barrelfish_mp_paxosInside ulm_paxosInside kzimp_paxosInside bfish_mprotect_paxosInside kbfish_paxosInside
+all: barrelfish_mp_paxosInside ulm_paxosInside kzimp_paxosInside bfish_mprotect_paxosInside kbfish_paxosInside inet_tcp_paxosInside inet_udp_paxosInside
 
 C:=g++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
