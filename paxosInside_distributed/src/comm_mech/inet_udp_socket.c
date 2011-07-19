@@ -333,7 +333,7 @@ size_t IPC_receive(void *msg, size_t length)
 #endif
 
   // get the header
-  header_size = receive_chunk(sk, (char*) msg, sizeof(struct message_header));
+  header_size = recvfrom(sk, (char*)msg, UDP_SEND_MAX_SIZE, 0, 0, 0);
 
   // get the content
   msg_len = ((struct message_header*) msg)->len;
@@ -347,7 +347,7 @@ size_t IPC_receive(void *msg, size_t length)
   s = 0;
   while (left > 0)
   {
-    s += receive_chunk(sk, ((char*) msg + header_size + s), left - s);
+    s += recvfrom(sk, (char*)msg + header_size + s, UDP_SEND_MAX_SIZE, 0, 0, 0);
     left -= s;
   }
 

@@ -1,5 +1,5 @@
 /*
- * paxosInside.cc
+ * checkpointing.cc
  *
  *  Created on: Mar 2, 2011
  *      Author: pl
@@ -21,7 +21,7 @@
 #include "comm_mech/ipc_interface.h"
 #include "Checkpointer.h"
 
-int nb_nodes = 3; // this counts the number of paxos nodes
+int nb_nodes = 3; // this counts the number of nodes
 uint64_t nb_iter = 10; // number of snapshots to be taken before exiting
 int *associated_core; // associated_core[i] = core on which you launch node i, for all the nodes
 

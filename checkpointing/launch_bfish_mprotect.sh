@@ -49,10 +49,10 @@ cd -
 
 # compile
 echo "-DNB_MESSAGES=${MSG_CHANNEL} -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_BYTES=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE} -DWAIT_TYPE=${WAIT_TYPE}" > BFISH_MPROTECT_PROPERTIES
-make bfish_mprotect_paxosInside
+make bfish_mprotect_checkpointing
 
 # launch
-./bin/bfish_mprotect_paxosInside $CONFIG_FILE &
+./bin/bfish_mprotect_checkpointing $CONFIG_FILE &
 
 # wait for the end
 F=/tmp/checkpointing_node_0_finished

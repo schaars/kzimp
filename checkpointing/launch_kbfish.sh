@@ -47,10 +47,10 @@ cd -
 
 # compile
 echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE}" > KBFISH_PROPERTIES
-make kbfish_paxosInside
+make kbfish_checkpointing
 
 # launch
-./bin/kbfish_paxosInside $CONFIG_FILE &
+./bin/kbfish_checkpointing $CONFIG_FILE &
 
 # wait for the end
 F=/tmp/checkpointing_node_0_finished
