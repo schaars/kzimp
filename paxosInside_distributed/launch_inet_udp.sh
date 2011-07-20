@@ -42,7 +42,7 @@ rm -f /tmp/paxosInside_client_*_finished
 sudo sysctl -p ../inet_sysctl.conf
 
 # compile
-echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > INET_UDP_PROPERTIES
+echo "-DOPEN_LOOP -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > INET_UDP_PROPERTIES
 make inet_udp_paxosInside
 
 
