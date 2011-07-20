@@ -97,6 +97,15 @@ int create_socket(struct sockaddr_in *addr)
     exit(errno);
   }
 
+  // get buffers size
+  /*
+  int optval;
+  socklen_t optval_size;
+  optval_size = sizeof(optval);
+  getsockopt(s, SOL_SOCKET, SO_RCVBUF, &optval, &optval_size);
+  printf("RCVBUF=%i\n", optval);
+  */
+
   // bind socket
   int ret = bind(s, (struct sockaddr *) addr, sizeof(*addr));
   if (ret == -1)
@@ -177,6 +186,7 @@ void IPC_clean_node(void)
 void udp_send_one_node(void *msg, size_t length, struct sockaddr_in *addr)
 {
   size_t sent, to_send;
+  char seq_id = 0;
 
 #ifdef DEBUG
   printf("[node %i] Sending on %s:%i\n", node_id, inet_ntoa(addr->sin_addr),
@@ -188,6 +198,8 @@ void udp_send_one_node(void *msg, size_t length, struct sockaddr_in *addr)
   {
     to_send = MIN(length - sent, UDP_SEND_MAX_SIZE);
 
+    ((char*)msg+sent+400)[0] = seq_id;
+    seq_id++;
     sent += sendto(sock[0], (char*) msg + sent, to_send, 0,
         (struct sockaddr*) addr, sizeof(*addr));
   }
@@ -255,10 +267,12 @@ int get_fd_for_receive(void)
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
 // blocking
+// Return 0 if the message is invalid
 size_t IPC_receive(void *msg, size_t length)
 {
-  size_t header_size, s, left, msg_len;
+  size_t header_size, s, r, msg_len;
   int fd;
+  char seq_id, expected_seq_id;
 
   fd = get_fd_for_receive();
 
@@ -268,22 +282,59 @@ size_t IPC_receive(void *msg, size_t length)
 
   // get the header
   header_size = recvfrom(fd, (char*)msg, UDP_SEND_MAX_SIZE, 0, 0, 0);
+  expected_seq_id = 0;
+  seq_id = *((char*)msg+400);
+
+#ifdef DEBUG
+  printf("[node %i] seq_id=%i, header_size=%lu\n", node_id, seq_id, header_size);
+#endif
+
+  if (seq_id != expected_seq_id) {
+#ifdef DEBUG
+     printf("[node %i] Error: wrong seq number: %i instead of %i", node_id, seq_id, expected_seq_id);
+#endif
+     return 0;
+  }
+
 
   // get the content
   msg_len = ((struct message_header*) msg)->len;
 
 #ifdef DEBUG
   printf("[node %i] Header size is %lu, msg_len is %lu\n", node_id,
-      header_size, msg_len);
+        header_size, msg_len);
 #endif
 
-  left = msg_len - header_size;
-  s = 0;
-  while (left > 0)
+  s = header_size;
+  while (s < msg_len)
   {
-    s += recvfrom(fd, (char*)msg + header_size + s, UDP_SEND_MAX_SIZE, 0, 0, 0);
-    left -= s;
+#ifdef DEBUG
+     printf("[node %i] s=%lu, msg_len=%lu\n", node_id,
+           s, msg_len);
+#endif
+
+     r = recvfrom(fd, (char*)msg + s, msg_len - s, 0, 0, 0);
+     s+=r;
+
+     expected_seq_id++;
+     seq_id = *((char*)msg+s-r+400);
+
+#ifdef DEBUG
+     printf("[node %i] seq_id=%i, r=%lu\n", node_id, seq_id, r);
+#endif
+
+     if (seq_id != expected_seq_id) {
+#ifdef DEBUG
+        printf("[node %i] Error: wrong seq number: %i instead of %i", node_id, seq_id, expected_seq_id);
+#endif
+        return 0;
+     }
   }
 
-  return header_size + s;
+#ifdef DEBUG
+     printf("[node %i]l s=%lu, msg_len=%lu\n", node_id,
+      s, msg_len);
+#endif
+
+  return s;
 }

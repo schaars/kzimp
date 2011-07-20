@@ -322,7 +322,7 @@ size_t receive_chunk(int s, char *msg, size_t length)
 // Return the number of read bytes.
 size_t IPC_receive(void *msg, size_t length)
 {
-  size_t header_size, s, left, msg_len;
+  size_t header_size, s, msg_len;
   int sk;
 
   sk = get_fd_for_receive();
@@ -343,13 +343,15 @@ size_t IPC_receive(void *msg, size_t length)
       header_size, msg_len);
 #endif
 
-  left = msg_len - header_size;
-  s = 0;
-  while (left > 0)
+  s = header_size;
+  while (s < msg_len)
   {
-    s += recvfrom(sk, (char*)msg + header_size + s, UDP_SEND_MAX_SIZE, 0, 0, 0);
-    left -= s;
+#ifdef DEBUG
+     printf("[node %i] s=%lu, msg_len=%lu, length=%lu\n", s, msg_len, length);
+#endif
+
+     s += recvfrom(sk, (char*)msg + s, msg_len - s, 0, 0, 0);
   }
 
-  return header_size + s;
+  return s;
 }
