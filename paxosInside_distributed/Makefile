@@ -18,7 +18,7 @@ inet_tcp_paxosInside: $(DEPS) src/comm_mech/tcp_net.c src/comm_mech/inet_tcp_soc
 	$(C) $(CFLAGS) $(shell cat INET_TCP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	
 inet_udp_paxosInside: $(DEPS) src/comm_mech/inet_udp_socket.c
-	$(shell if [ ! -e INET_UDP_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=128" > INET_UDP_PROPERTIES; fi)
+	$(shell if [ ! -e INET_UDP_PROPERTIES ]; then echo "-DOPEN_LOOP -DMESSAGE_MAX_SIZE=128" > INET_UDP_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat INET_UDP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	
 unix_paxosInside: $(DEPS) src/comm_mech/unix_socket.c

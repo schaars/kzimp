@@ -254,5 +254,9 @@ bool Client::handle_response(Response* r)
   printf("Client %i handles response %lu, expecting %lu\n", cid, value, expected_value);
 #endif
 
+#ifdef OPEN_LOOP
+  return (value == expected_value) || true;
+#else
   return (value == expected_value);
+#endif
 }
