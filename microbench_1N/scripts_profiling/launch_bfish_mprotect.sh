@@ -12,6 +12,9 @@ PROFDIR=../profiler
 
 KBFISH_MEM_DIR="../kbfishmem"
 
+# WAIT_TYPE is either USLEEP or BUSY
+WAIT_TYPE=USLEEP
+
 
 # get arguments
 if [ $# -eq 4 ]; then
@@ -42,10 +45,15 @@ else
    REAL_MSG_SIZE=$MSG_SIZE
 fi
 
+echo "-DNB_MESSAGES=${MAX_NB_MSG} -DMESSAGE_BYTES=${REAL_MSG_SIZE} -DWAIT_TYPE=${WAIT_TYPE}" > BFISH_MPROTECT_PROPERTIES
+make bfish_mprotect_microbench
+REAL_MSG_SIZE=$(./bin/bfishmprotect_get_struct_ump_message_size)
+
 #compile and load module
 cd $KBFISH_MEM_DIR
 make
-./kbfishmem.sh load nb_max_communication_channels=${NB_CONSUMERS} default_channel_size=${MAX_NB_MSG} default_max_msg_size=${REAL_MSG_SIZE}
+./kbfishmem.sh unload
+./kbfishmem.sh load nb_max_communication_channels=${NB_CONSUMERS} default_channel_size=${MAX_NB_MSG} default_max_msg_size=${REAL_MSG_SIZE} 
 if [ $? -eq 1 ]; then
    echo "An error has occured when loading kbfishmem. Aborting the experiment $OUTPUT_DIR"
    exit 0
@@ -54,8 +62,6 @@ cd -
 
 # launch XP
 #./get_memory_usage.sh  $MEMORY_DIR &
-echo "-DNB_MESSAGES=${MAX_NB_MSG} -DMESSAGE_BYTES=${REAL_MSG_SIZE} -DWAIT_TYPE=${WAIT_TYPE}" > BFISH_MPROTECT_PROPERTIES
-make bfish_mprotect_microbench
 ./bin/bfish_mprotect_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP &
 
 sleep 5

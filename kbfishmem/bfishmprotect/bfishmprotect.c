@@ -40,8 +40,8 @@ struct ump_channel open_channel(char *mprotectfile, int nb_messages,
   struct ump_channel chan;
   ump_index_t i;
 
-  chan.inchanlen = (size_t) nb_messages * (size_t) message_size;
-  chan.outchanlen = (size_t) nb_messages * (size_t) message_size;
+  chan.inchanlen = (size_t) nb_messages * sizeof(struct ump_message);
+  chan.outchanlen = (size_t) nb_messages * sizeof(struct ump_message);
 
   if (is_receiver)
   {

@@ -131,6 +131,14 @@ int recv_msg_nonblocking(struct ump_channel *chan, char *msg, size_t len);
 struct ump_channel* bfish_mprotect_select(struct ump_channel* chans, int l,
     int nb_iter);
 
+// return the size of a struct ump_message. Is used to know the size of the memory area
+// to allocate in kbfishmem.
+static inline size_t get_ump_message_size(void)
+{
+   return sizeof(struct ump_message);
+}
+
+
 /********************* inline "private" methods *********************/
 /**
  * \brief Determine next position for an outgoing message on a channel, and

@@ -332,6 +332,8 @@ static int kbfishmem_init_channel(struct kbfishmem_channel *channel, int chan_id
     return -1;
   }
 
+  //printk(KERN_DEBUG "[Channel %i] chan_size=%i, max_msg_size=%i, size_in_bytes=%lu\n", channel->chan_id, channel->channel_size, channel->max_msg_size, channel->size_in_bytes);
+
   // set the 2 areas to 0
   memset(channel->sender_to_receiver, 0, channel->size_in_bytes);
   memset(channel->receiver_to_sender, 0, channel->size_in_bytes);

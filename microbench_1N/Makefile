@@ -59,6 +59,7 @@ kzimp_microbench: $(DEPS) src/kzimp.c
 bfish_mprotect_microbench: $(DEPS) src/bfish_mprotect.c ../kbfishmem/bfishmprotect/bfishmprotect.c
 	$(shell if [ ! -e BFISH_MPROTECT_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DMESSAGE_BYTES=64 -DWAIT_TYPE=USLEEP" > BFISH_MPROTECT_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell grep -v '#' BFISH_MPROTECT_PROPERTIES 2>/dev/null) -o bin/$@ $^
+	$(C) $(CFLAGS) $(shell grep -v '#' BFISH_MPROTECT_PROPERTIES 2>/dev/null) -o bin/bfishmprotect_get_struct_ump_message_size ../kbfishmem/bfishmprotect/bfishmprotect.c ../kbfishmem/bfishmprotect/bfishmprotect_get_struct_ump_message_size.c
 
 kbfish_microbench: $(DEPS) src/kbfish.c
 	$(shell if [ ! -e KBFISH_PROPERTIES ]; then echo "" > KBFISH_PROPERTIES; fi)
@@ -96,3 +97,4 @@ clobber:
 	-rm bin/kzimp_microbench
 	-rm bin/bfish_mprotect_microbench
 	-rm bin/kbfish_microbench
+	-rm bin/bfishmprotect_get_struct_ump_message_size
