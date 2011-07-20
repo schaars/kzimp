@@ -6,6 +6,18 @@
 #  $3: duration of the experiment in seconds
 
 
+# wait for the end of TIME_WAIT connections
+function wait_for_time_wait {
+nbc=1
+while [ $nbc != 0 ]; do
+   ./stop_all.sh
+   echo "Waiting for the end of TIME_WAIT connections"
+   sleep 20
+   nbc=$(netstat -tn | grep TIME_WAIT | grep -v ":22 " | wc -l)
+done
+}
+
+
 # get arguments
 if [ $# -eq 3 ]; then
    NB_CONSUMERS=$1
@@ -24,6 +36,7 @@ if [ -d $OUTPUT_DIR ]; then
 fi
 
 ./stop_all.sh
+wait_for_time_wait
 
 sudo sysctl -p ../inet_sysctl.conf
 
