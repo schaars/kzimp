@@ -1,0 +1,9 @@
+oset
+=====
+
+Simple OrderedSet creation
+::
+    >>> from oset import oset
+    >>> s = oset('abracadabra')
+    >>> print s
+    OrderedSet(['a', 'b', 'r', 'c', 'd'])
