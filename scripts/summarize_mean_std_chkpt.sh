@@ -12,25 +12,24 @@ import scipy
 # An experiment is caracterized by its data.
 class Experiment:
    # Variables::
-   #TODO
-   #  -all_nb_paxos_nodes: an ordered set of all the number of paxos nodes
-   #  -all_nb_clients: an ordered set of all the number of clients
-   #  -all_req_size: an ordered set of all the req sizes
+   #  -all_nb_nodes: an ordered set of all the number of paxos nodes
+   #  -all_msg_size: an ordered set of all the checkpoint response sizes
+   #  -all_chkpt_size: an ordered set of all the checkpoint request sizes
    #  -all_nb_iter: an ordered set of all the number of iterations
-   #  -all_leader_acceptor = a set of leader_acceptor strings
    #  -all_channel_size: an ordered set of all the channel sizes
-   #  -results: a dictionnary containing, for each pair (nb_paxos_nodes, nb_clients,
-   #    req_size, nb_iter, leader_acceptor, channel_size), a list of tuples of the
+   #  -all_limit_thr: an ordered set of all the throughputs when there is a limitation
+   #  -results: a dictionnary containing, for each pair (nb_nodes, msg_size,
+   #    chkpt_size, nb_iter, channel_size, limit_thr), a list of tuples of the
    #    different values for each summary
 
+
    def __init__(self):
-   #TODO
-      self.all_nb_paxos_nodes = oset()
-      self.all_nb_clients = oset()
-      self.all_req_size = oset()
+      self.all_nb_nodes = oset()
+      self.all_msg_size = oset()
+      self.all_chkpt_size = oset()
       self.all_nb_iter = oset()
-      self.all_leader_acceptor = set()
       self.all_channel_size = oset()
+      self.all_limit_thr = oset()
       self.results = {}
 
 
@@ -43,34 +42,32 @@ class Experiment:
             continue
 
          zeline = line.split('\t')
-   #TODO
-         if len(zeline) != 7:
+         if len(zeline) != 8:
             continue
 
-   #TODO
-         nb_paxos_nodes = int(zeline[0])
-         nb_clients = int(zeline[1])
-         req_size = int(zeline[2])
+         nb_nodes = int(zeline[0])
+         msg_size = int(zeline[1])
+         chkpt_size = int(zeline[2])
          nb_iter = int(zeline[3])
-         leader_acceptor = zeline[4]
-         channel_size = int(zeline[5])
+         channel_size = int(zeline[4])
+         limit_thr = float(zeline[5])
          thr = float(zeline[6])
+         lat = float(zeline[7])
 
-   #TODO
-         key = (nb_paxos_nodes, nb_clients, req_size, nb_iter, leader_acceptor, channel_size)
+         key = (nb_nodes, msg_size, chkpt_size, nb_iter, channel_size, limit_thr)
          t = self.results.get(key)
          if t == None:
-            self.results[key] = [thr]
+            self.results[key] = ([thr], [lat])
          else:
-            t.append(thr)
+            t[0].append(thr)
+            t[1].append(lat)
 
-   #TODO
-         self.all_nb_paxos_nodes.add(nb_paxos_nodes)
-         self.all_nb_clients.add(nb_clients)
-         self.all_req_size.add(req_size)
+         self.all_nb_nodes.add(nb_nodes)
+         self.all_msg_size.add(msg_size)
+         self.all_chkpt_size.add(chkpt_size)
          self.all_nb_iter.add(nb_iter)
-         self.all_leader_acceptor.add(leader_acceptor)
          self.all_channel_size.add(channel_size)
+         self.all_limit_thr.add(limit_thr)
 
       fd.close()
 
@@ -78,28 +75,29 @@ class Experiment:
    def get_mean_stdev_summary(self, filename):
       fd = open(filename, 'w')
 
-   #TODO
-      fd.write("#nb_paxos_nodes\tnb_clients\treq_size\tnb_iter\tleader_acceptor\tchannel_size\tthr_mean\tthr_stddev\tthr_stddev_perc\n")
+      fd.write("#nb_nodes\tmsg_size\tchkpt_size\tnb_iter\tchannel_size\tlimit_thr\tthr_mean\tthr_stddev\tthr_stddev_perc\tlat_mean\tlat_stddev\tlat_stddev_perc\n")
       
    #TODO
-      for nb_paxos_nodes in self.all_nb_paxos_nodes:
-         for nb_clients in self.all_nb_clients:
-            for req_size in self.all_req_size:
+      for nb_nodes in self.all_nb_nodes:
+         for msg_size in self.all_msg_size:
+            for chkpt_size in self.all_chkpt_size:
                for nb_iter in self.all_nb_iter:
-                  for leader_acceptor in self.all_leader_acceptor:
-                     for channel_size in self.all_channel_size:
+                  for channel_size in self.all_channel_size:
+                     for limit_thr in self.all_limit_thr:
 
-                        key = (nb_paxos_nodes, nb_clients, req_size, nb_iter, leader_acceptor, channel_size)
+                        key = (nb_nodes, msg_size, chkpt_size, nb_iter, channel_size, limit_thr)
                         t = self.results.get(key)
                         if t == None:
                            continue
 
-                        fd.write("%d\t%d\t%d\t%d\t%s\t%d"%(nb_paxos_nodes, nb_clients, req_size, nb_iter, leader_acceptor, channel_size))
-                        a = scipy.array(t)
-                        m = a.mean()
-                        s = a.std()
-                        p = s * 100 / m
-                        fd.write("\t%.5f\t%.5f\t%.5f\n"%(m, s, p))
+                        fd.write("%d\t%d\t%d\t%d\t%d\t%d"%(nb_nodes, msg_size, chkpt_size, nb_iter, channel_size, limit_thr))
+                        for l in t:
+                          a = scipy.array(l)
+                          m = a.mean()
+                          s = a.std()
+                          p = s * 100 / m
+                          fd.write("\t%.5f\t%.5f\t%.5f"%(m, s, p))
+                        fd.write("\n")
    
       fd.close()
 ################################################################################
