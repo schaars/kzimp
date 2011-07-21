@@ -46,6 +46,7 @@ fi
 #compile and load module
 cd $KZIMP_DIR
 make
+./kzimp.sh unload
 ./kzimp.sh load nb_max_communication_channels=1 default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE} default_timeout_in_ms=${KZIMP_TIMEOUT} default_compute_checksum=${COMPUTE_CHKSUM}
 if [ $? -eq 1 ]; then
    echo "An error has occured when loading kzimp. Aborting the experiment $OUTPUT_DIR"

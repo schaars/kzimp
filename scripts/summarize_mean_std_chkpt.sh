@@ -12,6 +12,7 @@ import scipy
 # An experiment is caracterized by its data.
 class Experiment:
    # Variables::
+   #TODO
    #  -all_nb_paxos_nodes: an ordered set of all the number of paxos nodes
    #  -all_nb_clients: an ordered set of all the number of clients
    #  -all_req_size: an ordered set of all the req sizes
@@ -23,6 +24,7 @@ class Experiment:
    #    different values for each summary
 
    def __init__(self):
+   #TODO
       self.all_nb_paxos_nodes = oset()
       self.all_nb_clients = oset()
       self.all_req_size = oset()
@@ -41,9 +43,11 @@ class Experiment:
             continue
 
          zeline = line.split('\t')
+   #TODO
          if len(zeline) != 7:
             continue
 
+   #TODO
          nb_paxos_nodes = int(zeline[0])
          nb_clients = int(zeline[1])
          req_size = int(zeline[2])
@@ -52,6 +56,7 @@ class Experiment:
          channel_size = int(zeline[5])
          thr = float(zeline[6])
 
+   #TODO
          key = (nb_paxos_nodes, nb_clients, req_size, nb_iter, leader_acceptor, channel_size)
          t = self.results.get(key)
          if t == None:
@@ -59,6 +64,7 @@ class Experiment:
          else:
             t.append(thr)
 
+   #TODO
          self.all_nb_paxos_nodes.add(nb_paxos_nodes)
          self.all_nb_clients.add(nb_clients)
          self.all_req_size.add(req_size)
@@ -72,8 +78,10 @@ class Experiment:
    def get_mean_stdev_summary(self, filename):
       fd = open(filename, 'w')
 
+   #TODO
       fd.write("#nb_paxos_nodes\tnb_clients\treq_size\tnb_iter\tleader_acceptor\tchannel_size\tthr_mean\tthr_stddev\tthr_stddev_perc\n")
       
+   #TODO
       for nb_paxos_nodes in self.all_nb_paxos_nodes:
          for nb_clients in self.all_nb_clients:
             for req_size in self.all_req_size:
