@@ -55,7 +55,7 @@ elif [ $X_AXIS == "nb_nodes" ]; then
             stddev=$(awk '{print $8}' <<< $line)
          fi
 
-         echo -e "${msg_size}\t${y_value}\t${stddev}" >> $out
+         echo -e "${nb_nodes}\t${y_value}\t${stddev}" >> $out
       fi
    done < $file
 
@@ -129,21 +129,27 @@ set title "Checkpointing, msg_size = ${msg_size} bytes"
 
 #set logscale y
 
-#TODO: is used for plot_msg_size
-#set logscale x
-#TODO: is used for plot_msg_size
-#set xtics("1B" 1,"64B" 64,"128B" 128,"512B" 512,"1kB" 1024,"4kB" 4096,"10kB" 10240,"100kB" 102400,"1MB" 1048576)
-
 #set key left top
 #set key at 3.35,5300
 
-set xrange [1:]
+set xrange [1:24]
 set yrange [0:]
 EOF
 
 generate_pdf $PLOT_FILE $msg_size $@
 
-#rm $PLOT_FILE
+for arg in $@; do
+   title=$1; shift
+   file=$1; shift
+
+   if [ -z $title ] || [ -z $file ]; then
+      break
+   fi
+
+   rm ${file}.data
+done
+
+rm $PLOT_FILE
 mv ${OUT_FILE}.pdf ${OUT_FILE}_${LAT_OR_THR}_msgSize${msg_size}B.pdf
 }
 
@@ -183,6 +189,17 @@ set yrange [0:]
 EOF
 
 generate_pdf $PLOT_FILE $nb_nodes $@
+
+for arg in $@; do
+   title=$1; shift
+   file=$1; shift
+
+   if [ -z $title ] || [ -z $file ]; then
+      break
+   fi
+
+   rm ${file}.data
+done
 
 rm $PLOT_FILE
 mv ${OUT_FILE}.pdf ${OUT_FILE}_${LAT_OR_THR}_${nb_nodes}nodes.pdf
