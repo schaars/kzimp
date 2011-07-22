@@ -16,9 +16,7 @@
 
 // debug macro
 #define DEBUG
-#undef DEBUG
-
-#define UDP_SEND_MAX_SIZE 65507
+//#undef DEBUG
 
 #define UNIX_SOCKET_FILE_NAME "/tmp/multicore_replication_paxosInside"
 
@@ -30,18 +28,20 @@
 static int node_id;
 static int nb_paxos_nodes;
 static int nb_clients;
+static int nb_learners;
 static int total_nb_nodes;
 
 static int sock; // the socket
 
-struct sockaddr_un *addresses; // for each node (clients + PaxosInside nodes), its address
+static struct sockaddr_un *addresses; // for each node (clients + PaxosInside nodes), its address
 
 // Initialize resources for both the node and the clients
 // First initialization function called
-void IPC_initialize(int _nb_nodes, int _nb_clients)
+void IPC_initialize(int _nb_paxos_nodes, int _nb_clients)
 {
-  nb_paxos_nodes = _nb_nodes;
+  nb_paxos_nodes = _nb_paxos_nodes;
   nb_clients = _nb_clients;
+  nb_learners = nb_paxos_nodes - 2;
   total_nb_nodes = nb_paxos_nodes + nb_clients;
 
   // create & fill addresses
@@ -59,27 +59,45 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
     addresses[i].sun_family = AF_UNIX;
     snprintf(addresses[i].sun_path, sizeof(char) * 108, "%s_%i",
         UNIX_SOCKET_FILE_NAME, i);
+
+#ifdef DEBUG
+    printf("Node %i bound on %s\n", i, addresses[i].sun_path);
+#endif
   }
 }
 
-void initialize_one_node(void)
+int create_socket(struct sockaddr_un *addr)
 {
+  int s;
+
   // create socket
-  sock = socket(AF_UNIX, SOCK_DGRAM, 0);
-  if (sock == -1)
+  s = socket(AF_UNIX, SOCK_DGRAM, 0);
+  if (s == -1)
   {
     perror("[IPC_initialize_one_node] Error while creating the socket! ");
     exit(errno);
   }
 
   // bind socket
-  int ret = bind(sock, (struct sockaddr *) &addresses[node_id],
-      sizeof(addresses[node_id]));
+  int ret = bind(s, (struct sockaddr *) addr, sizeof(*addr));
   if (ret == -1)
   {
     perror("[IPC_initialize_one_node] Error while calling bind! ");
     exit(errno);
   }
+
+#ifdef DEBUG
+  // print some information about the accepted connection
+  printf("[node %i] Socket %i bound on %s\n", node_id, s, addr->sun_path);
+#endif
+
+  return s;
+}
+
+void initialize_one_node(void)
+{
+  // create socket
+  sock = create_socket(&addresses[node_id]);
 }
 
 // Initialize resources for the node
@@ -132,15 +150,27 @@ void IPC_clean_client(void)
 
 void unix_send_one_node(void *msg, size_t length, int dest)
 {
-  size_t sent, to_send;
+  size_t sent;
 
+#ifdef DEBUG
+  int nb_iter = 0;
+#endif
+
+  // normally we should get only once in the loop
   sent = 0;
   while (sent < length)
   {
-    to_send = MIN(length - sent, UDP_SEND_MAX_SIZE);
-
-    sent += sendto(sock, (char*) msg + sent, to_send, 0,
+    sent += sendto(sock, (char*) msg + sent, length - sent, 0,
         (struct sockaddr*) &addresses[dest], sizeof(addresses[dest]));
+
+#ifdef DEBUG
+    nb_iter++;
+    if (nb_iter > 1)
+    {
+      printf("[%s:%i] Multiple times in recvfrom? What the hell?\n", __func__,
+          __LINE__);
+    }
+#endif
   }
 }
 
@@ -154,16 +184,9 @@ void IPC_send_node_unicast(void *msg, size_t length)
 // send the message msg of size length to all the nodes
 void IPC_send_node_multicast(void *msg, size_t length)
 {
-  for (int i = 0; i < nb_paxos_nodes; i++)
+  for (int i = 0; i < nb_learners; i++)
   {
-    // send to nodes from 0 to nb_paxos_nodes-1 but 1
-    // indeed 1 is the acceptor which multicasts this message
-    if (i == 1)
-    {
-      continue;
-    }
-
-    unix_send_one_node(msg, length, i);
+    unix_send_one_node(msg, length, i + 2);
   }
 }
 
@@ -178,7 +201,7 @@ void IPC_send_client_to_node(void *msg, size_t length)
 // called by the leader
 void IPC_send_node_to_client(void *msg, size_t length, int cid)
 {
-  unix_send_one_node(msg, length, cid);
+  unix_send_one_node(msg, length, nb_paxos_nodes);
 }
 
 // receive a message and place it in msg (which is a buffer of size length).
@@ -186,10 +209,25 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid)
 size_t IPC_receive(void *msg, size_t length)
 {
   size_t recv_size = 0;
+
+#ifdef DEBUG
+  int nb_iter = 0;
+#endif
+
+  // normally we should get only once in the loop
   while (recv_size < length)
   {
     recv_size += recvfrom(sock, (char*) msg + recv_size, length - recv_size, 0,
         0, 0);
+
+#ifdef DEBUG
+    nb_iter++;
+    if (nb_iter > 1)
+    {
+      printf("[%s:%i] Multiple times in recvfrom? What the hell?\n", __func__,
+          __LINE__);
+    }
+#endif
   }
 
   return recv_size;

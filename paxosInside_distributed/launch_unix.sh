@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Launch a PaxosInside XP with TCP
+# Launch a PaxosInside XP with Unix domain sockets
 # Args:
 #   $1: nb paxos nodes
 #   $2: nb iter per client
@@ -11,17 +11,6 @@
 
 CONFIG_FILE=config
 PROFDIR=../profiler
-
-# wait for the end of TIME_WAIT connections
-function wait_for_time_wait {
-nbc=1
-while [ $nbc != 0 ]; do
-   ./stop_all.sh
-   echo "Waiting for the end of TIME_WAIT connections"
-   sleep 20
-   nbc=$(netstat -tn | grep TIME_WAIT | grep -v ":22 " | wc -l)
-done
-}
 
 
 if [ $# -eq 5 ]; then
@@ -44,8 +33,8 @@ else
 fi
 
 ./stop_all.sh
-wait_for_time_wait
 rm -f /tmp/paxosInside_client_*_finished
+rm -f /tmp/multicore_replication_paxosInside*
 
 # create config file
 ./create_config.sh $NB_PAXOS_NODES 2 $NB_ITER $LEADER_ACCEPTOR > $CONFIG_FILE
@@ -54,8 +43,8 @@ rm -f /tmp/paxosInside_client_*_finished
 sudo sysctl -p ../inet_sysctl.conf
 
 # compile
-echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DTCP_NAGLE" > INET_TCP_PROPERTIES
-make inet_tcp_paxosInside
+echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > INET_UDP_PROPERTIES
+make unix_paxosInside
 
 
 #####################################
@@ -69,7 +58,7 @@ fi
 
 
 # launch
-./bin/inet_tcp_paxosInside $CONFIG_FILE &
+./bin/unix_paxosInside $CONFIG_FILE &
 
 
 #####################################
@@ -103,11 +92,11 @@ if [ ! -z $PROFILER ]; then
 sudo pkill profiler
 sudo chown bft:bft /tmp/perf.data.*
 
-OUTPUT_DIR=inet_tcp_profiling_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}
+OUTPUT_DIR=unix_profiling_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}
 mkdir $OUTPUT_DIR
 
 for e in 0 1 2; do
-   $PROFDIR/parser-sampling /tmp/perf.data.* --c 0 --c 1 --c 2 --c 3 --c 4 --c 5 --c 6 --base-event ${e} --app inet_tcp_paxosI > $OUTPUT_DIR/perf_everyone_event_${e}.log
+   $PROFDIR/parser-sampling /tmp/perf.data.* --c 0 --c 1 --c 2 --c 3 --c 4 --c 5 --c 6 --base-event ${e} --app unix_paxosInsid > $OUTPUT_DIR/perf_everyone_event_${e}.log
 done
 
 rm /tmp/perf.data.* -f
@@ -117,4 +106,5 @@ fi
 
 # save results
 ./stop_all.sh
-mv results.txt inet_tcp_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}.txt
+rm -f /tmp/multicore_replication_paxosInside*
+mv results.txt unix_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}.txt
