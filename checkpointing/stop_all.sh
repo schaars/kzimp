@@ -7,3 +7,4 @@ pkill -f bfish_mprotect_checkpointing
 pkill -f kbfish_checkpointing
 pkill -f inet_tcp_checkpointing
 pkill -f inet_udp_checkpointing
+pkill -f unix_checkpointing

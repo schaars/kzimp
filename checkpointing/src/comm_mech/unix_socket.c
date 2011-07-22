@@ -1,6 +1,6 @@
 /* This file is part of multicore_replication_microbench.
  *
- * Communication mechanism: Unix domain sockets
+ * Communication mechanism: Barrelfish message-passing with kbfish memory protection module
  */
 
 #include <stdio.h>
@@ -11,45 +11,41 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include "../Message.h"
+
 #include "ipc_interface.h"
 
 // debug macro
 #define DEBUG
 #undef DEBUG
 
-#define UNIX_SOCKET_FILE_NAME "/tmp/multicore_replication_paxosInside"
+#define UNIX_SOCKET_FILE_NAME "/tmp/multicore_replication_checkpointing"
 
-/********** All the variables needed by Unix domain sockets **********/
+/********** All the variables needed by UDP sockets **********/
 
 static int node_id;
-static int nb_paxos_nodes;
-static int nb_clients;
-static int nb_learners;
-static int total_nb_nodes;
+static int nb_nodes;
 
-static int sock; // the socket
+static int sock;
+static struct sockaddr_un *addresses; // for each node, its address
 
-static struct sockaddr_un *addresses; // for each node (clients + PaxosInside nodes), its address
 
 // Initialize resources for both the node and the clients
 // First initialization function called
-void IPC_initialize(int _nb_paxos_nodes, int _nb_clients)
+void IPC_initialize(int _nb_nodes)
 {
-  nb_paxos_nodes = _nb_paxos_nodes;
-  nb_clients = _nb_clients;
-  nb_learners = nb_paxos_nodes - 2;
-  total_nb_nodes = nb_paxos_nodes + nb_clients;
+  nb_nodes = _nb_nodes;
 
   // create & fill addresses
   addresses = (struct sockaddr_un*) malloc(sizeof(struct sockaddr_un)
-      * total_nb_nodes);
+      * nb_nodes);
   if (!addresses)
   {
     perror("IPC_initialize malloc error ");
     exit(-1);
   }
 
-  for (int i = 0; i < total_nb_nodes; i++)
+  for (int i = 0; i < nb_nodes; i++)
   {
     bzero((char *) &addresses[i], sizeof(addresses[i]));
     addresses[i].sun_family = AF_UNIX;
@@ -90,26 +86,12 @@ int create_socket(struct sockaddr_un *addr)
   return s;
 }
 
-void initialize_one_node(void)
-{
-  // create socket
-  sock = create_socket(&addresses[node_id]);
-}
-
 // Initialize resources for the node
 void IPC_initialize_node(int _node_id)
 {
   node_id = _node_id;
 
-  initialize_one_node();
-}
-
-// Initialize resources for the client of id _client_id
-void IPC_initialize_client(int _client_id)
-{
-  node_id = _client_id;
-
-  initialize_one_node();
+  sock = create_socket(&addresses[node_id]);
 }
 
 // Clean resources
@@ -120,28 +102,17 @@ void IPC_clean(void)
 
   free(addresses);
 
-  for (int i = 0; i < total_nb_nodes; i++)
+  for (int i = 0; i < nb_nodes; i++)
   {
     snprintf(filename, sizeof(char) * 108, "%s_%i", UNIX_SOCKET_FILE_NAME, i);
     unlink(filename);
   }
 }
 
-void clean_one_node(void)
-{
-  close(sock);
-}
-
 // Clean resources created for the (paxos) node.
 void IPC_clean_node(void)
 {
-  clean_one_node();
-}
-
-// Clean resources created for the client.
-void IPC_clean_client(void)
-{
-  clean_one_node();
+  close(sock);
 }
 
 void unix_send_one_node(void *msg, size_t length, int dest)
@@ -150,38 +121,26 @@ void unix_send_one_node(void *msg, size_t length, int dest)
       sizeof(addresses[dest]));
 }
 
-// send the message msg of size length to the node 1
-// Indeed the only unicast is from 0 to 1
-void IPC_send_node_unicast(void *msg, size_t length)
-{
-  unix_send_one_node(msg, length, 1);
-}
-
 // send the message msg of size length to all the nodes
-void IPC_send_node_multicast(void *msg, size_t length)
+void IPC_send_multicast(void *msg, size_t length)
 {
-  for (int i = 0; i < nb_learners; i++)
+  for (int i = 1; i < nb_nodes; i++)
   {
-    unix_send_one_node(msg, length, i + 2);
+    unix_send_one_node(msg, length, i);
   }
 }
 
-// send the message msg of size length to the node 0
-// called by a client
-void IPC_send_client_to_node(void *msg, size_t length)
+// send the message msg of size length to the node nid
+// the only unicast is from node i (i>0) to node 0
+void IPC_send_unicast(void *msg, size_t length, int nid)
 {
   unix_send_one_node(msg, length, 0);
 }
 
-// send the message msg of size length to the client of id cid
-// called by the leader
-void IPC_send_node_to_client(void *msg, size_t length, int cid)
-{
-  unix_send_one_node(msg, length, nb_paxos_nodes);
-}
-
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
+// blocking
+// Return 0 if the message is invalid
 size_t IPC_receive(void *msg, size_t length)
 {
   size_t recv_size = 0;

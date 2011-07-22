@@ -19,6 +19,7 @@ if [ $NORMAL_XPS -eq 1 ]; then
             #./launch_kbfish.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 1000
             #./launch_inet_tcp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
             ./launch_inet_udp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
+            ./launch_unix.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
 
          done
       done
