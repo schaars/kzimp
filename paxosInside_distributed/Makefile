@@ -2,11 +2,10 @@ toplevel:
 	-mkdir -p bin
 	-$(MAKE) $(MLAGS) all
 
-# This version of PaxosInside works with Barrelfish MP and ULM only. However, we keep the other compilation rules.
-#all: inet_tcp_paxosInside inet_udp_paxosInside unix_paxosInside \
-	 pipe_paxosInside ipc_msg_queue_paxosInside posix_msg_queue_paxosInside \
-	 barrelfish_mp_paxosInside ulm_paxosInside
-all: barrelfish_mp_paxosInside ulm_paxosInside kzimp_paxosInside bfish_mprotect_paxosInside kbfish_paxosInside inet_tcp_paxosInside inet_udp_paxosInside
+all: barrelfish_mp_paxosInside 		ulm_paxosInside 				kzimp_paxosInside \
+	 bfish_mprotect_paxosInside 	kbfish_paxosInside 				inet_tcp_paxosInside \
+	 inet_udp_paxosInside 			unix_paxosInside 				pipe_paxosInside \
+	 ipc_msg_queue_paxosInside 		posix_msg_queue_paxosInside
 
 C:=g++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
@@ -23,7 +22,7 @@ inet_udp_paxosInside: $(DEPS) src/comm_mech/inet_udp_socket.c
 	
 unix_paxosInside: $(DEPS) src/comm_mech/unix_socket.c
 	$(shell if [ ! -e UNIX_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=128" > UNIX_PROPERTIES; fi)
-	$(C) $(CFLAGS) $(shell cat INET_UDP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
+	$(C) $(CFLAGS) $(shell cat UNIX_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	
 pipe_paxosInside: $(DEPS) src/comm_mech/pipe.c
 	$(shell if [ ! -e PIPE_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=128" > PIPE_PROPERTIES; fi)

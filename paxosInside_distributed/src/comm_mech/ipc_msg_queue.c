@@ -19,6 +19,7 @@
 #undef DEBUG
 
 // You can define ONE_QUEUE if you want to have only 1 queue shared by all the nodes (clients + paxos nodes).
+//fixme: we never use only 1 queue, for the sake of robustness
 
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #define MIN(a, b) (((a)<(b))?(a):(b))
