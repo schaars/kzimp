@@ -50,7 +50,7 @@ MODULE_PARM_DESC(default_timeout_in_ms, " The default timeout (in miliseconds) o
 
 static int default_compute_checksum = 1;
 module_param(default_compute_checksum, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-MODULE_PARM_DESC(default_compute_checksum, " By default, for the new channels, do we compute the checksum on messages.");
+MODULE_PARM_DESC(default_compute_checksum, " By default, for the new channels, do we compute the checksum on messages. If 0 then no; if 1 then yes; if 2 then on header only");
 
 // file /dev/<DEVICE_NAME>
 #define DEVICE_NAME "kzimp"
@@ -100,7 +100,7 @@ struct kzimp_message
 struct kzimp_comm_chan
 {
   int channel_size;                 /* max number of messages in the channel */
-  int compute_checksum;             /* do we compute the checksum? */
+  int compute_checksum;             /* do we compute the checksum? 0: no, 1: yes, 2: partial */
   long timeout_in_ms;               /* writer's timeout in miliseconds */
   unsigned long multicast_mask;     /* the multicast mask, used for the bitmap */
   wait_queue_head_t rq, wq;         /* the wait queues */
