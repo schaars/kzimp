@@ -2,9 +2,9 @@ toplevel:
 	-mkdir -p bin
 	-$(MAKE) $(MLAGS) all
 
-all: barrelfish_mp_checkpointing ulm_checkpointing kzimp_checkpointing \
-	 bfish_mprotect_checkpointing kbfish_checkpointing inet_tcp_checkpoiting \
-	 inet_udp_checkpointing unix_checkpointing
+all: barrelfish_mp_checkpointing 	ulm_checkpointing 		kzimp_checkpointing 	\
+	 bfish_mprotect_checkpointing 	kbfish_checkpointing 	inet_tcp_checkpoiting 	\
+	 inet_udp_checkpointing 		unix_checkpointing 		pipe_checkpointing
 
 C:=g++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
@@ -42,6 +42,10 @@ unix_checkpointing: $(DEPS) src/comm_mech/unix_socket.c
 	$(shell if [ ! -e UNIX_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64" > UNIX_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat UNIX_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 	
+pipe_checkpointing: $(DEPS) src/comm_mech/pipe.c
+	$(shell if [ ! -e PIPE_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64" > PIPE_PROPERTIES; fi)
+	$(C) $(CFLAGS) $(shell cat PIPE_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
+	
 clean:
 	-rm *.o
 	-rm *~
@@ -53,6 +57,7 @@ clean:
 	-rm INET_TCP_PROPERTIES
 	-rm INET_UDP_PROPERTIES
 	-rm UNIX_PROPERTIES
+	-rm PIPE_PROPERTIES
 
 clobber:
 	-rm *.o
@@ -65,3 +70,4 @@ clobber:
 	-rm bin/inet_tcp_checkpointing
 	-rm bin/inet_udp_checkpointing
 	-rm bin/unix_checkpointing
+	-rm bin/pipe_checkpointing
