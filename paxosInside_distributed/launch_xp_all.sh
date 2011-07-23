@@ -2,7 +2,8 @@
 
 NB_PAXOS_NODES=5
 NB_ITER=100000
-LEADER_ACCEPTOR_ARRAY=( same_proc different_proc )
+#LEADER_ACCEPTOR_ARRAY=( same_proc different_proc )
+LEADER_ACCEPTOR_ARRAY=( same_proc )
 MSG_SIZE_ARRAY=( 64 128 512 1024 4096 10240 102400 1048576 )
 
 # set it to profile if you want to enable the profiling
@@ -28,6 +29,7 @@ for msg_size in ${MSG_SIZE_ARRAY[@]}; do
   ./launch_inet_tcp.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size $PROFILING
   ./launch_inet_udp.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size $PROFILING
   ./launch_unix.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size $PROFILING
+  ./launch_pipe.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size $PROFILING
 
 done
 done
