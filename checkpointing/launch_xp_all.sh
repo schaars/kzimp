@@ -21,6 +21,8 @@ if [ $NORMAL_XPS -eq 1 ]; then
             ./launch_inet_udp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
             ./launch_unix.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
             ./launch_pipe.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
+            ./launch_ipc_msg_queue.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
+            ./launch_posix_msg_queue.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 10
 
          done
       done
