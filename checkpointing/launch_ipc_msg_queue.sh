@@ -46,18 +46,18 @@ make ipc_msg_queue_checkpointing
 
 
 # wait for the end
-nbc=0
-while [ $nbc -ne 1 ]; do
-   echo "Waiting for the end: nbc=$nbc / 1"
-   sleep 10
+F=/tmp/checkpointing_node_0_finished
+n=0
+while [ ! -e $F ]; do
+   #if [ $n -eq 360 ]; then
+   #   echo "TAKING TOO MUCH TIME: 3600 seconds" >> results.txt
+   #   ./stop_all.sh
+   #   exit 1
+   #fi
 
-   nbc=0
-   for i in $(seq 0 2); do
-      F=/tmp/paxosInside_client_$(($i + $NB_PAXOS_NODES))_finished
-      if [ -e $F ]; then
-         nbc=$(($nbc+1))
-      fi
-   done
+   echo "Waiting for the end"
+   sleep 10
+   n=$(($n+1))
 done
 
 
