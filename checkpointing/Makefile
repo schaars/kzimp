@@ -2,10 +2,11 @@ toplevel:
 	-mkdir -p bin
 	-$(MAKE) $(MLAGS) all
 
-all: barrelfish_mp_checkpointing 	ulm_checkpointing 					kzimp_checkpointing 	\
-	 bfish_mprotect_checkpointing 	kbfish_checkpointing 				inet_tcp_checkpoiting 	\
-	 inet_udp_checkpointing 		unix_checkpointing 					pipe_checkpointing		\
-	 ipc_msg_queue_checkpointing	posix_msg_queue_checkpointing
+all: barrelfish_mp_checkpointing 	ulm_checkpointing 		kzimp_checkpointing 				\
+	 bfish_mprotect_checkpointing 	unix_checkpointing 		inet_tcp_checkpointing 			\
+	 inet_udp_checkpointing 		   pipe_checkpointing		ipc_msg_queue_checkpointing	\
+	 posix_msg_queue_checkpointing
+	 #kbfish_checkpointing
 
 C:=g++
 CFLAGS:=-Wall -Werror -g -ltcmalloc

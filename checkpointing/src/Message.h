@@ -12,6 +12,10 @@
 
 #include "MessageTag.h"
 
+#ifdef IPC_MSG_QUEUE
+#include "comm_mech/ipc_interface.h"
+#endif
+
 #define CACHE_LINE_SIZE 64
 
 // Effects: Increases sz to the least multiple of ALIGNMENT greater
@@ -40,8 +44,12 @@ public:
 
   ~Message(void);
 
-  // return a pointer to the message
+  // return a pointer to the content of this message
+#ifdef IPC_MSG_QUEUE
+  struct ipc_message* content(void);
+#else
   char* content(void) const;
+#endif
 
   // return the length of this message
   size_t length(void) const;
@@ -55,6 +63,11 @@ public:
 #endif
 
 protected:
+
+#ifdef IPC_MSG_QUEUE
+  struct ipc_message ipc_msg;
+#endif
+
   char *msg;
 
 #ifdef ULM
@@ -73,11 +86,18 @@ private:
   void init_message(size_t len, MessageTag tag, bool ulm_alloc = false, int nid = -2);
 };
 
-// return a pointer to the message
+// return a pointer to the header of this message
+#ifdef IPC_MSG_QUEUE
+inline struct ipc_message* Message::content(void)
+{
+  return &ipc_msg;
+}
+#else
 inline char* Message::content(void) const
 {
   return msg;
 }
+#endif
 
 // return the length of this message
 inline size_t Message::length(void) const

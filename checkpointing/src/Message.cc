@@ -40,8 +40,10 @@ Message::Message(size_t len, MessageTag tag, int cid)
 
 Message::~Message(void)
 {
+#ifndef IPC_MSG_QUEUE
 #ifndef ULM
   free(msg);
+#endif
 #endif
 }
 
@@ -52,7 +54,11 @@ Message::~Message(void)
 //  otherwise it is sent to node nid.
 void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int nid)
 {
-#ifdef ULM
+#if defined(IPC_MSG_QUEUE)
+
+  msg = ipc_msg.mtext;
+
+#elif defined(ULM)
 
   if (ulm_alloc)
   {
