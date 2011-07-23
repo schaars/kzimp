@@ -6,32 +6,29 @@
 #   $2: nb iter per client
 #   $3: same_proc or different_proc
 #   $4: message max size
-#   $5: number of messages in the channel
-#   $6: if given, then activate profiling
+#   $5: if given, then activate profiling
 
 
 CONFIG_FILE=config
 PROFDIR=../profiler
 
 
-if [ $# -eq 6 ]; then
+if [ $# -eq 5 ]; then
    NB_PAXOS_NODES=$1
    NB_ITER=$2
    LEADER_ACCEPTOR=$3
    MESSAGE_MAX_SIZE=$4
-   MSG_CHANNEL=$5
-   PROFILER=$6
+   PROFILER=$5
    
-elif [ $# -eq 5 ]; then
+elif [ $# -eq 4 ]; then
    NB_PAXOS_NODES=$1
    NB_ITER=$2
    LEADER_ACCEPTOR=$3
    MESSAGE_MAX_SIZE=$4
-   MSG_CHANNEL=$5
    PROFILER=
  
 else
-   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_iter> <same_proc|different_proc> <msg_max_size> <channel_size> [profiling?]"
+   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_iter> <same_proc|different_proc> <msg_max_size> [profiling?]"
    exit 0
 fi
 
