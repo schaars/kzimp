@@ -30,6 +30,7 @@ for msg_size in ${MSG_SIZE_ARRAY[@]}; do
   ./launch_inet_udp.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size $PROFILING
   ./launch_unix.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size $PROFILING
   ./launch_pipe.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size $PROFILING
+  ./launch_ipc_msg_queue.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size $PROFILING
 
 done
 done

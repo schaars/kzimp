@@ -18,9 +18,6 @@
 #define DEBUG
 #undef DEBUG
 
-// You can define ONE_QUEUE if you want to have only 1 queue shared by all the nodes (clients + paxos nodes).
-//fixme: we never use only 1 queue, for the sake of robustness
-
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #define MIN(a, b) (((a)<(b))?(a):(b))
 
@@ -29,6 +26,7 @@
 static int node_id;
 static int nb_paxos_nodes;
 static int nb_clients;
+static int nb_learners;
 static int total_nb_nodes;
 
 static int *ipc_queues; // all the queues
@@ -41,13 +39,10 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
 
   nb_paxos_nodes = _nb_nodes;
   nb_clients = _nb_clients;
+  nb_learners = nb_paxos_nodes - 2;
   total_nb_nodes = nb_paxos_nodes + nb_clients;
 
-#ifdef ONE_QUEUE
-  ipc_queues = (int*) malloc(sizeof(int) * 1);
-#else
   ipc_queues = (int*) malloc(sizeof(int) * total_nb_nodes);
-#endif
   if (!ipc_queues)
   {
     perror("Allocation error");
@@ -67,10 +62,6 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
       perror("msgget");
       exit(1);
     }
-
-#ifdef ONE_QUEUE
-    break;
-#endif
   }
 }
 
@@ -93,11 +84,9 @@ void IPC_clean(void)
   for (int i = 0; i < total_nb_nodes; i++)
   {
     msgctl(ipc_queues[i], IPC_RMID, NULL);
-
-#ifdef ONE_QUEUE
-    break;
-#endif
   }
+
+  free(ipc_queues);
 }
 
 // Clean resources created for the (paxos) node.
@@ -114,32 +103,17 @@ void IPC_clean_client(void)
 // Indeed the only unicast is from 0 to 1
 void IPC_send_node_unicast(struct ipc_message *msg, size_t length)
 {
-#ifdef ONE_QUEUE
-  msg->mtype = 1 + 1;
-  msgsnd(ipc_queues[0], msg, length, 0);
-#else
   msg->mtype = 1;
   msgsnd(ipc_queues[1], msg, length, 0);
-#endif
 }
 
 // send the message msg of size length to all the nodes
 void IPC_send_node_multicast(struct ipc_message *msg, size_t length)
 {
-  for (int i = 0; i < nb_paxos_nodes; i++)
+  for (int i = 0; i < nb_learners; i++)
   {
-    if (i == 1)
-    {
-      continue;
-    }
-
-#ifdef ONE_QUEUE
-    msg->mtype = i + 1;
-    msgsnd(ipc_queues[0], msg, length, 0);
-#else
     msg->mtype = 1;
-    msgsnd(ipc_queues[i], msg, length, 0);
-#endif
+    msgsnd(ipc_queues[i + 2], msg, length, 0);
   }
 }
 
@@ -147,35 +121,21 @@ void IPC_send_node_multicast(struct ipc_message *msg, size_t length)
 // called by a client
 void IPC_send_client_to_node(struct ipc_message *msg, size_t length)
 {
-#ifdef ONE_QUEUE
-  msg->mtype = 0 + 1;
-  msgsnd(ipc_queues[0], msg, length, 0);
-#else
   msg->mtype = 1;
   msgsnd(ipc_queues[0], msg, length, 0);
-#endif
 }
 
 // send the message msg of size length to the client of id cid
 // called by the leader
 void IPC_send_node_to_client(struct ipc_message *msg, size_t length, int cid)
 {
-#ifdef ONE_QUEUE
-  msg->mtype = cid + 1;
-  msgsnd(ipc_queues[0], msg, length, 0);
-#else
   msg->mtype = 1;
-  msgsnd(ipc_queues[cid], msg, length, 0);
-#endif
+  msgsnd(ipc_queues[nb_paxos_nodes], msg, length, 0);
 }
 
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
 size_t IPC_receive(struct ipc_message *msg, size_t length)
 {
-#ifdef ONE_QUEUE
-  return msgrcv(ipc_queues[0], msg, length, node_id + 1, 0);
-#else
   return msgrcv(ipc_queues[node_id], msg, length, 0, 0);
-#endif
 }
