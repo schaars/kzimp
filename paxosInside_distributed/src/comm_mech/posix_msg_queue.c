@@ -14,7 +14,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include "../Message.h"
 #include "ipc_interface.h"
 
 // debug macro
@@ -23,6 +22,8 @@
 
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #define MIN(a, b) (((a)<(b))?(a):(b))
+
+#define POSIX_QUEUE_FILENAME "/posix_message_queue_microbench"
 
 /********** All the variables needed by POSIX message queue **********/
 
@@ -95,7 +96,7 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
   msg_max_size_in_queue = 0;
   for (int i = 0; i < total_nb_nodes; i++)
   {
-    sprintf(filename, "/posix_message_queue_paxosInside%i", i + 1);
+    sprintf(filename, "%s%i", POSIX_QUEUE_FILENAME, i + 1);
 
     if ((posix_queues[i] = mq_open(filename, O_RDWR | O_CREAT, 0600, NULL))
         == -1)
@@ -143,7 +144,7 @@ void IPC_clean(void)
 
   for (int i = 0; i < total_nb_nodes; i++)
   {
-    sprintf(filename, "/posix_message_queue_microbench%i", i + 1);
+    sprintf(filename, "%s%i", POSIX_QUEUE_FILENAME, i + 1);
     mq_unlink(filename);
   }
 

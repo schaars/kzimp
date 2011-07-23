@@ -6,7 +6,6 @@
 #   $2: nb iter
 #   $3: message max size
 #   $4: checkpoint size
-#   $5: limit thr in snap/s, optionnal
 
 
 CONFIG_FILE=config
@@ -18,16 +17,9 @@ if [ $# -eq 5 ]; then
    MESSAGE_MAX_SIZE=$3
    CHKPT_SIZE=$4
    LIMIT_THR=$5
-
-elif [ $# -eq 4 ]; then
-   NB_NODES=$1
-   NB_ITER=$2
-   MESSAGE_MAX_SIZE=$3
-   CHKPT_SIZE=$4
-   LIMIT_THR=0
  
 else
-   echo "Usage: ./$(basename $0) <nb_nodes> <nb_iter> <msg_max_size> <chkpt_size> [limit_thr]"
+   echo "Usage: ./$(basename $0) <nb_nodes> <nb_iter> <msg_max_size> <chkpt_size>"
    exit 0
 fi
 
@@ -52,11 +44,11 @@ make unix_checkpointing
 F=/tmp/checkpointing_node_0_finished
 n=0
 while [ ! -e $F ]; do
-   if [ $n -eq 360 ]; then
-      echo "TAKING TOO MUCH TIME: 3600 seconds" >> results.txt
-      ./stop_all.sh
-      exit 1
-   fi
+   #if [ $n -eq 360 ]; then
+   #   echo "TAKING TOO MUCH TIME: 3600 seconds" >> results.txt
+   #   ./stop_all.sh
+   #   exit 1
+   #fi
 
    echo "Waiting for the end"
    sleep 10
@@ -66,9 +58,4 @@ done
 # save results
 ./stop_all.sh
 rm -f /tmp/multicore_replication_checkpointing*
-
-if [ $LIMIT_THR -gt 0 ]; then
-   mv results.txt unix_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B_thr${LIMIT_THR}snapPerSec.txt
-else
-   mv results.txt unix_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B.txt
-fi
+mv results.txt unix_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B.txt
