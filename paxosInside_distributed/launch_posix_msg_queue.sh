@@ -35,14 +35,19 @@ else
    exit 0
 fi
 
-./stop_all.sh
-rm -f /tmp/paxosInside_client_*_finished
+sudo ./stop_all.sh
+sudo rm -f /tmp/paxosInside_client_*_finished
+if [ ! -d /dev/mqueue ]; then
+   sudo mkdir /dev/mqueue
+fi
+sudo mount -t mqueue none /dev/mqueue
+sudo rm /dev/mqueue/posix_message_queue_paxosInside*
 
 #set new parameters
 sudo ./root_set_value.sh 48 /proc/sys/fs/mqueue/queues_max
 sudo ./root_set_value.sh $MSG_CHANNEL /proc/sys/fs/mqueue/msg_max
 
-if [ $MSG_SIZE -lt 128 ]; then
+if [ $MESSAGE_MAX_SIZE -lt 128 ]; then
    sudo ./root_set_value.sh 128 /proc/sys/fs/mqueue/msgsize_max
 else
    sudo ./root_set_value.sh $MESSAGE_MAX_SIZE /proc/sys/fs/mqueue/msgsize_max
@@ -67,7 +72,7 @@ fi
 
 
 # launch
-sudo ./bin/posix_msg_queue_microbench $CONFIG_FILE &
+sudo ./bin/posix_msg_queue_paxosInside $CONFIG_FILE &
 
 
 #####################################
@@ -114,6 +119,7 @@ fi
 
 
 # save results
-./stop_all.sh
-./remove_shared_segment.pl
+sudo ./stop_all.sh
+sudo umount /dev/mqueue
+sudo rmdir /dev/mqueue
 mv results.txt posix_mq_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
