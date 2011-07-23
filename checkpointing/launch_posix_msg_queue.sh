@@ -25,7 +25,7 @@ else
 fi
 
 sudo ./stop_all.sh
-rm -f /tmp/checkpointing_node_0_finished
+sudo rm -f /tmp/checkpointing_node_0_finished
 if [ ! -d /dev/mqueue ]; then
    sudo mkdir /dev/mqueue
 fi
@@ -50,7 +50,7 @@ echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKP
 make posix_msg_queue_checkpointing
 
 # launch
-./bin/posix_msg_queue_checkpointing $CONFIG_FILE &
+sudo ./bin/posix_msg_queue_checkpointing $CONFIG_FILE &
 
 # wait for the end
 F=/tmp/checkpointing_node_0_finished
@@ -71,6 +71,7 @@ done
 sudo ./stop_all.sh
 sudo umount /dev/mqueue
 sudo rmdir /dev/mqueue
-rm -f /tmp/multicore_replication_checkpointing*
+sudo rm -f /tmp/multicore_replication_checkpointing*
 
+sudo chown bft:bft results.txt
 mv results.txt posix_msg_queue_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B.txt

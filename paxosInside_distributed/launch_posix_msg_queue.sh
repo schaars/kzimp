@@ -122,4 +122,6 @@ fi
 sudo ./stop_all.sh
 sudo umount /dev/mqueue
 sudo rmdir /dev/mqueue
+
+sudo chown bft:bft results.txt
 mv results.txt posix_mq_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
