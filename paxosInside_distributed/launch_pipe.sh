@@ -54,7 +54,7 @@ fi
 
 
 # launch
-./bin/unix_paxosInside $CONFIG_FILE &
+./bin/pipe_paxosInside $CONFIG_FILE &
 
 
 #####################################
@@ -92,7 +92,7 @@ OUTPUT_DIR=pipe_profiling_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSA
 mkdir $OUTPUT_DIR
 
 for e in 0 1 2; do
-   $PROFDIR/parser-sampling /tmp/perf.data.* --c 0 --c 1 --c 2 --c 3 --c 4 --c 5 --c 6 --base-event ${e} --app unix_paxosInsid > $OUTPUT_DIR/perf_everyone_event_${e}.log
+   $PROFDIR/parser-sampling /tmp/perf.data.* --c 0 --c 1 --c 2 --c 3 --c 4 --c 5 --c 6 --base-event ${e} --app pipe_paxosInsid > $OUTPUT_DIR/perf_everyone_event_${e}.log
 done
 
 rm /tmp/perf.data.* -f
