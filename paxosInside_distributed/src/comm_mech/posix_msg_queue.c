@@ -29,16 +29,20 @@
 static int node_id;
 static int nb_paxos_nodes;
 static int nb_clients;
+static int nb_learners;
 static int total_nb_nodes;
 
 static mqd_t *posix_queues; // all the queues
+static int msg_max_size_in_queue;
 
 // Initialize resources for both the node and the clients
 // First initialization function called
 void IPC_initialize(int _nb_nodes, int _nb_clients)
 {
+
   nb_paxos_nodes = _nb_nodes;
   nb_clients = _nb_clients;
+  nb_learners = nb_paxos_nodes - 2;
   total_nb_nodes = nb_paxos_nodes + nb_clients;
 
   posix_queues = (mqd_t*) malloc(sizeof(mqd_t) * total_nb_nodes);
@@ -88,6 +92,7 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
 
   char filename[256];
 
+  msg_max_size_in_queue = 0;
   for (int i = 0; i < total_nb_nodes; i++)
   {
     sprintf(filename, "/posix_message_queue_paxosInside%i", i + 1);
@@ -103,6 +108,8 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
     int ret = mq_getattr(posix_queues[i], &attr);
     if (!ret)
     {
+      msg_max_size_in_queue = MAX(msg_max_size_in_queue, attr.mq_msgsize);
+
 #ifdef DEBUG
       printf(
           "New queue. Attributes are:\n\tflags=%li, maxmsg=%li, msgsize=%li, curmsgs=%li\n",
@@ -139,6 +146,8 @@ void IPC_clean(void)
     sprintf(filename, "/posix_message_queue_microbench%i", i + 1);
     mq_unlink(filename);
   }
+
+  free(posix_queues);
 }
 
 // Clean resources created for the (paxos) node.
@@ -169,14 +178,9 @@ void IPC_send_node_unicast(void *msg, size_t length)
 // send the message msg of size length to all the nodes
 void IPC_send_node_multicast(void *msg, size_t length)
 {
-  for (int i = 0; i < nb_paxos_nodes; i++)
+  for (int i = 0; i < nb_learners; i++)
   {
-    if (i == 1)
-    {
-      continue;
-    }
-
-    mq_send(posix_queues[i], (char*) msg, length, 0);
+    mq_send(posix_queues[i + 2], (char*) msg, length, 0);
   }
 }
 
@@ -191,12 +195,14 @@ void IPC_send_client_to_node(void *msg, size_t length)
 // called by the leader
 void IPC_send_node_to_client(void *msg, size_t length, int cid)
 {
-  mq_send(posix_queues[cid], (char*) msg, length, 0);
+  mq_send(posix_queues[nb_paxos_nodes], (char*) msg, length, 0);
 }
 
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
 size_t IPC_receive(void *msg, size_t length)
 {
-  return mq_receive(posix_queues[node_id], (char*) msg, length, NULL);
+  // we assume length is correct and >= msg_max_size_in_queue
+  return mq_receive(posix_queues[node_id], (char*) msg, msg_max_size_in_queue,
+      NULL);
 }

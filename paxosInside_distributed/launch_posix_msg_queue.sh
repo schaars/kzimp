@@ -1,54 +1,59 @@
 #!/bin/bash
 #
-# Launch a PaxosInside XP with IPC Message Queue
+# Launch a PaxosInside XP with POSIX Message Queue
 # Args:
 #   $1: nb paxos nodes
 #   $2: nb iter per client
 #   $3: same_proc or different_proc
 #   $4: message max size
-#   $5: if given, then activate profiling
+#   $5: number of messages in the channel
+#   $6: if given, then activate profiling
 
 
 CONFIG_FILE=config
 PROFDIR=../profiler
 
 
-if [ $# -eq 5 ]; then
+if [ $# -eq 6 ]; then
    NB_PAXOS_NODES=$1
    NB_ITER=$2
    LEADER_ACCEPTOR=$3
    MESSAGE_MAX_SIZE=$4
+   MSG_CHANNEL=$5
    PROFILER=$5
    
-elif [ $# -eq 4 ]; then
+elif [ $# -eq 5 ]; then
    NB_PAXOS_NODES=$1
    NB_ITER=$2
    LEADER_ACCEPTOR=$3
    MESSAGE_MAX_SIZE=$4
+   MSG_CHANNEL=$5
    PROFILER=
  
 else
-   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_iter> <same_proc|different_proc> <msg_max_size> [profiling?]"
+   echo "Usage: ./$(basename $0) <nb_paxos_nodes> <nb_iter> <same_proc|different_proc> <msg_max_size> <nb_msg_channel> [profiling?]"
    exit 0
 fi
 
 ./stop_all.sh
 rm -f /tmp/paxosInside_client_*_finished
-./remove_shared_segment.pl
 
-# used by ftok
-touch /tmp/ipc_msg_queue_paxosInside
+#set new parameters
+sudo ./root_set_value.sh 48 /proc/sys/fs/mqueue/queues_max
+sudo ./root_set_value.sh $MSG_CHANNEL /proc/sys/fs/mqueue/msg_max
 
-# kenel parameters
-sudo ./root_set_value.sh $MESSAGE_MAX_SIZE /proc/sys/kernel/msgmax
-sudo ./root_set_value.sh 100000000 /proc/sys/kernel/msgmnb
+if [ $MSG_SIZE -lt 128 ]; then
+   sudo ./root_set_value.sh 128 /proc/sys/fs/mqueue/msgsize_max
+else
+   sudo ./root_set_value.sh $MESSAGE_MAX_SIZE /proc/sys/fs/mqueue/msgsize_max
+fi
 
 # create config file
 ./create_config.sh $NB_PAXOS_NODES 2 $NB_ITER $LEADER_ACCEPTOR > $CONFIG_FILE
 
 # compile
-echo "-DIPC_MSG_QUEUE -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > IPC_MSG_QUEUE_PROPERTIES
-make ipc_msg_queue_paxosInside
+echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > POSIX_MSG_QUEUE_PROPERTIES
+make posix_msg_queue_paxosInside
 
 
 #####################################
@@ -62,7 +67,7 @@ fi
 
 
 # launch
-./bin/ipc_msg_queue_paxosInside $CONFIG_FILE &
+sudo ./bin/posix_msg_queue_microbench $CONFIG_FILE &
 
 
 #####################################
@@ -100,7 +105,7 @@ OUTPUT_DIR=ulm_profiling_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAG
 mkdir $OUTPUT_DIR
 
 for e in 0 1 2; do
-   $PROFDIR/parser-sampling /tmp/perf.data.* --c 0 --c 1 --c 2 --c 3 --c 4 --c 5 --c 6 --base-event ${e} --app ipc_msg_queue_p > $OUTPUT_DIR/perf_everyone_event_${e}.log
+   $PROFDIR/parser-sampling /tmp/perf.data.* --c 0 --c 1 --c 2 --c 3 --c 4 --c 5 --c 6 --base-event ${e} --app posix_msg_queu > OUTPUT_DIR/perf_everyone_event_${e}.log
 done
 
 rm /tmp/perf.data.* -f
@@ -111,4 +116,4 @@ fi
 # save results
 ./stop_all.sh
 ./remove_shared_segment.pl
-mv results.txt ipc_mq_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
+mv results.txt posix_mq_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
