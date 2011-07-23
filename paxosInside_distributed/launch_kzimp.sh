@@ -18,7 +18,7 @@ PROFDIR=../profiler
 KZIMP_DIR="../kzimp/kzimp_allMessagesArea"
 
 # Do we compute the checksum?
-COMPUTE_CHKSUM=1
+COMPUTE_CHKSUM=2
 
 # Writer's timeout
 KZIMP_TIMEOUT=60000

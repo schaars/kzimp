@@ -43,7 +43,7 @@ rm -f /tmp/multicore_replication_paxosInside*
 sudo sysctl -p ../inet_sysctl.conf
 
 # compile
-echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > INET_UDP_PROPERTIES
+echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > UNIX_PROPERTIES
 make unix_paxosInside
 
 
