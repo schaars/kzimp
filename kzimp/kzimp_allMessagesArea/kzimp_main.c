@@ -326,19 +326,32 @@ static void handle_timeout(struct kzimp_comm_chan *chan,
   int i;
   struct list_head *p;
   struct kzimp_ctrl *ptr;
+  unsigned long tmp;
 
   unsigned long bitmap = m->bitmap;
 
   spin_lock(&chan->bcl);
 
+  // remove the bits from the multicast mask
+  tmp = chan->multicast_mask & ~bitmap;
+  __asm volatile ("" : : : "memory");
+  chan->multicast_mask = tmp; // this operation is atomic, thx to the upper memory barrier
+
   // remove the bits from all the messages
   for (i = 0; i < chan->channel_size; i++)
   {
-    chan->msgs[i].bitmap &= ~bitmap;
+    // test if bitmap is different from 0, otherwise we may loose a message:
+    // process A                        process B
+    //                      msg.bitmap = 0
+    //   | a = msg.bitmap & ~bitmap        |
+    //   |                                 | msg.bitmap = multicast_mask
+    //   | msg.bitmap = a                  |
+    // The bitmap is now 0 instead of multicast_mask. The message has been lost.
+    if (chan->msgs[i].bitmap != 0)
+    {
+      chan->msgs[i].bitmap &= chan->msgs[i].bitmap & ~bitmap;
+    }
   }
-
-  // remove the bits from the multicast mask
-  chan->multicast_mask &= ~bitmap;
 
   // set the remaining readers on that bitmap to offline
   list_for_each(p, &chan->readers)
