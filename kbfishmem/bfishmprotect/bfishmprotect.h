@@ -65,7 +65,7 @@ struct ump_chan_state
   ump_index_t bufmsgs; ///< Buffer size in messages
   int epoch; ///< Next Message epoch
   enum ump_direction dir; ///< Channel direction
-  futex *f; // the futex. xxx: 1 per chan_state or 1 per ump_channel?
+  futex *f; // the futex. 1 per one-way channel
 };
 
 struct ump_channel

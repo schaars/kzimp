@@ -47,8 +47,14 @@ int create_channel(char *mprotectfile, int n)
   all_channels[n][1].mprotectfile_nb = n;
 
   // allocate shared area for the futexes
-  all_channels[n][0].recv_chan.f = futex_init(mprotectfile, 'r');
   all_channels[n][0].send_chan.f = futex_init(mprotectfile, 's');
+  all_channels[n][0].recv_chan.f = futex_init(mprotectfile, 'r');
+  all_channels[n][1].send_chan.f = all_channels[n][0].recv_chan.f;
+  all_channels[n][1].recv_chan.f = all_channels[n][0].send_chan.f;
+
+  printf("Initializing channels @ %i\n", n);
+  printf("Futex sender 2 receiver @ %p\n", all_channels[n][0].send_chan.f);
+  printf("Futex receiver 2 sender @ %p\n", all_channels[n][0].recv_chan.f);
 
   return 0;
 }
@@ -62,8 +68,8 @@ void destroy_channel(int n)
         __func__, __LINE__, n, MAX_NB_CHANNELS);
   }
 
-  futex_destroy(all_channels[n][0].recv_chan.f);
   futex_destroy(all_channels[n][0].send_chan.f);
+  futex_destroy(all_channels[n][0].recv_chan.f);
 }
 
 /*
@@ -78,6 +84,9 @@ struct ump_channel open_channel(char *mprotectfile, int nb, int nb_messages,
 {
   struct ump_channel *chan;
   ump_index_t i;
+
+  printf("[%s:%i] Opening channel %i with is_receiver=%i\n\n", __func__,
+      __LINE__, nb, is_receiver);
 
   if (is_receiver)
   {
@@ -188,7 +197,14 @@ void recv_ack(struct ump_channel *chan)
   while (!ump_endpoint_can_recv(&chan->recv_chan))
   {
     //todo: use the futex
+    //xxx
+    //fixme
     WAIT();
+    /*
+     printf("[%s:%i] Going to lock futex @ %p for channel %i.\n", __func__,
+     __LINE__, chan->f, chan->mprotectfile_nb);
+     futex_lock(chan->f);
+     */
   }
 
   ump_msg = ump_impl_recv(&chan->recv_chan);
@@ -248,6 +264,13 @@ int send_msg(struct ump_channel *chan, char *msg, size_t len)
   ump_msg->header.control = ctrl;
 
   //todo: futex, wake
+  //xxx
+  //fixme
+  /*
+   printf("[%s:%i] Going to unlock futex @ %p for channel %i.\n", __func__,
+   __LINE__, chan->f, chan->mprotectfile_nb);
+   futex_unlock(chan->f);
+   */
 
   return len;
 }
@@ -273,7 +296,14 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
   while (!ump_endpoint_can_recv(&chan->recv_chan))
   {
     //todo: use the futex
-    WAIT();
+    //xxx
+    //fixme
+    //WAIT();
+    /*
+     printf("[%s:%i] Going to lock futex @ %p for channel %i.\n", __func__,
+     __LINE__, chan->f, chan->mprotectfile_nb);
+     futex_lock(chan->f);
+     */
   }
 
   ump_msg = ump_impl_recv(&chan->recv_chan);
@@ -328,6 +358,13 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
     ump_msg->header.control = ctrl;
 
     //todo: futex, wake
+    //xxx
+    //fixme
+    /*
+     printf("[%s:%i] Going to unlock futex @ %p for channel %i.\n", __func__,
+     __LINE__, chan->f, chan->mprotectfile_nb);
+     futex_unlock(chan->f);
+     */
   }
 
   if (call_recv_again)
