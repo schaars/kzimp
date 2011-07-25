@@ -120,47 +120,25 @@ int futex_destroy(futex *f)
 
 int futex_lock(futex *f)
 {
-  int c;
-
-  c = cmpxchg(f, 0, 1);
-  if (!c)
-    return 0;
-
-  /* The lock is now contended */
-  if (c == 1)
-    c = xchg(f, 2);
-
-  while (c)
-  {
-    /* Wait in the kernel */
-    //printf("[core %i] Going to sleep\n", core_id);
-    sys_futex(f, FUTEX_WAIT, 2, NULL, NULL, 0);
-    c = xchg(f, 2);
-  }
+  *f = 1;
+  //printf("Going to sleep\n");
+  sys_futex(f, FUTEX_WAIT, 1, NULL, NULL, 0);
 
   return 0;
 }
 
 int futex_unlock(futex *f)
 {
-  /* Unlock, and if not contended then exit. */
-  if (*f == 2)
+  /*
+   * if *f == 1   \
+   *    *f = 0    |- these 2 instructions are atomic
+   *    WAKE
+   */
+  if (cmpxchg(f, 1, 0))
   {
-    *f = 0;
+    //printf("Waking up someone\n");
+    sys_futex(f, FUTEX_WAKE, 1, NULL, NULL, 0);
   }
-  else if (xchg(f, 0) == 1)
-    return 0;
-
-  if (*f)
-  {
-    /* Need to set to state 2 because there may be waiters */
-    if (cmpxchg(f, 1, 2))
-      return 0;
-  }
-
-  /* We need to wake someone up */
-  //printf("[core %i] Waking up someone\n", core_id);
-  sys_futex(f, FUTEX_WAKE, 1, NULL, NULL, 0);
 
   return 0;
 }
