@@ -187,6 +187,7 @@ void recv_ack(struct ump_channel *chan)
 
   while (!ump_endpoint_can_recv(&chan->recv_chan))
   {
+    //todo: use the futex
     WAIT();
   }
 
@@ -246,6 +247,8 @@ int send_msg(struct ump_channel *chan, char *msg, size_t len)
   BARRIER();
   ump_msg->header.control = ctrl;
 
+  //todo: futex, wake
+
   return len;
 }
 
@@ -269,6 +272,7 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
 
   while (!ump_endpoint_can_recv(&chan->recv_chan))
   {
+    //todo: use the futex
     WAIT();
   }
 
@@ -322,6 +326,8 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
     ump_control_fill(chan, &ctrl, UMP_ACK);
     BARRIER();
     ump_msg->header.control = ctrl;
+
+    //todo: futex, wake
   }
 
   if (call_recv_again)

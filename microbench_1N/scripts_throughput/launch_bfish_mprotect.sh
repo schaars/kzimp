@@ -9,10 +9,6 @@
 
 KBFISH_MEM_DIR="../kbfishmem"
 
-# WAIT_TYPE is either USLEEP or BUSY
-WAIT_TYPE=USLEEP
-
-
 # get arguments
 if [ $# -eq 4 ]; then
    NB_CONSUMERS=$1
@@ -34,6 +30,7 @@ fi
 #rm -rf $MEMORY_DIR && mkdir $MEMORY_DIR
 
 ./stop_all.sh
+./remove_shared_segment.pl
 
 # Min size is the size of a uintptr_t: 8 bytes
 if [ $MSG_SIZE -lt 8 ]; then
@@ -42,7 +39,7 @@ else
    REAL_MSG_SIZE=$MSG_SIZE
 fi
 
-echo "-DNB_MESSAGES=${MAX_NB_MSG} -DMESSAGE_BYTES=${REAL_MSG_SIZE} -DWAIT_TYPE=${WAIT_TYPE}" > BFISH_MPROTECT_PROPERTIES
+echo "-DNB_MESSAGES=${MAX_NB_MSG} -DMESSAGE_BYTES=${REAL_MSG_SIZE}" > BFISH_MPROTECT_PROPERTIES
 make bfish_mprotect_microbench
 REAL_MSG_SIZE=$(./bin/bfishmprotect_get_struct_ump_message_size)
 
@@ -62,6 +59,7 @@ cd -
 timelimit -p -s 9 -t $((${DURATION_XP}+30)) ./bin/bfish_mprotect_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
 
 ./stop_all.sh
+./remove_shared_segment.pl
 sleep 1
 cd $KBFISH_MEM_DIR; ./kbfishmem.sh unload; cd -
 

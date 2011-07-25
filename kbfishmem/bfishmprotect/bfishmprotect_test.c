@@ -1,5 +1,10 @@
 /* Barrelfish communication mechanism - test */
 
+/*
+ * 07/25/11. The test is working, but you have to take care of the channel size (considering the size of a struct ump_message)
+ *           when you will want to use it. The kernel module must be loaded with the proper size. Cf. the microbench scripts
+ */
+
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>

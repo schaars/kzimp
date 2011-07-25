@@ -15,11 +15,7 @@
 
 /********************* types & structures *********************/
 
-#if WAIT_TYPE == USLEEP
 #define WAIT() do { usleep(1); } while (0);
-#elif WAIT_TYPE == BUSY
-#define WAIT() do { ; } while (0);
-#endif
 
 #define CACHELINE_BYTES 64
 #define UMP_PAYLOAD_WORDS  (MESSAGE_BYTES / sizeof(uintptr_t))

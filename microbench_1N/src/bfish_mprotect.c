@@ -57,6 +57,14 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   nb_cycles_send = 0;
   nb_cycles_recv = 0;
   nb_cycles_first_recv = 0;
+
+  char chaname[256];
+  int i;
+  for (i = 0; i < nb_receivers; i++)
+  {
+    snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, i);
+    create_channel(chaname, i);
+  }
 }
 
 // Initialize resources for the producer
@@ -80,7 +88,7 @@ void IPC_initialize_producer(int _core_id)
   for (i = 0; i < nb_receivers; i++)
   {
     snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, i);
-    conn[i] = open_channel(chaname, NB_MESSAGES, MESSAGE_BYTES, 0);
+    conn[i] = open_channel(chaname, i, NB_MESSAGES, MESSAGE_BYTES, 0);
   }
 }
 
@@ -93,13 +101,19 @@ void IPC_initialize_consumer(int _core_id)
 
   conn = NULL;
   snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, core_id - 1);
-  consumer_connection = open_channel(chaname, NB_MESSAGES, MESSAGE_BYTES, 1);
+  consumer_connection = open_channel(chaname, core_id - 1, NB_MESSAGES,
+      MESSAGE_BYTES, 1);
 }
 
 // Clean ressources created for both the producer and the consumer.
 // Called by the parent process, after the death of the children.
 void IPC_clean(void)
 {
+  int i;
+  for (i = 0; i < nb_receivers; i++)
+  {
+    destroy_channel(i);
+  }
 }
 
 // Clean ressources created for the producer.
