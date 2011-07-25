@@ -10,4 +10,4 @@ Module.symvers
 *.mod.c
 .project
 makefile.dep
-
+*.pyc
