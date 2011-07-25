@@ -28,41 +28,89 @@ enum ump_msgtype
   UMP_MSG = 0, UMP_ACK = 1,
 };
 
+#define MAX_NB_CHANNELS 256
+
+// an array: memory protection file number -> the 2 corresponding channels
+struct ump_channel all_channels[MAX_NB_CHANNELS][2];
+
+/* create 2 channels that will use mprotectfile mprotectfile of number n for memory protection */
+int create_channel(char *mprotectfile, int n)
+{
+  if (n > MAX_NB_CHANNELS)
+  {
+    printf("[%s:%i] Memory protection file number is too high: %i > %i\n",
+        __func__, __LINE__, n, MAX_NB_CHANNELS);
+    return -1;
+  }
+
+  all_channels[n][0].mprotectfile_nb = n;
+  all_channels[n][1].mprotectfile_nb = n;
+
+  // allocate shared area for the futexes
+  all_channels[n][0].recv_chan.f = futex_init(mprotectfile, 'r');
+  all_channels[n][0].send_chan.f = futex_init(mprotectfile, 's');
+
+  return 0;
+}
+
+/* destroy the channel that is using mprotectfile number n for memory protection */
+void destroy_channel(int n)
+{
+  if (n > MAX_NB_CHANNELS)
+  {
+    printf("[%s:%i] Memory protection file number is too high: %i > %i\n",
+        __func__, __LINE__, n, MAX_NB_CHANNELS);
+  }
+
+  futex_destroy(all_channels[n][0].recv_chan.f);
+  futex_destroy(all_channels[n][0].send_chan.f);
+}
+
 /*
  * open a channel using the special file mprotectfile for memory protection.
  * The channel size is (for both direction) nb_messages * message_size.
  * is_receiver must be set to 1 if called by the receiver end, 0 otherwise.
+ * nb is the memory protection file number
  * Return the new channel if ok.
  */
-struct ump_channel open_channel(char *mprotectfile, int nb_messages,
+struct ump_channel open_channel(char *mprotectfile, int nb, int nb_messages,
     int message_size, int is_receiver)
 {
-  struct ump_channel chan;
+  struct ump_channel *chan;
   ump_index_t i;
-
-  chan.inchanlen = (size_t) nb_messages * sizeof(struct ump_message);
-  chan.outchanlen = (size_t) nb_messages * sizeof(struct ump_message);
 
   if (is_receiver)
   {
-    chan.fd = open(mprotectfile, O_RDWR | O_CREAT);
-    if (chan.fd < 0)
+    chan = &all_channels[nb][1];
+  }
+  else
+  {
+    chan = &all_channels[nb][0];
+  }
+
+  chan->inchanlen = (size_t) nb_messages * sizeof(struct ump_message);
+  chan->outchanlen = (size_t) nb_messages * sizeof(struct ump_message);
+
+  if (is_receiver)
+  {
+    chan->fd = open(mprotectfile, O_RDWR | O_CREAT);
+    if (chan->fd < 0)
     {
       perror("Reader opening file.");
       exit(-1);
     }
 
-    chan.recv_chan.buf = (struct ump_message*)mmap(NULL, chan.inchanlen, PROT_READ, MAP_SHARED,
-        chan.fd, SENDER_TO_RECEIVER_OFFSET);
-    if (!chan.recv_chan.buf)
+    chan->recv_chan.buf = (struct ump_message*) mmap(NULL, chan->inchanlen,
+        PROT_READ, MAP_SHARED, chan->fd, SENDER_TO_RECEIVER_OFFSET);
+    if (!chan->recv_chan.buf)
     {
       perror("Reader read_area mmap.");
       exit(-1);
     }
 
-    chan.send_chan.buf = (struct ump_message*)mmap(NULL, chan.outchanlen, PROT_WRITE, MAP_SHARED,
-        chan.fd, RECEIVER_TO_SENDER_OFFSET);
-    if (!chan.send_chan.buf)
+    chan->send_chan.buf = (struct ump_message*) mmap(NULL, chan->outchanlen,
+        PROT_WRITE, MAP_SHARED, chan->fd, RECEIVER_TO_SENDER_OFFSET);
+    if (!chan->send_chan.buf)
     {
       perror("Reader write_area mmap.");
       exit(-1);
@@ -70,56 +118,56 @@ struct ump_channel open_channel(char *mprotectfile, int nb_messages,
   }
   else
   {
-    chan.fd = open(mprotectfile, O_RDWR);
-    if (chan.fd < 0)
+    chan->fd = open(mprotectfile, O_RDWR);
+    if (chan->fd < 0)
     {
       perror("Reader opening file.");
       exit(-1);
     }
 
-    chan.recv_chan.buf = (struct ump_message*)mmap(NULL, chan.inchanlen, PROT_READ, MAP_SHARED,
-        chan.fd, RECEIVER_TO_SENDER_OFFSET);
-    if (!chan.recv_chan.buf)
+    chan->recv_chan.buf = (struct ump_message*) mmap(NULL, chan->inchanlen,
+        PROT_READ, MAP_SHARED, chan->fd, RECEIVER_TO_SENDER_OFFSET);
+    if (!chan->recv_chan.buf)
     {
       perror("Reader read_area mmap.");
       exit(-1);
     }
 
-    chan.send_chan.buf = (struct ump_message*)mmap(NULL, chan.outchanlen, PROT_WRITE, MAP_SHARED,
-        chan.fd, SENDER_TO_RECEIVER_OFFSET);
-    if (!chan.send_chan.buf)
+    chan->send_chan.buf = (struct ump_message*) mmap(NULL, chan->outchanlen,
+        PROT_WRITE, MAP_SHARED, chan->fd, SENDER_TO_RECEIVER_OFFSET);
+    if (!chan->send_chan.buf)
     {
       exit(-1);
       perror("Reader write_area mmap.");
     }
   }
 
-  chan.recv_chan.dir = UMP_INCOMING;
-  chan.send_chan.dir = UMP_OUTGOING;
+  chan->recv_chan.dir = UMP_INCOMING;
+  chan->send_chan.dir = UMP_OUTGOING;
 
-  chan.recv_chan.bufmsgs = nb_messages;
-  chan.send_chan.bufmsgs = nb_messages;
+  chan->recv_chan.bufmsgs = nb_messages;
+  chan->send_chan.bufmsgs = nb_messages;
 
-  for (i = 0; i < chan.send_chan.bufmsgs; i++)
+  for (i = 0; i < chan->send_chan.bufmsgs; i++)
   {
-    chan.send_chan.buf[i].header.raw = 0;
+    chan->send_chan.buf[i].header.raw = 0;
   }
 
-  chan.max_recv_msgs = nb_messages;
-  chan.max_send_msgs = nb_messages;
+  chan->max_recv_msgs = nb_messages;
+  chan->max_send_msgs = nb_messages;
 
-  chan.recv_chan.epoch = 1;
-  chan.recv_chan.pos = 0;
+  chan->recv_chan.epoch = 1;
+  chan->recv_chan.pos = 0;
 
-  chan.send_chan.epoch = 1;
-  chan.send_chan.pos = 0;
+  chan->send_chan.epoch = 1;
+  chan->send_chan.pos = 0;
 
-  chan.sent_id = 1;
-  chan.seq_id = 0;
-  chan.ack_id = 0;
-  chan.last_ack = 0;
+  chan->sent_id = 1;
+  chan->seq_id = 0;
+  chan->ack_id = 0;
+  chan->last_ack = 0;
 
-  return chan;
+  return *chan;
 }
 
 /*

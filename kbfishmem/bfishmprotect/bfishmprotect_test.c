@@ -10,6 +10,8 @@
 // MESSAGE_BYTES is defined at compile time. Must be a multiple of the cache line size
 #define MSG_SIZE MESSAGE_BYTES
 
+#define MPROTECTFILE "/dev/kbfishmem0"
+
 void print_msg(char *msg, int len)
 {
   int i;
@@ -30,8 +32,8 @@ void simple_test_1_process(void)
   char msg[MSG_SIZE];
 
   // open channels
-  sender_to_receiver = open_channel("/dev/kbfishmem0", 10, MSG_SIZE, 0);
-  receiver_to_sender = open_channel("/dev/kbfishmem0", 10, MSG_SIZE, 1);
+  sender_to_receiver = open_channel(MPROTECTFILE, 0, 10, MSG_SIZE, 0);
+  receiver_to_sender = open_channel(MPROTECTFILE, 0, 10, MSG_SIZE, 1);
 
   recv_msg(&receiver_to_sender, msg, MSG_SIZE);
 
@@ -79,7 +81,7 @@ void do_reader(void)
   char msg[MSG_SIZE];
 
   // open channels
-  receiver_to_sender = open_channel("/dev/kbfishmem0", 10, MSG_SIZE, 1);
+  receiver_to_sender = open_channel(MPROTECTFILE, 0, 10, MSG_SIZE, 1);
 
   // receive 10 messages
   int snd = 0;
@@ -110,7 +112,7 @@ void do_writer(void)
 
   // open channels
   // note that the receiver should already have opened the file
-  sender_to_receiver = open_channel("/dev/kbfishmem0", 10, MSG_SIZE, 0);
+  sender_to_receiver = open_channel(MPROTECTFILE, 0, 10, MSG_SIZE, 0);
 
   // send 10 messages
   memset(msg, getpid(), MSG_SIZE);
@@ -137,16 +139,37 @@ void do_writer(void)
 int main(void)
 {
 #ifdef SIMPLE_TEST
+  create_channel(MPROTECTFILE, 0);
   simple_test_1_process();
+
+#else
+  int core_id;
+
+  create_channel(MPROTECTFILE, 0);
+
+  fflush(NULL);
+  sync();
+
+  // fork in order to create the children
+  core_id = 0;
+  if (!fork())
+  {
+    core_id = 1;
+  }
+
+  //1 process reads, the other writes
+   if (core_id == 0)
+   {
+     do_reader();
+   }
+   else
+   {
+     sleep(2);
+     do_writer();
+   }
 #endif
 
-#ifdef READER
-  do_reader();
-#endif
-
-#ifdef WRITER
-  do_writer();
-#endif
+  destroy_channel(0);
 
   return 0;
 }

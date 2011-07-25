@@ -1,7 +1,7 @@
 C:=gcc
 CFLAGS:=-Wall -Werror -g -lm -ltcmalloc -DMESSAGE_BYTES=64 -DWAIT_TYPE=USLEEP
-DEPS:= bfishmprotect.c bfishmprotect_test.c
-TARGETS:= bfishmprotect_simple_test bfishmprotect_writer_test bfishmprotect_reader_test bfishmprotect_get_struct_ump_message_size
+DEPS:= futex.c bfishmprotect.c bfishmprotect_test.c
+TARGETS:= bfishmprotect_simple_test bfishmprotect_fork_test bfishmprotect_get_struct_ump_message_size
 
 all: $(TARGETS)
 
@@ -11,12 +11,9 @@ bfishmprotect_get_struct_ump_message_size: bfishmprotect_get_struct_ump_message_
 bfishmprotect_simple_test: $(DEPS)
 	$(C) $(CFLAGS) -DSIMPLE_TEST -o $@ $^
 	
-bfishmprotect_writer_test: $(DEPS)
-	$(C) $(CFLAGS) -DWRITER -o $@ $^
+bfishmprotect_fork_test: $(DEPS)
+	$(C) $(CFLAGS) -o $@ $^
 	
-bfishmprotect_reader_test: $(DEPS)
-	$(C) $(CFLAGS) -DREADER -o $@ $^
-
 clean:
 	-rm *.o
 	-rm *~

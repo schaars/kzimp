@@ -7,6 +7,8 @@
 
 #include <stdint.h>
 
+#include "futex.h"
+
 // Define MESSAGE_BYTES as the size of a message in bytes at compile time.
 // Define WAIT_TYPE as either USLEEP or BUSY, depending on whether you want to sleep or to busy wait
 // when waiting for a message to receive.
@@ -67,6 +69,7 @@ struct ump_chan_state
   ump_index_t bufmsgs; ///< Buffer size in messages
   int epoch; ///< Next Message epoch
   enum ump_direction dir; ///< Channel direction
+  futex *f; // the futex. xxx: 1 per chan_state or 1 per ump_channel?
 };
 
 struct ump_channel
@@ -82,19 +85,28 @@ struct ump_channel
   ump_index_t max_send_msgs; ///< Number of messages that fit in the send channel
   ump_index_t max_recv_msgs; ///< Number of messages that fit in the recv channel
 
+  int mprotectfile_nb; // the number of the special file used for memory protection
   int fd; // file descriptor associated with the protected memory areas
 
   size_t inchanlen, outchanlen;
 };
 
 /********************* exported interface *********************/
+
+/* create 2 channels that will use mprotectfile mprotectfile of number n for memory protection */
+int create_channel(char *mprotectfile, int n);
+
+/* destroy the channel that is using mprotectfile for memory protection */
+void destroy_channel(int n);
+
 /*
  * open a channel using the special file mprotectfile for memory protection.
  * The channel size is (for both direction) nb_messages * message_size.
  * is_receiver must be set to 1 if called by the receiver end, 0 otherwise.
+ * nb is the memory protection file number
  * Return the new channel if ok.
  */
-struct ump_channel open_channel(char *mprotectfile, int nb_messages,
+struct ump_channel open_channel(char *mprotectfile, int nb, int nb_messages,
     int message_size, int is_receiver);
 
 /*
@@ -135,9 +147,8 @@ struct ump_channel* bfish_mprotect_select(struct ump_channel* chans, int l,
 // to allocate in kbfishmem.
 static inline size_t get_ump_message_size(void)
 {
-   return sizeof(struct ump_message);
+  return sizeof(struct ump_message);
 }
-
 
 /********************* inline "private" methods *********************/
 /**
