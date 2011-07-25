@@ -22,8 +22,6 @@ int futex_lock(futex *f);
 
 int futex_unlock(futex *f);
 
-int futex_trylock(futex *f);
-
 /********************** Assembly code **********************/
 
 /* From the Linux kernel: linux/arch/x86/include/asm/cmpxchg_64.h */

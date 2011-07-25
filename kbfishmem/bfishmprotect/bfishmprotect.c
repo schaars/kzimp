@@ -22,6 +22,8 @@
 #define max(a, b) (a > b ? a : b)
 #define min(a, b) (a < b ? a : b)
 
+#undef BFISH_MPROTECT_DEBUG
+
 /// Special message types
 enum ump_msgtype
 {
@@ -199,12 +201,12 @@ void recv_ack(struct ump_channel *chan)
     //todo: use the futex
     //xxx
     //fixme
-    WAIT();
-    /*
-     printf("[%s:%i] Going to lock futex @ %p for channel %i.\n", __func__,
-     __LINE__, chan->f, chan->mprotectfile_nb);
-     futex_lock(chan->f);
-     */
+    //WAIT();
+#ifdef BFISH_MPROTECT_DEBUG
+    printf("[%s:%i] Going to lock futex @ %p for channel %i.\n", __func__,
+        __LINE__, chan->recv_chan.f, chan->mprotectfile_nb);
+#endif
+    futex_lock(chan->recv_chan.f);
   }
 
   ump_msg = ump_impl_recv(&chan->recv_chan);
@@ -266,11 +268,11 @@ int send_msg(struct ump_channel *chan, char *msg, size_t len)
   //todo: futex, wake
   //xxx
   //fixme
-  /*
-   printf("[%s:%i] Going to unlock futex @ %p for channel %i.\n", __func__,
-   __LINE__, chan->f, chan->mprotectfile_nb);
-   futex_unlock(chan->f);
-   */
+#ifdef BFISH_MPROTECT_DEBUG
+  printf("[%s:%i] Going to unlock futex @ %p for channel %i.\n", __func__,
+      __LINE__, chan->send_chan.f, chan->mprotectfile_nb);
+#endif
+  futex_unlock(chan->send_chan.f);
 
   return len;
 }
@@ -299,11 +301,11 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
     //xxx
     //fixme
     //WAIT();
-    /*
-     printf("[%s:%i] Going to lock futex @ %p for channel %i.\n", __func__,
-     __LINE__, chan->f, chan->mprotectfile_nb);
-     futex_lock(chan->f);
-     */
+#ifdef BFISH_MPROTECT_DEBUG
+    printf("[%s:%i] Going to lock futex @ %p for channel %i.\n", __func__,
+        __LINE__, chan->recv_chan.f, chan->mprotectfile_nb);
+#endif
+    futex_lock(chan->recv_chan.f);
   }
 
   ump_msg = ump_impl_recv(&chan->recv_chan);
@@ -360,11 +362,11 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
     //todo: futex, wake
     //xxx
     //fixme
-    /*
-     printf("[%s:%i] Going to unlock futex @ %p for channel %i.\n", __func__,
-     __LINE__, chan->f, chan->mprotectfile_nb);
-     futex_unlock(chan->f);
-     */
+#ifdef BFISH_MPROTECT_DEBUG
+    printf("[%s:%i] Going to unlock futex @ %p for channel %i.\n", __func__,
+        __LINE__, chan->send_chan.f, chan->mprotectfile_nb);
+#endif
+    futex_unlock(chan->send_chan.f);
   }
 
   if (call_recv_again)

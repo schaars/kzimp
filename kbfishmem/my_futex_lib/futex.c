@@ -24,6 +24,8 @@
 
 #include "futex.h"
 
+#undef MY_FUTEX_LIB_DEBUG
+
 static int sys_futex(void *addr1, int op, int val1, struct timespec *timeout,
     void *addr2, int val3)
 {
@@ -120,9 +122,17 @@ int futex_destroy(futex *f)
 
 int futex_lock(futex *f)
 {
+  struct timespec to;
+
   *f = 1;
-  //printf("Going to sleep\n");
-  sys_futex(f, FUTEX_WAIT, 1, NULL, NULL, 0);
+#ifdef MY_FUTEX_LIB_DEBUG
+  printf("Going to sleep\n");
+#endif
+
+  to.tv_sec = 0;
+  to.tv_nsec = 1000000; // timeout is 1ms
+
+  sys_futex(f, FUTEX_WAIT, 1, &to, NULL, 0);
 
   return 0;
 }
@@ -136,18 +146,11 @@ int futex_unlock(futex *f)
    */
   if (cmpxchg(f, 1, 0))
   {
-    //printf("Waking up someone\n");
+#ifdef MY_FUTEX_LIB_DEBUG
+    printf("Waking up someone\n");
+#endif
     sys_futex(f, FUTEX_WAKE, 1, NULL, NULL, 0);
   }
 
   return 0;
-}
-
-int futex_trylock(futex *f)
-{
-  /* Try to take the lock, if is currently unlocked */
-  unsigned c = cmpxchg(f, 0, 1);
-  if (!c)
-    return 0;
-  return EBUSY;
 }
