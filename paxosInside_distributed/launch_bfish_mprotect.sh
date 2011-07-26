@@ -40,26 +40,35 @@ else
 fi
 
 ./stop_all.sh
+./remove_shared_segment.pl
 rm -f /tmp/paxosInside_client_*_finished
 
 # create config file
 ./create_config.sh $NB_PAXOS_NODES 2 $NB_ITER $LEADER_ACCEPTOR > $CONFIG_FILE
 
-# compile and load module
+# Min size is the size of a uintptr_t: 8 bytes
+if [ $MESSAGE_MAX_SIZE -lt 8 ]; then
+   REAL_MSG_SIZE=8
+else
+   REAL_MSG_SIZE=$MESSAGE_MAX_SIZE
+fi
+
 NB_MAX_CHANNELS=8
+
+echo "-DNB_MESSAGES=${MSG_CHANNEL} -DMESSAGE_MAX_SIZE=${REAL_MSG_SIZE} -DMESSAGE_BYTES=${REAL_MSG_SIZE}" > BFISH_MPROTECT_PROPERTIES
+make bfish_mprotect_paxosInside
+REAL_MSG_SIZE=$(./bin/bfishmprotect_get_struct_ump_message_size)
+
+#compile and load module
 cd $KBFISH_MEM_DIR
 make
 ./kbfishmem.sh unload
-./kbfishmem.sh load nb_max_communication_channels=${NB_MAX_CHANNELS} default_channel_size=${MAX_NB_MSG} default_max_msg_size=${MSG_SIZE} 
+./kbfishmem.sh load nb_max_communication_channels=${NB_MAX_CHANNELS} default_channel_size=${MSG_CHANNEL} default_max_msg_size=${REAL_MSG_SIZE} 
 if [ $? -eq 1 ]; then
    echo "An error has occured when loading kbfishmem. Aborting the experiment $OUTPUT_DIR"
    exit 0
 fi
 cd -
-
-# compile
-echo "-DNB_MESSAGES=${MAX_NB_MSG} -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_BYTES=${MESSAGE_MAX_SIZE} -DWAIT_TYPE=${WAIT_TYPE}" > BFISH_MPROTECT_PROPERTIES 
-make bfish_mprotect_paxosInside
 
 
 #####################################
@@ -129,6 +138,7 @@ fi
 
 # save results
 ./stop_all.sh
+./remove_shared_segment.pl
 sleep 1
 cd $KBFISH_MEM_DIR; ./kbfishmem.sh unload; cd -
 mv results.txt bfish_mprotect_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt

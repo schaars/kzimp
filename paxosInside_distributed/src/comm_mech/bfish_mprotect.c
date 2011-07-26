@@ -45,6 +45,13 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
   nb_clients = _nb_clients;
   nb_learners = nb_paxos_nodes - 2;
   total_nb_nodes = nb_paxos_nodes + nb_clients;
+
+  char chaname[256];
+  for (int i = 0; i < nb_learners * 2 + 1 + 1; i++)
+  {
+    snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, i);
+    create_channel(chaname, i);
+  }
 }
 
 static void init_node(int _node_id)
@@ -57,18 +64,20 @@ static void init_node(int _node_id)
   if (node_id == 0) // leader
   {
     snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, 0);
-    client_to_leader = open_channel(chaname, NB_MESSAGES, MESSAGE_BYTES, 1);
+    client_to_leader = open_channel(chaname, 0, NB_MESSAGES, MESSAGE_BYTES, 1);
 
     // ensure that the receivers have opened the file
     sleep(2);
 
     snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, 1);
-    leader_to_acceptor = open_channel(chaname, NB_MESSAGES, MESSAGE_BYTES, 0);
+    leader_to_acceptor
+        = open_channel(chaname, 1, NB_MESSAGES, MESSAGE_BYTES, 0);
   }
   else if (node_id == 1) // acceptor
   {
     snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, 1);
-    leader_to_acceptor = open_channel(chaname, NB_MESSAGES, MESSAGE_BYTES, 1);
+    leader_to_acceptor
+        = open_channel(chaname, 1, NB_MESSAGES, MESSAGE_BYTES, 1);
 
     // ensure that the receivers have opened the file
     sleep(2);
@@ -84,7 +93,7 @@ static void init_node(int _node_id)
     for (i = 0; i < nb_learners; i++)
     {
       snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, i + 2);
-      acceptor_to_learners[i] = open_channel(chaname, NB_MESSAGES,
+      acceptor_to_learners[i] = open_channel(chaname, i + 2, NB_MESSAGES,
           MESSAGE_BYTES, 0);
     }
   }
@@ -102,8 +111,8 @@ static void init_node(int _node_id)
     {
       snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, i + 2
           + nb_learners);
-      learners_to_clients[i] = open_channel(chaname, NB_MESSAGES,
-          MESSAGE_BYTES, 1);
+      learners_to_clients[i] = open_channel(chaname, i + 2 + nb_learners,
+          NB_MESSAGES, MESSAGE_BYTES, 1);
     }
   }
   else if (node_id > nb_paxos_nodes) // client 1
@@ -112,7 +121,7 @@ static void init_node(int _node_id)
     sleep(2);
 
     snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, 0);
-    client_to_leader = open_channel(chaname, NB_MESSAGES, MESSAGE_BYTES, 0);
+    client_to_leader = open_channel(chaname, 0, NB_MESSAGES, MESSAGE_BYTES, 0);
   }
   else // learners
   {
@@ -125,8 +134,8 @@ static void init_node(int _node_id)
     }
 
     snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, node_id);
-    acceptor_to_learners[0] = open_channel(chaname, NB_MESSAGES, MESSAGE_BYTES,
-        1);
+    acceptor_to_learners[0] = open_channel(chaname, node_id, NB_MESSAGES,
+        MESSAGE_BYTES, 1);
 
     // ensure that the receivers have opened the file
     sleep(2);
@@ -139,13 +148,10 @@ static void init_node(int _node_id)
       exit(-1);
     }
 
-    for (i = 0; i < nb_learners; i++)
-    {
-      snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, node_id
-          + nb_learners);
-      learners_to_clients[0] = open_channel(chaname, NB_MESSAGES,
-          MESSAGE_BYTES, 0);
-    }
+    snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, node_id
+        + nb_learners);
+    learners_to_clients[0] = open_channel(chaname, node_id + nb_learners,
+        NB_MESSAGES, MESSAGE_BYTES, 0);
   }
 }
 
@@ -165,6 +171,10 @@ void IPC_initialize_client(int _client_id)
 // Called by the parent process, after the death of the children.
 void IPC_clean(void)
 {
+  for (int i = 1; i < nb_learners * 2 + 1 + 1; i++)
+  {
+    destroy_channel(i);
+  }
 }
 
 static void clean_node(void)

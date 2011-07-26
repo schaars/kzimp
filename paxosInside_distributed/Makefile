@@ -48,9 +48,10 @@ kzimp_paxosInside: $(DEPS) src/comm_mech/kzimp.c
 	$(shell if [ ! -e KZIMP_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=128" > KZIMP_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat KZIMP_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 
-bfish_mprotect_paxosInside: $(DEPS) src/comm_mech/bfish_mprotect.c ../kbfishmem/bfishmprotect/bfishmprotect.c
-	$(shell if [ ! -e BFISH_MPROTECT_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DMESSAGE_MAX_SIZE=128 -DMESSAGE_BYTES=128 -DWAIT_TYPE=USLEEP" > BFISH_MPROTECT_PROPERTIES; fi)
+bfish_mprotect_paxosInside: $(DEPS) src/comm_mech/bfish_mprotect.c ../kbfishmem/bfishmprotect/futex.c ../kbfishmem/bfishmprotect/bfishmprotect.c
+	$(shell if [ ! -e BFISH_MPROTECT_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DMESSAGE_MAX_SIZE=128 -DMESSAGE_BYTES=128" > BFISH_MPROTECT_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat BFISH_MPROTECT_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
+	$(C) $(CFLAGS) $(shell cat BFISH_MPROTECT_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/bfishmprotect_get_struct_ump_message_size ../kbfishmem/bfishmprotect/futex.c ../kbfishmem/bfishmprotect/bfishmprotect.c ../kbfishmem/bfishmprotect/bfishmprotect_get_struct_ump_message_size.c
 
 kbfish_paxosInside: $(DEPS) src/comm_mech/kbfish.c
 	$(shell if [ ! -e KBFISH_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=128" > KBFISH_PROPERTIES; fi)
