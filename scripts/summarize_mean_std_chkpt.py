@@ -77,7 +77,6 @@ class Experiment:
 
       fd.write("#nb_nodes\tmsg_size\tchkpt_size\tnb_iter\tchannel_size\tlimit_thr\tthr_mean\tthr_stddev\tthr_stddev_perc\tlat_mean\tlat_stddev\tlat_stddev_perc\n")
       
-   #TODO
       for nb_nodes in self.all_nb_nodes:
          for msg_size in self.all_msg_size:
             for chkpt_size in self.all_chkpt_size:
