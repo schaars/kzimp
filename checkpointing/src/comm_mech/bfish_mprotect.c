@@ -36,6 +36,13 @@ static struct ump_channel *connections; // urpc_connections between nodes 0 and 
 void IPC_initialize(int _nb_nodes)
 {
   nb_nodes = _nb_nodes;
+
+  char chaname[256];
+  for (int i = 1; i < nb_nodes; i++)
+  {
+    snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, i - 1);
+    create_channel(chaname, i - 1);
+  }
 }
 
 // Initialize resources for the node
@@ -61,7 +68,8 @@ void IPC_initialize_node(int _node_id)
     for (int i = 1; i < nb_nodes; i++)
     {
       snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, i - 1);
-      connections[i] = open_channel(chaname, NB_MESSAGES, MESSAGE_BYTES, 0);
+      connections[i] = open_channel(chaname, i - 1, NB_MESSAGES, MESSAGE_BYTES,
+          0);
     }
   }
   else
@@ -74,7 +82,8 @@ void IPC_initialize_node(int _node_id)
     }
 
     snprintf(chaname, 256, "%s%i", KBFISH_MEM_CHAR_DEV_FILE, node_id - 1);
-    connections[0] = open_channel(chaname, NB_MESSAGES, MESSAGE_BYTES, 1);
+    connections[0] = open_channel(chaname, node_id - 1, NB_MESSAGES,
+        MESSAGE_BYTES, 1);
   }
 }
 
@@ -82,6 +91,10 @@ void IPC_initialize_node(int _node_id)
 // Called by the parent process, after the death of the children.
 void IPC_clean(void)
 {
+  for (int i = 1; i < nb_nodes; i++)
+  {
+    destroy_channel(i - 1);
+  }
 }
 
 // Clean resources created for the (paxos) node.

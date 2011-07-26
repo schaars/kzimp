@@ -54,9 +54,11 @@ int create_channel(char *mprotectfile, int n)
   all_channels[n][1].send_chan.f = all_channels[n][0].recv_chan.f;
   all_channels[n][1].recv_chan.f = all_channels[n][0].send_chan.f;
 
+#ifdef BFISH_MPROTECT_DEBUG
   printf("Initializing channels @ %i\n", n);
   printf("Futex sender 2 receiver @ %p\n", all_channels[n][0].send_chan.f);
   printf("Futex receiver 2 sender @ %p\n", all_channels[n][0].recv_chan.f);
+#endif
 
   return 0;
 }
@@ -86,9 +88,6 @@ struct ump_channel open_channel(char *mprotectfile, int nb, int nb_messages,
 {
   struct ump_channel *chan;
   ump_index_t i;
-
-  printf("[%s:%i] Opening channel %i with is_receiver=%i\n\n", __func__,
-      __LINE__, nb, is_receiver);
 
   if (is_receiver)
   {

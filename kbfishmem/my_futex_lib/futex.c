@@ -5,7 +5,9 @@
  *    -Lockless for the use of futex/futex: http://locklessinc.com/articles/futex_cv_futex/
  */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 
 #include <stdio.h>
 #include <errno.h>
