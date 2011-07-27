@@ -346,7 +346,7 @@ static void handle_timeout(struct kzimp_comm_chan *chan,
     // The bitmap is now 0 instead of multicast_mask. The message has been lost.
     if (chan->msgs[i].bitmap != 0)
     {
-      chan->msgs[i].bitmap &= chan->msgs[i].bitmap & ~bitmap;
+      chan->msgs[i].bitmap &= ~bitmap;
     }
   }
 

@@ -85,16 +85,18 @@ struct kzimp_message
    unsigned long bitmap; /* the bitmap, alone on  */
    int len;              /* length of the message */
    short checksum;       /* the checksum */
+
+   short __p1;           /* to align properly the char* */
+
    char *data;           /* the message content */
 
    // padding (to avoid false sharing)
-   char __p[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(char*))];
-}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
+   char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*))];
+}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE))); //TODO: check alignement
 
 #define KZIMP_COMM_CHAN_SIZE1 (sizeof(int)+sizeof(int)+sizeof(long)+sizeof(unsigned long)+sizeof(wait_queue_head_t)*2+sizeof(struct kzimp_message*)+sizeof(char*))
-#define KZIMP_COMM_CHAN_SIZE2 (sizeof(int))
-#define KZIMP_COMM_CHAN_SIZE3 (sizeof(spinlock_t))
-#define KZIMP_COMM_CHAN_SIZE4 (sizeof(struct list_head)+sizeof(int)+sizeof(int)+sizeof(int)+sizeof(struct cdev))
+#define KZIMP_COMM_CHAN_SIZE2 (sizeof(int)+sizeof(spinlock_t))
+#define KZIMP_COMM_CHAN_SIZE3 (sizeof(struct list_head)+sizeof(int)+sizeof(int)+sizeof(int)+sizeof(struct cdev))
 
 // kzimp communication channel
 struct kzimp_comm_chan
@@ -103,20 +105,17 @@ struct kzimp_comm_chan
   int compute_checksum;             /* do we compute the checksum? 0: no, 1: yes, 2: partial */
   long timeout_in_ms;               /* writer's timeout in miliseconds */
   unsigned long multicast_mask;     /* the multicast mask, used for the bitmap */
-  wait_queue_head_t rq, wq;         /* the wait queues */
+  wait_queue_head_t rq, wq;         /* the wait queues */ //TODO: call wake only if there is a sleeping guy
   struct kzimp_message* msgs;       /* the messages of the channel */
   char *messages_area;              /* pointer to the big allocated area of messages */
 
   char __p1[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE1)];
 
-  // these variables are used by the readers only.
-  // We use padding to ensure they do not cause cache misses at the readers
-  // And also to ensure there are no cache misses when the writer changes next_write_idx but not bcl (or the contrary)
+  // these variables are used by the writers only.
   int next_write_idx;               /* position of the next written message */
-  char __p2[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE2)];
-  spinlock_t bcl;                   /* the Big Channel Lock :) */
+  spinlock_t bcl;                   /* the Big Channel Lock :) */ //TODO: profile/test with atomic
 
-  char __p3[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE3)];
+  char __p2[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE3)];
 
   struct list_head readers;         /* List of pointers to the readers' control structure */
   int chan_id;                      /* id of this channel */
@@ -124,8 +123,8 @@ struct kzimp_comm_chan
   int nb_readers;                   /* number of readers */
   struct cdev cdev;                 /* char device structure */
 
-  char __p4[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE4)];
-}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
+  char __p3[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE4)];
+}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE))); // TODO: reorganize the structure properly. Do we need padding?
 
 // Each process that uses the channel to read has a control structure.
 struct kzimp_ctrl
