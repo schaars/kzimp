@@ -100,7 +100,7 @@ def compute_improvement(main_summary, summaries):
          #stdev_i = imp_max - thr_i
 
 
-         thr_i = thr_main * 100.0 / thr_s - 100.0
+         thr_i = (thr_main  / thr_s - 1 ) * 100.0
          stdev_i = 0
 
          fd.write("\t%f\t%f"%(thr_i, stdev_i))
