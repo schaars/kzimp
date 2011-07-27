@@ -115,7 +115,7 @@ struct kzimp_comm_chan
   int next_write_idx;               /* position of the next written message */
   spinlock_t bcl;                   /* the Big Channel Lock :) */ //TODO: profile/test with atomic
 
-  char __p2[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE3)];
+  char __p2[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE2)];
 
   struct list_head readers;         /* List of pointers to the readers' control structure */
   int chan_id;                      /* id of this channel */
@@ -123,7 +123,7 @@ struct kzimp_comm_chan
   int nb_readers;                   /* number of readers */
   struct cdev cdev;                 /* char device structure */
 
-  char __p3[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE4)];
+  char __p3[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE3)];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE))); // TODO: reorganize the structure properly. Do we need padding?
 
 // Each process that uses the channel to read has a control structure.
