@@ -335,7 +335,7 @@ static void handle_timeout(struct kzimp_comm_chan *chan,
   // remove the bits from the multicast mask
   tmp = chan->multicast_mask & ~bitmap;
   __asm volatile ("" : : : "memory");
-  chan->multicast_mask = tmp; // this operation is atomic, thx to the upper memory barrier
+  chan->multicast_mask = tmp; // this operation is atomic
 
   // remove the bits from all the messages
   for (i = 0; i < chan->channel_size; i++)

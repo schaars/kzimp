@@ -197,10 +197,6 @@ void recv_ack(struct ump_channel *chan)
 
   while (!ump_endpoint_can_recv(&chan->recv_chan))
   {
-    //todo: use the futex
-    //xxx
-    //fixme
-    //WAIT();
 #ifdef BFISH_MPROTECT_DEBUG
     printf("[%s:%i] Going to lock futex @ %p for channel %i.\n", __func__,
         __LINE__, chan->recv_chan.f, chan->mprotectfile_nb);
@@ -264,9 +260,6 @@ int send_msg(struct ump_channel *chan, char *msg, size_t len)
   BARRIER();
   ump_msg->header.control = ctrl;
 
-  //todo: futex, wake
-  //xxx
-  //fixme
 #ifdef BFISH_MPROTECT_DEBUG
   printf("[%s:%i] Going to unlock futex @ %p for channel %i.\n", __func__,
       __LINE__, chan->send_chan.f, chan->mprotectfile_nb);
@@ -296,10 +289,6 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
 
   while (!ump_endpoint_can_recv(&chan->recv_chan))
   {
-    //todo: use the futex
-    //xxx
-    //fixme
-    //WAIT();
 #ifdef BFISH_MPROTECT_DEBUG
     printf("[%s:%i] Going to lock futex @ %p for channel %i.\n", __func__,
         __LINE__, chan->recv_chan.f, chan->mprotectfile_nb);
@@ -358,9 +347,6 @@ int recv_msg(struct ump_channel *chan, char *msg, size_t len)
     BARRIER();
     ump_msg->header.control = ctrl;
 
-    //todo: futex, wake
-    //xxx
-    //fixme
 #ifdef BFISH_MPROTECT_DEBUG
     printf("[%s:%i] Going to unlock futex @ %p for channel %i.\n", __func__,
         __LINE__, chan->send_chan.f, chan->mprotectfile_nb);
