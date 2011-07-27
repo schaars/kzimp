@@ -62,7 +62,7 @@ short oneC_sum(short prev, void *data, size_t size)
   while (n >= 8)
   {
     sum += (int) ((short *) dptr)[0] + (int) ((short *) dptr)[1]
-        + (int) ((short *) dptr)[2] + (int) ((short *) dptr)[3];
+                                                              + (int) ((short *) dptr)[2] + (int) ((short *) dptr)[3];
     dptr += 8;
     n -= 8;
   }
@@ -271,14 +271,11 @@ static ssize_t kzimp_read
     memset(&m4chksum, 0, KZIMP_HEADER_SIZE);
     m4chksum.len = count;
     m4chksum.bitmap = 0;
+    m4chksum.checksum = oneC_sum(0, &m4chksum, KZIMP_HEADER_SIZE);
 
     if (chan->compute_checksum == 1)
     {
-      m4chksum.checksum = oneC_sum(oneC_sum(0, &m4chksum, KZIMP_HEADER_SIZE), m->data, count);
-    }
-    else if (chan->compute_checksum == 2)
-    {
-      m4chksum.checksum = oneC_sum(0, &m4chksum, KZIMP_HEADER_SIZE);
+      m4chksum.checksum = oneC_sum(m4chksum.checksum, m->data, count);
     }
   }
 
@@ -450,13 +447,14 @@ static ssize_t kzimp_write
 
   // compute checksum if required
   m->checksum = 0;
-  if (chan->compute_checksum == 1)
-  {
-    m->checksum = oneC_sum(oneC_sum(0, m, KZIMP_HEADER_SIZE), m->data, count);
-  }
-  else if (chan->compute_checksum == 2)
+  if (chan->compute_checksum)
   {
     m->checksum = oneC_sum(0, m, KZIMP_HEADER_SIZE);
+
+    if (chan->compute_checksum == 1)
+    {
+      m->checksum = oneC_sum(m->checksum, m->data, count);
+    }
   }
 
   m->bitmap = chan->multicast_mask;
@@ -569,9 +567,9 @@ static int kzimp_read_proc_file(char *page, char **start, off_t off, int count,
       default_compute_checksum);
 
   len
-      += sprintf(
-          page + len,
-          "chan_id\tchan_size\tmax_msg_size\tmulticast_mask\tnb_receivers\ttimeout_in_ms\tcompute_checksum\n");
+  += sprintf(
+      page + len,
+      "chan_id\tchan_size\tmax_msg_size\tmulticast_mask\tnb_receivers\ttimeout_in_ms\tcompute_checksum\n");
   for (i = 0; i < nb_max_communication_channels; i++)
   {
     len += sprintf(page + len, "%i\t%i\t%i\t%lx\t%i\t%li\t%i\n",
@@ -652,10 +650,10 @@ static int kzimp_write_proc_file(struct file *file, const char *buffer,
 
   if (unlikely(err))
   {
-printk  (KERN_WARNING "kzimp: Error %i at initialization of channel %i", err, chan_id);
-}
+    printk  (KERN_WARNING "kzimp: Error %i at initialization of channel %i", err, chan_id);
+  }
 
-return len;
+  return len;
 }
 
 static int kzimp_init_cdev(struct kzimp_comm_chan *channel, int i)
