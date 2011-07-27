@@ -76,8 +76,10 @@ for arg in $@; do
    if [ $first -eq 0 ]; then
       echo -n ", " >> $PLOT_FILE
    fi
+
    #echo -n \"plot.data\" using 1:$Y:$S title \"$title\" with yerrorlines >> $PLOT_FILE
    echo -n \"plot.data\" using 1:$Y title \"$title\" with linespoint >> $PLOT_FILE
+
    first=0
    Y=$(($Y+2))
    S=$(($S+2))

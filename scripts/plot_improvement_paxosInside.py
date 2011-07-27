@@ -6,7 +6,7 @@ import os
 from oset import oset
 
 ################################################################################
-# A summary ontains, for a given mechanism, a dictionnary msg_size -> (mean_thr, stdev_thr)
+# A Summary contains, for a given mechanism, a dictionnary msg_size -> (mean_thr, stdev_thr)
 class Summary:
    # Variables:
    #  -name: name of the communication mechanism to which this summary belongs to
@@ -14,7 +14,6 @@ class Summary:
    #  -all_msg_size: an ordered set of all the checkpoint response sizes
    #  -results: a dictionnary containing, for each msg_size, a tuple
    #            (mean_thr, stdev_thr)
-
 
 
    def __init__(self):

@@ -1,12 +1,12 @@
 #!/bin/bash
 #
 # Plot a figure with gnuplot from checkpointing mean/stdev summaries,
-# for a given message size
+# for a given number of nodes, about the improvement
 #
 # Args:
 #  $1: out file
 #  $2: lat or thr?
-#  $3: given message size
+#  $3: given nb nodes
 # The next arguments are optionnal and must be:
 #  $i: title (e.g. communication mechanism name)
 #  $i+1: summary file
@@ -28,7 +28,7 @@ TITLE=$4
 
 # do we use log scale or not?
 if [ $LOG_SCALE -eq 1 ]; then
-   Y_LABEL="${Y_LABEL} (log scale)"
+   YLABEL="${YLABEL} (log scale)"
 fi
 
 cat << EOF > $PLOT_FILE
@@ -39,10 +39,13 @@ set xlabel "${XLABEL}"
 set ylabel "${YLABEL}"
 set title "$TITLE"
 
+set logscale x
+set xtics("1B" 1,"64B" 64,"128B" 128,"512B" 512,"1kB" 1024,"4kB" 4096,"10kB" 10240,"100kB" 102400,"1MB" 1048576)
+
 #set key left top
 #set key at 3.35,5300
 
-set xrange [2:24]
+set xrange [128:]
 
 EOF
 
@@ -50,7 +53,9 @@ if [ $LOG_SCALE -eq 1 ]; then
    echo "set logscale y" >> $PLOT_FILE
    echo "set yrange [1:]" >> $PLOT_FILE
 else
-   echo "set yrange [0:]" >> $PLOT_FILE
+   # The improvement may be < 0
+   #echo "set yrange [0:]" >> $PLOT_FILE
+   echo "set yrange [:]" >> $PLOT_FILE
 fi
 }
 
@@ -58,16 +63,16 @@ fi
 # extract data that will be plotted
 function extract_data {
 file=$1
-msg_size=$2
+nb_nodes=$2
 
 # empty the output file
 out=${file}.data
 > $out
 
 while read line; do
-   grep "^[[:digit:]]\+[[:space:]]\+${msg_size}[[:space:]]" <<< $line &> /dev/null
+   grep "^${nb_nodes}[[:space:]]" <<< $line &> /dev/null
    if [ $? -eq 0 ]; then
-      nb_nodes=$(awk '{print $1}' <<< $line)
+      msg_size=$(awk '{print $2}' <<< $line)
 
       if [ $LAT_OR_THR == "lat" ]; then
          y_value=$(awk '{print $10}' <<< $line)
@@ -77,19 +82,42 @@ while read line; do
          stddev=$(awk '{print $8}' <<< $line)
       fi
 
-      echo -e "${nb_nodes}\t${y_value}\t${stddev}" >> $out
+      echo -e "${msg_size}\t${y_value}\t${stddev}" >> $out
    fi
 done < $file
 }
 
+function get_improvement {
+new_args=""
+
+for arg in $@; do
+   title=$1; shift
+   file=$1; shift
+
+   if [ -z $title ] || [ -z $file ]; then
+      break
+   fi
+
+   extract_data $file $NB_NODES
+   new_args="${new_args} ${title} ${file}.data"
+done
+
+# compute improvement using $new_args
+$(dirname $0)/compute_improvement_chkpt.py ${LAT_OR_THR} ${new_args}
+}
 
 function complete_plot {
 PLOT_FILE=$1
 shift
 
+# we do not have to plot the first summary, which is the reference
+shift; shift
+
 echo -n "plot " >> $PLOT_FILE
 
 first=1
+Y=2
+S=3
 for arg in $@; do
    title=$1; shift
    file=$1; shift
@@ -101,34 +129,21 @@ for arg in $@; do
    if [ $first -eq 0 ]; then
       echo -n ", " >> $PLOT_FILE
    fi
-   
-   extract_data $file $MSG_SIZE
-   echo -n \"${file}.data\" using 1:2:3 title \"$title\" with yerrorlines >> $PLOT_FILE
-   
+
+   #echo -n \"plot.data\" using 1:$Y:$S title \"$title\" with yerrorlines >> $PLOT_FILE
+   echo -n \"plot.data\" using 1:$Y title \"$title\" with linespoint >> $PLOT_FILE
+
    first=0
+   Y=$(($Y+2))
+   S=$(($S+2))
 done
 
 echo "" >> $PLOT_FILE
 }
 
 
-function get_msg_size {
-case "$1" in
-   1)       echo 1B ;;
-   64)      echo 64B ;;
-   128)     echo 128B ;;
-   512)     echo 512B ;;
-   1024)    echo 1kB ;;
-   4096)    echo 4kB ;;
-   10240)   echo 10kB ;;
-   102400)  echo 100kB ;;
-   1048576) echo 1MB ;;
-esac
-}
-
-
 # Get data for a figure about latency
-# OUT_FILE and MSG_SIZE must be defined
+# OUT_FILE and NB_NODES must be defined
 # $1 is the PLOT_FILE that will be given to gnuplot
 # The other arguments refer to the titles and the summary files
 function create_lat_data {
@@ -136,19 +151,21 @@ PLOT_FILE=$1
 shift
 
 # what are the labels?
-XLABEL="Number of nodes"
-YLABEL="Snapshot completion time in usec"
-TITLE="Checkpointing, checkpoints of $(get_msg_size $MSG_SIZE)"
+XLABEL="Checkpoint size (log scale)"
+YLABEL="Snapshot completion time improvement in %"
+TITLE="Checkpointing, ${NB_NODES} nodes"
 
 complete_header $PLOT_FILE "$XLABEL" "$YLABEL" "$TITLE"
 
 # get results
+get_improvement $@
+
 complete_plot $PLOT_FILE $@
 }
 
 
 # Get data for a figure about throughput
-# OUT_FILE and MSG_SIZE must be defined
+# OUT_FILE and NB_NODES must be defined
 # $1 is the PLOT_FILE that will be given to gnuplot
 # The other arguments refer to the titles and the summary files
 function create_thr_data {
@@ -156,13 +173,15 @@ PLOT_FILE=$1
 shift
 
 # what are the labels?
-XLABEL="Number of nodes"
-YLABEL="Throughput in snap/sec"
-TITLE="Checkpointing, checkpoints of $(get_msg_size $MSG_SIZE)"
+XLABEL="Checkpoint size (log scale)"
+YLABEL="Throughput improvement in %"
+TITLE="Checkpointing, ${NB_NODES} nodes"
 
 complete_header $PLOT_FILE "$XLABEL" "$YLABEL" "$TITLE"
 
 # get results
+get_improvement $@
+
 complete_plot $PLOT_FILE $@
 }
 
@@ -182,15 +201,17 @@ for arg in $@; do
    rm ${file}.data
 done
 
+rm plot.data
+
 rm $PLOT_FILE
 }
 
 if [ $# -ge 3 ]; then
    OUT_FILE=$1; shift
    LAT_OR_THR=$1; shift
-   MSG_SIZE=$1; shift
+   NB_NODES=$1; shift
 else
-   echo "Usage: ./$(basename $0) <out_file>.pdf <lat or thr> <given_msg_size> [<title> <summary_file> ...]"
+   echo "Usage: ./$(basename $0) <out_file>.pdf <lat or thr> <given_nb_nodes> [<title> <summary_file> ...]"
    exit -1
 fi
 

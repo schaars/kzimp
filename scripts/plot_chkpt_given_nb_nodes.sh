@@ -124,7 +124,7 @@ shift
 
 # what are the labels?
 XLABEL="Checkpoint size (log scale)"
-YLABEL="Latency in usec"
+YLABEL="Snapshot completion time in usec"
 TITLE="Checkpointing, ${NB_NODES} nodes"
 
 complete_header $PLOT_FILE "$XLABEL" "$YLABEL" "$TITLE"

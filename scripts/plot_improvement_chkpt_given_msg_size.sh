@@ -28,7 +28,7 @@ TITLE=$4
 
 # do we use log scale or not?
 if [ $LOG_SCALE -eq 1 ]; then
-   Y_LABEL="${Y_LABEL} (log scale)"
+   YLABEL="${YLABEL} (log scale)"
 fi
 
 cat << EOF > $PLOT_FILE
@@ -50,7 +50,9 @@ if [ $LOG_SCALE -eq 1 ]; then
    echo "set logscale y" >> $PLOT_FILE
    echo "set yrange [1:]" >> $PLOT_FILE
 else
-   echo "set yrange [0:]" >> $PLOT_FILE
+   # The improvement may be < 0
+   #echo "set yrange [0:]" >> $PLOT_FILE
+   echo "set yrange [:]" >> $PLOT_FILE
 fi
 }
 
@@ -59,8 +61,6 @@ fi
 function extract_data {
 file=$1
 msg_size=$2
-
-echo "Parameters of extract_data: $1 -- $2"
 
 # empty the output file
 out=${file}.data
@@ -97,7 +97,6 @@ for arg in $@; do
 
    extract_data $file $MSG_SIZE
    new_args="${new_args} ${title} ${file}.data"
-   echo $title $file
 done
 
 # compute improvement using $new_args
