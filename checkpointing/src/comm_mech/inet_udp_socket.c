@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <strings.h>
 #include <unistd.h>
 #include <errno.h>
@@ -13,6 +14,7 @@
 #include <arpa/inet.h>
 
 #include "../Message.h"
+#include "../MessageTag.h"
 
 #include "ipc_interface.h"
 
@@ -20,7 +22,12 @@
 #define DEBUG
 #undef DEBUG
 
+#define DEBUG_MORE
+
 #define UDP_SEND_MAX_SIZE 65507
+
+// must be after the content but before the end of the buffer
+#define SEQ_ID_OFFSET 200
 
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #define MIN(a, b) (((a)<(b))?(a):(b))
@@ -29,7 +36,6 @@
 
 #define PORT_CORE_0 4242 // ports on which the nodes bind.  They recv on PORT_CORE_0+node_id
 #define PORT_RECV_0 6000 // ports on which the nodes send to node 0. They send to PORT_RECV_0+node_id
-
 static int node_id;
 static int nb_nodes;
 
@@ -37,6 +43,9 @@ static int *sock;
 static struct sockaddr_in *addresses; // for each node, its address
 static struct sockaddr_in *addresses_node0; // addresses used by the nodes>0 to send to node 0
 
+// last sent message
+static char last_sent_msg[MESSAGE_MAX_SIZE];
+static size_t last_sent_length;
 
 // Initialize resources for both the node and the clients
 // First initialization function called
@@ -99,12 +108,12 @@ int create_socket(struct sockaddr_in *addr)
 
   // get buffers size
   /*
-  int optval;
-  socklen_t optval_size;
-  optval_size = sizeof(optval);
-  getsockopt(s, SOL_SOCKET, SO_RCVBUF, &optval, &optval_size);
-  printf("RCVBUF=%i\n", optval);
-  */
+   int optval;
+   socklen_t optval_size;
+   optval_size = sizeof(optval);
+   getsockopt(s, SOL_SOCKET, SO_RCVBUF, &optval, &optval_size);
+   printf("RCVBUF=%i\n", optval);
+   */
 
   // bind socket
   int ret = bind(s, (struct sockaddr *) addr, sizeof(*addr));
@@ -198,11 +207,34 @@ void udp_send_one_node(void *msg, size_t length, struct sockaddr_in *addr)
   {
     to_send = MIN(length - sent, UDP_SEND_MAX_SIZE);
 
-    ((char*)msg+sent+400)[0] = seq_id;
-    seq_id++;
+    if (MESSAGE_MAX_SIZE > UDP_SEND_MAX_SIZE)
+    {
+      ((char*) msg + sent + SEQ_ID_OFFSET)[0] = seq_id;
+      seq_id++;
+    }
+
     sent += sendto(sock[0], (char*) msg + sent, to_send, 0,
         (struct sockaddr*) addr, sizeof(*addr));
   }
+
+  if (node_id != 0 && MESSAGE_MAX_SIZE > UDP_SEND_MAX_SIZE)
+  {
+    memcpy(last_sent_msg, msg, length);
+    last_sent_length = length;
+  }
+}
+
+void udp_send_retrans(struct sockaddr_in *addr)
+{
+  MessageTag retrans = RETRANS;
+
+#ifdef DEBUG_MORE
+  printf("[node %i] Sending a retrans on %s:%i\n", node_id, inet_ntoa(
+      addr->sin_addr), ntohs(addr->sin_port));
+#endif
+
+  sendto(sock[0], (char*) &retrans, sizeof(retrans), 0,
+      (struct sockaddr*) addr, sizeof(*addr));
 }
 
 // send the message msg of size length to all the nodes
@@ -221,6 +253,194 @@ void IPC_send_unicast(void *msg, size_t length, int nid)
   udp_send_one_node(msg, length, &addresses_node0[node_id]);
 }
 
+// must be called by node 0 only!
+int get_node_for_receive(void)
+{
+  fd_set file_descriptors;
+  struct timeval listen_time;
+  int maxsock;
+
+  while (1)
+  {
+    // select
+    FD_ZERO(&file_descriptors); //initialize file descriptor set
+
+    maxsock = sock[1];
+    FD_SET(sock[1], &file_descriptors);
+
+    for (int j = 2; j < nb_nodes; j++)
+    {
+      FD_SET(sock[j], &file_descriptors);
+      maxsock = MAX(maxsock, sock[j]);
+    }
+
+    listen_time.tv_sec = 1;
+    listen_time.tv_usec = 0;
+
+    select(maxsock + 1, &file_descriptors, NULL, NULL, &listen_time);
+
+    for (int j = 1; j < nb_nodes; j++)
+    {
+      //I want to listen at this replica
+      if (FD_ISSET(sock[j], &file_descriptors))
+      {
+        return j;
+      }
+    }
+  }
+}
+
+// receive for node 0
+size_t receive_for_node0(void *msg, size_t length)
+{
+  size_t header_size, s, r, msg_len;
+  char seq_id, expected_seq_id;
+  int node;
+
+  expected_seq_id = 0;
+  seq_id = 0;
+
+  // get a socket to read from
+  node = get_node_for_receive();
+
+  // receive header
+  header_size = recvfrom(sock[node], (char*) msg, UDP_SEND_MAX_SIZE, 0, 0, 0);
+
+  if (MESSAGE_MAX_SIZE > UDP_SEND_MAX_SIZE)
+  {
+    expected_seq_id = 0;
+    seq_id = *((char*) msg + SEQ_ID_OFFSET);
+  }
+
+#ifdef DEBUG
+  if (node_id == 0)
+  printf("[node %i] seq_id=%i, header_size=%lu\n", node_id, seq_id,
+      header_size);
+#endif
+
+  if (MESSAGE_MAX_SIZE > UDP_SEND_MAX_SIZE && seq_id != expected_seq_id)
+  {
+#ifdef DEBUG
+    if (node_id == 0)
+    printf("[node %i] Error: wrong seq number: %i instead of %i", node_id,
+        seq_id, expected_seq_id);
+#endif
+
+    udp_send_retrans(&addresses[node]);
+
+    return IPC_receive(msg, length);
+  }
+
+  // get the content
+  msg_len = ((struct message_header*) msg)->len;
+
+#ifdef DEBUG
+  if (node_id == 0)
+  printf("[node %i] Header size is %lu, msg_len is %lu\n", node_id,
+      header_size, msg_len);
+#endif
+
+  s = header_size;
+  while (s < msg_len)
+  {
+#ifdef DEBUG
+    if (node_id == 0)
+    printf("[node %i] s=%lu, msg_len=%lu\n", node_id, s, msg_len);
+#endif
+
+    r = recvfrom(sock[node], (char*) msg + s, msg_len - s, 0, 0, 0);
+    s += r;
+
+    if (MESSAGE_MAX_SIZE > UDP_SEND_MAX_SIZE)
+    {
+      expected_seq_id++;
+      seq_id = *((char*) msg + s - r + SEQ_ID_OFFSET);
+    }
+
+#ifdef DEBUG
+    if (node_id == 0)
+    printf("[node %i] seq_id=%i, r=%lu\n", node_id, seq_id, r);
+#endif
+
+    if (MESSAGE_MAX_SIZE > UDP_SEND_MAX_SIZE && seq_id != expected_seq_id)
+    {
+#ifdef DEBUG
+      if (node_id == 0)
+      printf("[node %i] Error: wrong seq number: %i instead of %i", node_id,
+          seq_id, expected_seq_id);
+#endif
+
+      udp_send_retrans(&addresses[node]);
+
+      return IPC_receive(msg, length);
+    }
+  }
+
+#ifdef DEBUG
+  if (node_id == 0)
+  printf("[node %i]l s=%lu, msg_len=%lu\n", node_id, s, msg_len);
+#endif
+
+  return s;
+}
+
+// receive a message and place it in msg (which is a buffer of size length).
+// Return the number of read bytes.
+// blocking
+// Return 0 if the message is invalid
+size_t IPC_receive(void *msg, size_t length)
+{
+  size_t s, msg_len;
+  int fd;
+
+  if (node_id == 0)
+  {
+    if (MESSAGE_MAX_SIZE > UDP_SEND_MAX_SIZE)
+    {
+      return receive_for_node0(msg, length);
+    }
+    else
+    {
+      fd = sock[get_node_for_receive()];
+    }
+  }
+  else
+  {
+    fd = sock[0];
+  }
+
+  // messages received by the other nodes fit in a chunk of MESSAGE_MAX_SIZE_CHKPT_REQ
+  s = recvfrom(fd, (char*) msg, MESSAGE_MAX_SIZE_CHKPT_REQ, 0, 0, 0);
+
+  if (MESSAGE_MAX_SIZE > UDP_SEND_MAX_SIZE && *(MessageTag*) msg == RETRANS)
+  {
+#ifdef DEBUG_MORE
+    printf("[node %i] Retransmitting on %s:%i\n", node_id, inet_ntoa(
+        addresses_node0[node_id].sin_addr), ntohs(
+        addresses_node0[node_id].sin_port));
+#endif
+
+    udp_send_one_node(last_sent_msg, last_sent_length,
+        &addresses_node0[node_id]);
+
+    return IPC_receive(msg, length);
+  }
+
+  // get the content
+  msg_len = ((struct message_header*) msg)->len;
+
+  if (msg_len != s)
+  {
+    printf(
+        "ERROR FOR NODE %i: should have received %lu (%i), instead has received %lu\n",
+        node_id, msg_len, MESSAGE_MAX_SIZE_CHKPT_REQ, s);
+  }
+
+  return s;
+}
+
+/*************************** INITIAL CODE ***********************************/
+#if 0
 int get_fd_for_receive(void)
 {
   if (node_id == 0)
@@ -281,60 +501,70 @@ size_t IPC_receive(void *msg, size_t length)
 #endif
 
   // get the header
-  header_size = recvfrom(fd, (char*)msg, UDP_SEND_MAX_SIZE, 0, 0, 0);
+  header_size = recvfrom(fd, (char*) msg, UDP_SEND_MAX_SIZE, 0, 0, 0);
   expected_seq_id = 0;
-  seq_id = *((char*)msg+400);
+  seq_id = *((char*) msg + SEQ_ID_OFFSET);
 
-#ifdef DEBUG
-  printf("[node %i] seq_id=%i, header_size=%lu\n", node_id, seq_id, header_size);
+#ifdef DEBUG_MORE
+  if (node_id == 0)
+  printf("[node %i] seq_id=%i, header_size=%lu\n", node_id, seq_id,
+      header_size);
 #endif
 
-  if (seq_id != expected_seq_id) {
-#ifdef DEBUG
-     printf("[node %i] Error: wrong seq number: %i instead of %i", node_id, seq_id, expected_seq_id);
+  if (seq_id != expected_seq_id)
+  {
+#ifdef DEBUG_MORE
+    if (node_id == 0)
+    printf("[node %i] Error: wrong seq number: %i instead of %i", node_id,
+        seq_id, expected_seq_id);
 #endif
-     return 0;
+    return 0;
   }
-
 
   // get the content
   msg_len = ((struct message_header*) msg)->len;
 
-#ifdef DEBUG
+#ifdef DEBUG_MORE
+  if (node_id == 0)
   printf("[node %i] Header size is %lu, msg_len is %lu\n", node_id,
-        header_size, msg_len);
+      header_size, msg_len);
 #endif
 
   s = header_size;
   while (s < msg_len)
   {
-#ifdef DEBUG
-     printf("[node %i] s=%lu, msg_len=%lu\n", node_id,
-           s, msg_len);
+#ifdef DEBUG_MORE
+    if (node_id == 0)
+    printf("[node %i] s=%lu, msg_len=%lu\n", node_id, s, msg_len);
 #endif
 
-     r = recvfrom(fd, (char*)msg + s, msg_len - s, 0, 0, 0);
-     s+=r;
+    r = recvfrom(fd, (char*) msg + s, msg_len - s, 0, 0, 0);
+    s += r;
 
-     expected_seq_id++;
-     seq_id = *((char*)msg+s-r+400);
+    expected_seq_id++;
+    seq_id = *((char*) msg + s - r + SEQ_ID_OFFSET);
 
-#ifdef DEBUG
-     printf("[node %i] seq_id=%i, r=%lu\n", node_id, seq_id, r);
+#ifdef DEBUG_MORE
+    if (node_id == 0)
+    printf("[node %i] seq_id=%i, r=%lu\n", node_id, seq_id, r);
 #endif
 
-     if (seq_id != expected_seq_id) {
-#ifdef DEBUG
-        printf("[node %i] Error: wrong seq number: %i instead of %i", node_id, seq_id, expected_seq_id);
+    if (seq_id != expected_seq_id)
+    {
+#ifdef DEBUG_MORE
+      if (node_id == 0)
+      printf("[node %i] Error: wrong seq number: %i instead of %i", node_id,
+          seq_id, expected_seq_id);
 #endif
-        return 0;
-     }
+      return 0;
+    }
   }
 
-#ifdef DEBUG
-     printf("[node %i]l s=%lu, msg_len=%lu\n", node_id,
-      s, msg_len);
+#ifdef DEBUG_MORE
+  if (node_id == 0)
+  printf("[node %i]l s=%lu, msg_len=%lu\n", node_id, s, msg_len);
 #endif
 
   return s;
 }
+#endif
