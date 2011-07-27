@@ -8,6 +8,9 @@
 #  $i: title (e.g. communication mechanism name)
 #  $i+1: summary file
 
+if [ -z $LOG_SCALE ]; then
+   LOG_SCALE=0
+fi
 XLABEL="Message size (log scale)"
 YLABEL="Throughput in prop/sec (log scale)"
 
@@ -30,6 +33,10 @@ fi
 
 PLOT_FILE=$(mktemp gnuplot.pXXX)
 
+if [ $LOG_SCALE -eq 1 ]; then
+   YLABEL="${YLABEL} (log scale)"
+fi
+
 cat << EOF > $PLOT_FILE
 set term postscript eps
 set output "${OUT_FILE}.eps"
@@ -38,7 +45,6 @@ set xlabel "${XLABEL}"
 set ylabel "${YLABEL}"
 set title "PaxosInside"
 
-set logscale y
 set logscale x
 
 set xtics("1B" 1,"64B" 64,"128B" 128,"512B" 512,"1kB" 1024,"4kB" 4096,"10kB" 10240,"100kB" 102400,"1MB" 1048576)
@@ -47,8 +53,16 @@ set xtics("1B" 1,"64B" 64,"128B" 128,"512B" 512,"1kB" 1024,"4kB" 4096,"10kB" 102
 #set key at 3.35,5300
 
 set xrange [64:]
-set yrange [1:]
+
 EOF
+
+if [ $LOG_SCALE -eq 1 ]; then
+   echo "set logscale y" >> $PLOT_FILE
+   echo "set yrange [1:]" >> $PLOT_FILE
+else
+   echo "set yrange [0:]" >> $PLOT_FILE
+fi
+
 
 echo -n "plot " >> $PLOT_FILE
 

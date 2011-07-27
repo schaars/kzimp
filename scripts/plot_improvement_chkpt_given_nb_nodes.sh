@@ -12,8 +12,9 @@
 #  $i+1: summary file
 
 
-LOG_SCALE=0
-
+if [ -z $LOG_SCALE ]; then
+   LOG_SCALE=0
+fi
 
 # Args:
 #  $1: PLOT_FILE

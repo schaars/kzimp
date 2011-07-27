@@ -9,8 +9,10 @@
 #  $i: title (e.g. communication mechanism name)
 #  $i+1: summary file
 
-LOG_SCALE=0
-XLABEL="Message size (log scale)"
+if [ -z $LOG_SCALE ]; then
+   LOG_SCALE=0
+fi
+XLABEL="Message size"
 YLABEL="Improvement in %"
 
 if [ $# -ge 1 ]; then
