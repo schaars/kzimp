@@ -12,8 +12,7 @@
 #  $i+1: summary file
 
 
-LOG_SCALE=0
-
+LOG_SCALE=1
 
 # Args:
 #  $1: PLOT_FILE
@@ -28,7 +27,7 @@ TITLE=$4
 
 # do we use log scale or not?
 if [ $LOG_SCALE -eq 1 ]; then
-   Y_LABEL="${Y_LABEL} (log scale)"
+   YLABEL="${YLABEL} (log scale)"
 fi
 
 cat << EOF > $PLOT_FILE
