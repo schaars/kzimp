@@ -83,7 +83,8 @@ private:
   //  directly in shared memory.
   // +nid is relevant only when using ULM. If set to -1, then this message will be multicast,
   //  otherwise it is sent to node nid.
-  void init_message(size_t len, MessageTag tag, bool ulm_alloc = false, int nid = -2);
+  void init_message(size_t len, MessageTag tag, bool ulm_alloc = false,
+      int nid = -2);
 };
 
 // return a pointer to the header of this message

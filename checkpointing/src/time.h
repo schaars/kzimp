@@ -63,7 +63,8 @@ static inline uint64_t diffTime(uint64_t t1, uint64_t t2)
   return (t1 - t2) / clock_mhz;
 }
 
-static inline uint64_t get_clock_mhz(void) {
+static inline uint64_t get_clock_mhz(void)
+{
   return clock_mhz;
 }
 

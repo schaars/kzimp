@@ -94,24 +94,25 @@ void Checkpointer::run(void)
     if (node_id() == 0 && !snapshot_in_progress)
     {
 #ifdef LIMIT_THR
-       // compute throughput
-       // thr_elapsed_time is in usec
-       rdtsc(thr_stop_time);
-       thr_elapsed_time = diffTime(thr_stop_time, thr_start_time);
-       elapsed_time_sec = (double) thr_elapsed_time / 1000000.0;
-       throughput = ((double) nb_iter) / elapsed_time_sec;
+      // compute throughput
+      // thr_elapsed_time is in usec
+      rdtsc(thr_stop_time);
+      thr_elapsed_time = diffTime(thr_stop_time, thr_start_time);
+      elapsed_time_sec = (double) thr_elapsed_time / 1000000.0;
+      throughput = ((double) nb_iter) / elapsed_time_sec;
 
-       if (throughput > limit_thr) {
-          // sleep until it is time
-          long sleeping_time = nb_iter / limit_thr * 1000000
-             - thr_elapsed_time * 1000000 - 10000;
+      if (throughput > limit_thr)
+      {
+        // sleep until it is time
+        long sleeping_time = nb_iter / limit_thr * 1000000
+        - thr_elapsed_time * 1000000 - 10000;
 
-          if (sleeping_time > 0)
-             usleep(sleeping_time);
-       }
+        if (sleeping_time > 0)
+        usleep(sleeping_time);
+      }
 #endif
 
-       take_snapshot();
+      take_snapshot();
     }
 
     // receive a message

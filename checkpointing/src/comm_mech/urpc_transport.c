@@ -90,7 +90,8 @@ void urpc_transport_create(int mon_id, void *buf, size_t buffer_size,
 static bool cansend(struct urpc_connection *c)
 {
 #ifdef URPC_TRANSPORT_DEBUG
-  if ((c->sent_id - c->ack_id) > c->max_msgs) {
+  if ((c->sent_id - c->ack_id) > c->max_msgs)
+  {
     printf("Monitor %u is blocked: %u - %u > %u\n", (unsigned int)c->monitor_id, c->sent_id, c->ack_id, c->max_msgs);
     while (1)
     {
@@ -132,8 +133,8 @@ bool urpc_transport_send(struct urpc_connection *c, void *msg, size_t msg_len)
       (unsigned int) c->ack_id, (unsigned int) c->sent_id);
 #endif
 
-  msg_as_uint64_t[msg_len-1]
-      = ((uint64_t) c->seq_id << URPC_TYPE_SIZE) | c->sent_id;
+  msg_as_uint64_t[msg_len - 1] = ((uint64_t) c->seq_id << URPC_TYPE_SIZE)
+      | c->sent_id;
   c->sent_id++;
   urpc_send_abstract(&c->out, msg_as_uint64_t, msg_len);
 
@@ -143,8 +144,8 @@ bool urpc_transport_send(struct urpc_connection *c, void *msg, size_t msg_len)
 // Get the message that is available.
 size_t get_the_message(struct urpc_connection *c, uint64_t *msg, size_t msg_len)
 {
-  c->ack_id = (msg[msg_len-1] >> URPC_TYPE_SIZE) & SEQ_ID_MASK;
-  c->seq_id = msg[msg_len-1] & SEQ_ID_MASK;
+  c->ack_id = (msg[msg_len - 1] >> URPC_TYPE_SIZE) & SEQ_ID_MASK;
+  c->seq_id = msg[msg_len - 1] & SEQ_ID_MASK;
 
 #ifdef URPC_TRANSPORT_DEBUG
   printf("[%u] Receiving a message with seq_id=%u, ack_id=%i and sent_id=%u\n",
