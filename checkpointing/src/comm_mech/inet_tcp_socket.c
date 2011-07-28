@@ -292,6 +292,8 @@ size_t IPC_receive(void *msg, size_t length)
   size_t header_size, s, left, msg_len;
   int fd;
 
+  s = 0;
+
   fd = get_fd_for_receive();
   if (fd < 0)
   {

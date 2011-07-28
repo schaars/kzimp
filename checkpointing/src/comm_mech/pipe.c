@@ -169,18 +169,22 @@ void IPC_clean_node(void)
 // send the message msg of size length to all the nodes
 void IPC_send_multicast(void *msg, size_t length)
 {
-  int i;
+  int i, r;
 
   for (i = 1; i < nb_nodes; i++)
   {
-    write(node0_to_all[i][1], msg, length);
+    r = write(node0_to_all[i][1], msg, length);
   }
 }
 
 // send the message msg of size length to the node 0
 void IPC_send_unicast(void *msg, size_t length, int nid)
 {
-  write(nodei_to_0[node_id][1], msg, length);
+   int r = write(nodei_to_0[node_id][1], msg, length);
+   if (r < 0)
+   {
+   perror("IPC_send_unicast");
+   }
 }
 
 // receive a message and place it in msg (which is a buffer of size length).

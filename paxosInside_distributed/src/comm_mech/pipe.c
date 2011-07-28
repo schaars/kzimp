@@ -289,15 +289,21 @@ void IPC_clean_client(void)
 // Indeed the only unicast is from 0 to 1
 void IPC_send_node_unicast(void *msg, size_t length)
 {
-  write(leader_to_acceptor[1], msg, length);
+  int r = write(leader_to_acceptor[1], msg, length);
+  if (r < 0)
+  {
+     perror("IPC_send_node_unicast");
+  }
 }
 
 // send the message msg of size length to all the nodes
 void IPC_send_node_multicast(void *msg, size_t length)
 {
+  int r;
+
   for (int i = 0; i < nb_learners; i++)
   {
-    write(acceptor_to_learners[i][1], msg, length);
+    r = write(acceptor_to_learners[i][1], msg, length);
   }
 }
 
@@ -305,14 +311,22 @@ void IPC_send_node_multicast(void *msg, size_t length)
 // called by a client
 void IPC_send_client_to_node(void *msg, size_t length)
 {
-  write(client_to_leader[1], msg, length);
+  int r = write(client_to_leader[1], msg, length);
+  if (r < 0)
+  {
+     perror("IPC_send_node_unicast");
+  }
 }
 
 // send the message msg of size length to the client of id cid
 // called by the leader
 void IPC_send_node_to_client(void *msg, size_t length, int cid)
 {
-  write(learner_to_clients[node_id - 2][1], msg, length);
+  int r = write(learner_to_clients[node_id - 2][1], msg, length);
+  if (r < 0)
+  {
+     perror("IPC_send_node_unicast");
+  }
 }
 
 // get a file descriptor on which there is something to receive
@@ -376,6 +390,8 @@ size_t IPC_receive(void *msg, size_t length)
 {
   size_t header_size, s, left, msg_len;
   int fd;
+
+  s = 0;
 
   fd = get_fd_for_recv();
 

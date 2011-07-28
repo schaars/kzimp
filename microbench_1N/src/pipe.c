@@ -73,7 +73,7 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   for (i = 0; i < nb_receivers; i++)
   {
     pipes[i] = (int*) malloc(sizeof(int) * 2);
-    pipe(pipes[i]);
+    ret = pipe(pipes[i]);
 
     // set the size of the pipe's buffer
     ret = fcntl(pipes[i][0], F_SETPIPE_SZ, 1048576);
@@ -184,7 +184,7 @@ uint64_t get_cycles_recv()
 void IPC_sendToAll(int msg_size, char msg_id)
 {
   uint64_t cycle_start, cycle_stop;
-  int i;
+  int i, r;
   char *msg;
 
   if (msg_size < MIN_MSG_SIZE)
@@ -236,7 +236,7 @@ void IPC_sendToAll(int msg_size, char msg_id)
     vmsplice(pipes[i][1], &iov, 1, 0);
 #else
     rdtsc(cycle_start);
-    write(pipes[i][1], msg, msg_size);
+    r = write(pipes[i][1], msg, msg_size);
 #endif
     rdtsc(cycle_stop);
 

@@ -103,7 +103,7 @@ struct ump_channel open_channel(char *mprotectfile, int nb, int nb_messages,
 
   if (is_receiver)
   {
-    chan->fd = open(mprotectfile, O_RDWR | O_CREAT);
+    chan->fd = open(mprotectfile, O_RDWR | O_CREAT, 0666);
     if (chan->fd < 0)
     {
       perror("Reader opening file.");
