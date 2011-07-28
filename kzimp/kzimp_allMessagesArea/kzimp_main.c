@@ -541,7 +541,7 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
 
   if (init_lock)
   {
-    channel->bcl = SPIN_LOCK_UNLOCKED;
+     spin_lock_init(&channel->bcl);
   }
 
   return 0;

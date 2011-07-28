@@ -340,7 +340,7 @@ static int kbfishmem_init_channel(struct kbfishmem_channel *channel, int chan_id
 
   if (init_lock)
   {
-    channel->bcl = SPIN_LOCK_UNLOCKED;
+     spin_lock_init(&channel->bcl);
   }
 
   return 0;
