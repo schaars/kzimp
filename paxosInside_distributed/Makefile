@@ -8,7 +8,7 @@ all: barrelfish_mp_paxosInside 		ulm_paxosInside 				kzimp_paxosInside \
 	 ipc_msg_queue_paxosInside 		posix_msg_queue_paxosInside
 
 C:=g++
-CFLAGS:=-Wall -Werror -g -ltcmalloc
+CFLAGS:=-Wall -Werror -g -ltcmalloc -O2
 DEPS:=src/time.h src/paxosInside.cc src/Message.cc src/Request.cc src/Accept_req.cc src/Learn.cc src/Response.cc src/PaxosNode.cc src/Client.cc
 
 	

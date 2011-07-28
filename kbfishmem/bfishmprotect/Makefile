@@ -1,5 +1,5 @@
 C:=gcc
-CFLAGS:=-Wall -Werror -g -lm -ltcmalloc -DMESSAGE_BYTES=64 -DWAIT_TYPE=USLEEP
+CFLAGS:=-Wall -Werror -g -lm -ltcmalloc -DMESSAGE_BYTES=64 -O2
 DEPS:= futex.c bfishmprotect.c bfishmprotect_test.c
 TARGETS:= bfishmprotect_simple_test bfishmprotect_fork_test bfishmprotect_get_struct_ump_message_size
 
