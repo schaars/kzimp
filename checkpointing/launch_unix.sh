@@ -11,12 +11,11 @@
 CONFIG_FILE=config
 
 
-if [ $# -eq 5 ]; then
+if [ $# -eq 4 ]; then
    NB_NODES=$1
    NB_ITER=$2
    MESSAGE_MAX_SIZE=$3
    CHKPT_SIZE=$4
-   LIMIT_THR=$5
  
 else
    echo "Usage: ./$(basename $0) <nb_nodes> <nb_iter> <msg_max_size> <chkpt_size>"
