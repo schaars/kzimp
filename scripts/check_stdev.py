@@ -9,7 +9,7 @@ from oset import oset
 def check_summary_chkpt(filename, max_stdev):
    fd = open(filename, 'r')
 
-   print("The following experiments are to be redone because stdev greater than %.2f%%:"%(max_stdev))
+   print("The following experiments are to be redone because stdev greater than %.2f%% or equal to 0:"%(max_stdev))
    print("nb_nodes\tchkpt_size\tthr\tstdev\tstdev_perc\tlat\tstdev\stdev_perc")
 
    for line in fd:
@@ -34,9 +34,9 @@ def check_summary_chkpt(filename, max_stdev):
       lat_stdev = float(zeline[10])
       lat_stdev_perc = float(zeline[11])
 
-      if thr_stdev_perc > max_stdev:
+      if thr_stdev_perc > max_stdev or thr_stdev_perc == 0.0:
          print("\033[91m%i\t%i\033[0m\t%.2f\t%.2f\t\033[91m%.2f\033[0m\t%.2f\t%.2f\t%.2f"%(nb_nodes, chkpt_size, thr_mean, thr_stdev, thr_stdev_perc, lat_mean, lat_stdev, lat_stdev_perc))
-      elif lat_stdev_perc > max_stdev:
+      elif lat_stdev_perc > max_stdev or lat_stdev_perc == 0.0:
          print("\033[91m%i\t%i\033[0m\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t\033[91m%.2f\033[0m"%(nb_nodes, chkpt_size, thr_mean, thr_stdev, thr_stdev_perc, lat_mean, lat_stdev, lat_stdev_perc))
 
    fd.close()
@@ -45,7 +45,7 @@ def check_summary_chkpt(filename, max_stdev):
 def check_summary_paxosInside(filename, max_stdev):
    fd = open(filename, 'r')
 
-   print("The following experiments are to be redone because stdev greater than %.2f%%:"%(max_stdev))
+   print("The following experiments are to be redone because stdev greater than %.2f%% or equal to 0:"%(max_stdev))
    print("req_size\tthr\tstdev\tstdev_perc")
 
    for line in fd:
@@ -67,7 +67,7 @@ def check_summary_paxosInside(filename, max_stdev):
       stdev = float(zeline[7])
       stdev_perc = float(zeline[8])
 
-      if stdev_perc > max_stdev:
+      if stdev_perc > max_stdev or stdev_perc == 0.0:
          print("\033[91m%i\033[0m\t%.2f\t%.2f\t\033[91m%.2f\033[0m"%(req_size, thr, stdev, stdev_perc))
 
    fd.close()
