@@ -120,6 +120,7 @@ fi
 
 # save results
 sudo ./stop_all.sh
+sudo rm /dev/mqueue/posix_message_queue_paxosInside*
 sudo umount /dev/mqueue
 sudo rmdir /dev/mqueue
 

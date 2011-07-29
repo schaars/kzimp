@@ -23,7 +23,7 @@
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #define MIN(a, b) (((a)<(b))?(a):(b))
 
-#define POSIX_QUEUE_FILENAME "/posix_message_queue_microbench"
+#define POSIX_QUEUE_FILENAME "/posix_message_queue_paxosInside"
 
 /********** All the variables needed by POSIX message queue **********/
 
