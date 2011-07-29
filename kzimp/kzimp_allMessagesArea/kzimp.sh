@@ -1,1 +1,0 @@
-../kzimp/kzimp.sh
