@@ -92,7 +92,7 @@ struct kzimp_message
 
    // padding (to avoid false sharing)
    char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*))];
-}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE))); //TODO: check alignement
+}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 #define KZIMP_COMM_CHAN_SIZE1 (sizeof(int)+sizeof(int)+sizeof(long)+sizeof(unsigned long)+sizeof(wait_queue_head_t)*2+sizeof(atomic_t)*2+sizeof(struct kzimp_message*)+sizeof(char*))
 #define KZIMP_COMM_CHAN_SIZE2 (sizeof(int)+sizeof(spinlock_t))
