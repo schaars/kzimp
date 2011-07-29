@@ -14,7 +14,7 @@ exit 0
 
 # The main function
 function do_summary {
-echo -e "#nb_nodes\tmsg_size\tchkpt_size\tnb_iter\tchannel_size\tlimit_thr\tthroughtput\tlatency" > $OUTPUT_FILE
+echo -e "#nb_nodes\tmsg_size\tchkpt_size\tnb_iter\tchannel_size\tlimit_thr\tthroughput\tlatency" > $OUTPUT_FILE
 
 for file in ${RESULTS_DIR}/*.txt; do
    # extract the values from the filename

@@ -14,7 +14,7 @@ exit 0
 
 # The main function
 function do_summary {
-echo -e "#nb_paxos_nodes\tnb_clients\treq_size\tnb_iter\tleader_acceptor\tchannel_size\tthroughtput" > $OUTPUT_FILE
+echo -e "#nb_paxos_nodes\tnb_clients\treq_size\tnb_iter\tleader_acceptor\tchannel_size\tthroughput" > $OUTPUT_FILE
 
 for file in ${RESULTS_DIR}/*.txt; do
    # extract the values from the filename
