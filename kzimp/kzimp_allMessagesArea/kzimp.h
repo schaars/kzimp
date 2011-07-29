@@ -18,6 +18,7 @@
 #include <linux/wait.h>         /* wait queues */
 #include <linux/list.h>         /* linked list */
 #include <linux/poll.h>         /* poll_table structure */
+#include <linux/types.h>        /* atomic_t */
 
 #include "mem_wrapper.h"
 
@@ -94,7 +95,7 @@ struct kzimp_message
    char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*))];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE))); //TODO: check alignement
 
-#define KZIMP_COMM_CHAN_SIZE1 (sizeof(int)+sizeof(int)+sizeof(long)+sizeof(unsigned long)+sizeof(wait_queue_head_t)*2+sizeof(struct kzimp_message*)+sizeof(char*))
+#define KZIMP_COMM_CHAN_SIZE1 (sizeof(int)+sizeof(int)+sizeof(long)+sizeof(unsigned long)+sizeof(wait_queue_head_t)*2+sizeof(atomic_t)*2+sizeof(struct kzimp_message*)+sizeof(char*))
 #define KZIMP_COMM_CHAN_SIZE2 (sizeof(int)+sizeof(spinlock_t))
 #define KZIMP_COMM_CHAN_SIZE3 (sizeof(struct list_head)+sizeof(int)+sizeof(int)+sizeof(int)+sizeof(struct cdev))
 
@@ -105,7 +106,9 @@ struct kzimp_comm_chan
   int compute_checksum;             /* do we compute the checksum? 0: no, 1: yes, 2: partial */
   long timeout_in_ms;               /* writer's timeout in miliseconds */
   unsigned long multicast_mask;     /* the multicast mask, used for the bitmap */
-  wait_queue_head_t rq, wq;         /* the wait queues */ //TODO: call wake only if there is a sleeping guy
+  wait_queue_head_t rq, wq;         /* the wait queues */
+  atomic_t sleeping_writers;        /* number of sleeping writers */
+  atomic_t sleeping_readers;        /* number of sleeping readers */
   struct kzimp_message* msgs;       /* the messages of the channel */
   char *messages_area;              /* pointer to the big allocated area of messages */
 
