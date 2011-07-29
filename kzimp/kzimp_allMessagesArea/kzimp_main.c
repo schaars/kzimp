@@ -261,9 +261,7 @@ static ssize_t kzimp_read
     // With the schedule_timeout() performance seem to be better.
     // if (!reader_can_read(m->bitmap, ctrl->bitmap_bit))
     //   schedule();
-    atomic_inc(&chan->sleeping_readers);
     schedule_timeout(HZ/100);
-    atomic_dec(&chan->sleeping_readers);
   }
   finish_wait(&chan->rq, &__wait);
 
@@ -306,7 +304,7 @@ static ssize_t kzimp_read
   if (likely(ctrl->online))
   {
     clear_bit(ctrl->bitmap_bit, &m->bitmap);
-    if (atomic_read(&chan->sleeping_writers) > 0 && writer_can_write(m->bitmap))
+    if (writer_can_write(m->bitmap))
     {
       wake_up_interruptible(&chan->wq);
     }
@@ -433,9 +431,7 @@ static ssize_t kzimp_write
       return -EINTR;
     }
 
-    atomic_inc(&chan->sleeping_writers);
     to_expired = schedule_timeout(chan->timeout_in_ms * HZ / 1000);
-    atomic_dec(&chan->sleeping_writers);
   }
   finish_wait(&chan->wq, &__wait);
 
@@ -469,9 +465,7 @@ static ssize_t kzimp_write
   m->bitmap = chan->multicast_mask;
 
   // wake up sleeping readers
-  if (atomic_read(&chan->sleeping_readers) > 0) {
-    wake_up_interruptible(&chan->rq);
-  }
+  wake_up_interruptible(&chan->rq);
 
   return count;
 }
@@ -523,8 +517,6 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
   channel->next_write_idx = 0;
   init_waitqueue_head(&channel->rq);
   init_waitqueue_head(&channel->wq);
-  atomic_set(&channel->sleeping_readers, 0);
-  atomic_set(&channel->sleeping_writers, 0);
   INIT_LIST_HEAD(&channel->readers);
 
   size = (unsigned long) channel->max_msg_size

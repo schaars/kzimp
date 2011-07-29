@@ -18,7 +18,6 @@
 #include <linux/wait.h>         /* wait queues */
 #include <linux/list.h>         /* linked list */
 #include <linux/poll.h>         /* poll_table structure */
-#include <linux/types.h>        /* atomic_t */
 
 #include "mem_wrapper.h"
 
@@ -107,8 +106,6 @@ struct kzimp_comm_chan
   long timeout_in_ms;               /* writer's timeout in miliseconds */
   unsigned long multicast_mask;     /* the multicast mask, used for the bitmap */
   wait_queue_head_t rq, wq;         /* the wait queues */
-  atomic_t sleeping_writers;        /* number of sleeping writers */
-  atomic_t sleeping_readers;        /* number of sleeping readers */
   struct kzimp_message* msgs;       /* the messages of the channel */
   char *messages_area;              /* pointer to the big allocated area of messages */
 
