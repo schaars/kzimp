@@ -1,1 +1,1 @@
-../kzimp.sh
+../kzimp_default/kzimp.sh
