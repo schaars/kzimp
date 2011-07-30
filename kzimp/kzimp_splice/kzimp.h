@@ -109,11 +109,10 @@ struct kzimp_message
   short __p1;           /* to align properly the char* */
 
   char *data;           /* the message content */
-
-  //todo: something to know it's a big message, if we need to change the memory protection
+  char *big_msg_addr;   /* the message content, for a big message */
 
   // padding (to avoid false sharing)
-  char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*))];
+  char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*)*2)];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 #define KZIMP_COMM_CHAN_SIZE1 (sizeof(int)+sizeof(int)+sizeof(long)+sizeof(unsigned long)+sizeof(wait_queue_head_t)*2+sizeof(atomic_t)*2+sizeof(struct kzimp_message*)+sizeof(char*))

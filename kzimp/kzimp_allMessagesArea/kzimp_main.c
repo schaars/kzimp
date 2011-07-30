@@ -186,7 +186,6 @@ static int kzimp_release(struct inode *inode, struct file *filp)
 
   ctrl = filp->private_data;
 
-  // the control structure is only for a reader
   if (filp->f_mode & FMODE_READ)
   {
     chan = ctrl->channel;
@@ -369,23 +368,10 @@ static void handle_timeout(struct kzimp_comm_chan *chan,
   spin_unlock(&chan->bcl);
 }
 
-/*
- * kzimp write operation.
- * Blocking call.
- * Sleeps until it can write the message.
- * FIXME: if there are more writers than the number of messages in the channel, there can be
- * FIXME: 2 writers on the same message. We assume the channel size is less than the number of writers.
- * FIXME: To fix that we can add a counter.
- * Returns:
- *  . 0 if the size of the user-level buffer is less or equal than 0 or greater than the maximal message size
- *  . -EFAULT if the buffer *buf is not valid
- *  . -EINTR if the process has been interrupted by a signal while waiting
- *  . -EAGAIN if the operations are non-blocking and the call would block. Note that if this is the case, the buffer is copied
- *            from user to kernel space.
- *  . The number of written bytes otherwise
- */
-static ssize_t kzimp_write
-(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
+// Wait for writing if needed.
+// Return 1 if everything is ok, an error otherwise.
+static ssize_t kzimp_wait_for_writing_if_needed(struct file *filp,
+    size_t count, struct kzimp_message **mf)
 {
   long to_expired;
   struct kzimp_message *m;
@@ -441,13 +427,15 @@ static ssize_t kzimp_write
     handle_timeout(chan, m);
   }
 
-  // copy_from_user returns the number of bytes left to copy
-  if (unlikely(copy_from_user(m->data, buf, count)))
-  {
-    printk(KERN_ERR "kzimp: copy_from_user failed for process %i in write\n", current->pid);
-    return -EFAULT;
-  }
+  *mf = m;
 
+  return 1;
+}
+
+// finalize the write
+static void kzimp_finalize_write(struct kzimp_comm_chan *chan,
+    struct kzimp_message *m, size_t count)
+{
   m->len = count;
 
   // compute checksum if required
@@ -466,6 +454,47 @@ static ssize_t kzimp_write
 
   // wake up sleeping readers
   wake_up_interruptible(&chan->rq);
+}
+
+/*
+ * kzimp write operation.
+ * Blocking call.
+ * Sleeps until it can write the message.
+ * FIXME: if there are more writers than the number of messages in the channel, there can be
+ * FIXME: 2 writers on the same message. We assume the channel size is less than the number of writers.
+ * FIXME: To fix that we can add a counter.
+ * Returns:
+ *  . 0 if the size of the user-level buffer is less or equal than 0 or greater than the maximal message size
+ *  . -EFAULT if the buffer *buf is not valid
+ *  . -EINTR if the process has been interrupted by a signal while waiting
+ *  . -EAGAIN if the operations are non-blocking and the call would block.
+ *  . The number of written bytes otherwise
+ */
+static ssize_t kzimp_write
+(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
+{
+  struct kzimp_message *m;
+  ssize_t ret;
+
+  struct kzimp_comm_chan *chan; /* channel information */
+  struct kzimp_ctrl *ctrl;
+
+  ctrl = filp->private_data;
+  chan = ctrl->channel;
+
+  ret = kzimp_wait_for_writing_if_needed(filp, count, &m);
+  if (unlikely(ret != 1)) {
+    return ret;
+  }
+
+  // copy_from_user returns the number of bytes left to copy
+  if (unlikely(copy_from_user(m->data, buf, count)))
+  {
+    printk(KERN_ERR "kzimp: copy_from_user failed for process %i in write\n", current->pid);
+    return -EFAULT;
+  }
+
+  kzimp_finalize_write(chan, m, count);
 
   return count;
 }
@@ -587,6 +616,14 @@ static int kzimp_read_proc_file(char *page, char **start, off_t off, int count,
   return len;
 }
 
+static void kzimp_free_channel(struct kzimp_comm_chan *chan)
+{
+  struct big_mem_area_elt *p, *next;
+
+  my_vfree(chan->messages_area);
+  my_kfree(chan->msgs);
+}
+
 // called when writing to file /proc/<procfs_name>
 static int kzimp_write_proc_file(struct file *file, const char *buffer,
     unsigned long count, void *data)
@@ -647,6 +684,7 @@ static int kzimp_write_proc_file(struct file *file, const char *buffer,
   // we can modify the channel only if there are no readers on it
   if (kzimp_channels[chan_id].nb_readers == 0)
   {
+    kzimp_free_channel(&kzimp_channels[chan_id]);
     err = kzimp_init_channel(&kzimp_channels[chan_id], chan_id, max_msg_size,
         channel_size, to, compute_checksum, 0);
   }
@@ -748,9 +786,7 @@ static void __exit kzimp_end(void)
   // delete channels
   for (i=0; i<nb_max_communication_channels; i++)
   {
-    my_vfree(kzimp_channels[i].messages_area);
-    my_kfree(kzimp_channels[i].msgs);
-
+    kzimp_free_channel(&kzimp_channels[i]);
     kzimp_del_cdev(&kzimp_channels[i]);
   }
   my_kfree(kzimp_channels);

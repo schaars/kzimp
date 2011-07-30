@@ -397,23 +397,10 @@ static void handle_timeout(struct kzimp_comm_chan *chan,
   spin_unlock(&chan->bcl);
 }
 
-/*
- * kzimp write operation.
- * Blocking call.
- * Sleeps until it can write the message.
- * FIXME: if there are more writers than the number of messages in the channel, there can be
- * FIXME: 2 writers on the same message. We assume the channel size is less than the number of writers.
- * FIXME: To fix that we can add a counter.
- * Returns:
- *  . 0 if the size of the user-level buffer is less or equal than 0 or greater than the maximal message size
- *  . -EFAULT if the buffer *buf is not valid
- *  . -EINTR if the process has been interrupted by a signal while waiting
- *  . -EAGAIN if the operations are non-blocking and the call would block. Note that if this is the case, the buffer is copied
- *            from user to kernel space.
- *  . The number of written bytes otherwise
- */
-static ssize_t kzimp_write
-(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
+// Wait for writing if needed.
+// Return 1 if everything is ok, an error otherwise.
+static ssize_t kzimp_wait_for_writing_if_needed(struct file *filp,
+    size_t count, struct kzimp_message **mf)
 {
   long to_expired;
   struct kzimp_message *m;
@@ -469,13 +456,15 @@ static ssize_t kzimp_write
     handle_timeout(chan, m);
   }
 
-  // copy_from_user returns the number of bytes left to copy
-  if (unlikely(copy_from_user(m->data, buf, count)))
-  {
-    printk(KERN_ERR "kzimp: copy_from_user failed for process %i in write\n", current->pid);
-    return -EFAULT;
-  }
+  *mf = m;
 
+  return 1;
+}
+
+// finalize the write
+static void kzimp_finalize_write(struct kzimp_comm_chan *chan,
+    struct kzimp_message *m, char *buf, size_t count)
+{
   m->len = count;
 
   // compute checksum if required
@@ -486,7 +475,7 @@ static ssize_t kzimp_write
 
     if (chan->compute_checksum == 1)
     {
-      m->checksum = oneC_sum(m->checksum, m->data, count);
+      m->checksum = oneC_sum(m->checksum, buf, count);
     }
   }
 
@@ -494,6 +483,51 @@ static ssize_t kzimp_write
 
   // wake up sleeping readers
   wake_up_interruptible(&chan->rq);
+}
+
+/*
+ * kzimp write operation.
+ * Blocking call.
+ * Sleeps until it can write the message.
+ * FIXME: if there are more writers than the number of messages in the channel, there can be
+ * FIXME: 2 writers on the same message. We assume the channel size is less than the number of writers.
+ * FIXME: To fix that we can add a counter.
+ * Returns:
+ *  . 0 if the size of the user-level buffer is less or equal than 0 or greater than the maximal message size
+ *  . -EFAULT if the buffer *buf is not valid
+ *  . -EINTR if the process has been interrupted by a signal while waiting
+ *  . -EAGAIN if the operations are non-blocking and the call would block. Note that if this is the case, the buffer is copied
+ *            from user to kernel space.
+ *  . The number of written bytes otherwise
+ */
+static ssize_t kzimp_write
+(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
+{
+  struct kzimp_message *m;
+  ssize_t ret;
+
+  struct kzimp_comm_chan *chan; /* channel information */
+  struct kzimp_ctrl *ctrl;
+
+  ctrl = filp->private_data;
+  chan = ctrl->channel;
+
+  ret = kzimp_wait_for_writing_if_needed(filp, count, &m);
+  if (unlikely(ret != 1))
+  {
+    return ret;
+  }
+
+  // copy_from_user returns the number of bytes left to copy
+  if (unlikely(copy_from_user(m->data, buf, count)))
+  {
+    printk(KERN_ERR "kzimp: copy_from_user failed for process %i in write\n", current->pid);
+    return -EFAULT;
+  }
+
+  m->big_msg_addr = NULL;
+
+  kzimp_finalize_write(chan, m, m->data, count);
 
   return count;
 }
@@ -595,9 +629,11 @@ static int kzimp_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
  * kzimp IOCTL
  * cmd must be KZIMP_IOCTL_SPLICE_WRITE
  * Return:
- *  . 0 if everything is ok
- *  . -EINVAL if cmd or arg is invalid
- *  . -EFAULT if the memory area pointed to by arg is not accessible
+ *  . 0 if the size of the user-level buffer is less or equal than 0 or greater than the maximal message size
+ *  . -EFAULT if the buffer in the struct iovec is not valid
+ *  . -EINTR if the process has been interrupted by a signal while waiting
+ *  . -EAGAIN if the operations are non-blocking and the call would block.
+ *  . The number of written bytes otherwise
  */
 static long kzimp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -605,6 +641,11 @@ static long kzimp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
   struct kzimp_ctrl *ctrl;
   long retval;
   struct iovec *iov;
+  struct kzimp_message *m;
+  size_t count;
+  ssize_t ret;
+
+  retval = 0;
 
   ctrl = filp->private_data;
   chan = ctrl->channel;
@@ -614,12 +655,24 @@ static long kzimp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
   switch (cmd)
   {
   case KZIMP_IOCTL_SPLICE_WRITE:
+    // copy iovec
     //todo
-    // 1. wait for writing
-    // 2. copy the iovec structure
-    // 3. set bitmap and wake up readers
-
     iov = 0;
+    count = 0;
+    //todo: return -EFAULT if needed
+
+    ret = kzimp_wait_for_writing_if_needed(filp, count, &m);
+    if (likely(ret == 1))
+    {
+      //todo: register pages
+
+      //todo: this is not m->data but something else that I am going to add to the message structure
+      kzimp_finalize_write(chan, m, m->big_msg_addr, count);
+    }
+    else
+    {
+      retval = ret;
+    }
     break;
 
   default:
