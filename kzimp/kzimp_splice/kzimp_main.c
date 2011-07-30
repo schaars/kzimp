@@ -125,6 +125,7 @@ static int kzimp_open(struct inode *inode, struct file *filp)
 {
   struct kzimp_comm_chan *chan; /* channel information */
   struct kzimp_ctrl *ctrl;
+  struct big_mem_area_elt *bma;
 
   chan = container_of(inode->i_cdev, struct kzimp_comm_chan, cdev);
 
@@ -158,6 +159,8 @@ static int kzimp_open(struct inode *inode, struct file *filp)
       printk(KERN_ERR "Maximum number of readers on the channel %i has been reached: %i\n", chan->chan_id, chan->nb_readers);
       return -1;
     }
+
+    ctrl->big_msg_area = NULL;
   }
   else
   {
@@ -165,6 +168,26 @@ static int kzimp_open(struct inode *inode, struct file *filp)
     ctrl->bitmap_bit = -1;
     ctrl->online = -1;
     ctrl->next.prev = ctrl->next.next = NULL;
+  }
+
+  if (filp->f_mode & FMODE_WRITE)
+  {
+    ctrl->big_msg_area
+    = my_vmalloc((unsigned long)chan->max_msg_size_page_rounded * (unsigned long)chan->channel_size);
+
+    bma = my_kmalloc(sizeof(*bma), GFP_KERNEL);
+    if (unlikely(!bma))
+    {
+      printk(KERN_ERR "kzimp: big_mem_area elt allocation error\n");
+      return -ENOMEM;
+    }
+
+    bma->addr = ctrl->big_msg_area;
+    list_add_tail(&bma->next, &chan->writers_big_msg);
+
+    // the writer needs the FMODE_READ right, otherwise it cannot mmap
+    // this is because it needs to mmap with the MAP_SHARED flag.
+    filp->f_mode |= FMODE_READ;
   }
 
   filp->private_data = ctrl;
@@ -186,8 +209,9 @@ static int kzimp_release(struct inode *inode, struct file *filp)
 
   ctrl = filp->private_data;
 
-  // the control structure is only for a reader
-  if (filp->f_mode & FMODE_READ)
+  // writers need FMODE_READ in order to mmap the big messages area. However, they are
+  // not readers, so we check the value of next_read_idx
+  if ((filp->f_mode & FMODE_READ) && ctrl->next_read_idx >= 0)
   {
     chan = ctrl->channel;
 
@@ -205,6 +229,10 @@ static int kzimp_release(struct inode *inode, struct file *filp)
       clear_bit(ctrl->bitmap_bit, &(chan->msgs[i].bitmap));
     }
   }
+
+  // for a writer, you should free the memory area allocated for big messages.
+  // However this cannot be done here: you need to be sure there is no message left to be read.
+  // We choose to free the area only when unloading the module.
 
   my_kfree(ctrl);
 
@@ -499,6 +527,109 @@ static unsigned int kzimp_poll(struct file *filp, poll_table *wait)
   return mask;
 }
 
+/*
+ * kzimp mmap operation.
+ * Returns:
+ *  . -EACCES if the process has not the credentials for the requested permission.
+ *  . 0 otherwise.
+ */
+static int kzimp_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+  int retval;
+  struct kzimp_comm_chan *chan; /* channel information */
+  struct kzimp_ctrl *ctrl;
+
+  ctrl = filp->private_data;
+  chan = ctrl->channel;
+
+  /*
+   printk(KERN_DEBUG "kzimp: process %i in kzimp_mmap\n", current->pid);
+   printk(KERN_DEBUG "kzimp: vm_start=%lu, vm_end=%lu, vm_pgoff=%lu, vm_flags=%lu\n", vma->vm_start, vma->vm_end, vma->vm_pgoff, vma->vm_flags);
+   */
+
+  if (likely((vma->vm_flags & VM_WRITE) && (vma->vm_flags & VM_READ)))
+  {
+    retval = 0;
+  }
+  else
+  {
+    printk(KERN_DEBUG "kzimp: process %i in mmap does not have the rights for the requested credwentials\n", current->pid);
+    retval = -EACCES;
+  }
+
+  /* don't do anything here: fault handles the page faults and the mapping */
+  vma->vm_ops = &kzimp_vm_ops;
+  vma->vm_flags |= VM_RESERVED; // do not attempt to swap out the vma
+  vma->vm_flags |= VM_CAN_NONLINEAR; // Has ->fault & does nonlinear pages
+  vma->vm_private_data = filp->private_data; // pointer to the control structure
+
+  return retval;
+}
+
+static int kzimp_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+{
+  struct kzimp_ctrl *ctrl;
+  struct page *peyj;
+  unsigned long offset;
+  int retval;
+
+  ctrl = vma->vm_private_data;
+  offset = (vmf->pgoff - vma->vm_pgoff) * PAGE_SIZE;
+
+  /*
+   printk(KERN_DEBUG "kzimp: process %i in kzimp_vma_fault\n", current->pid);
+   printk(KERN_DEBUG "kzimp: vm_start=%lu, vm_end=%lu, vm_pgoff=%lu, vm_flags=%lu\n", vma->vm_start, vma->vm_end, vma->vm_pgoff, vma->vm_flags);
+   printk(KERN_DEBUG "kzimp: flags=%u, pgoff=%lu, virtual_addr=%p, page=%p\n", vmf->flags, vmf->pgoff, vmf->virtual_address, vmf->page);
+   */
+
+  peyj = vmalloc_to_page((const void*) &(ctrl->big_msg_area[offset]));
+  get_page(peyj);
+  retval = VM_FAULT_MINOR;
+
+  vmf->page = peyj;
+
+  return 0;
+}
+
+/*
+ * kzimp IOCTL
+ * cmd must be KZIMP_IOCTL_SPLICE_WRITE
+ * Return:
+ *  . 0 if everything is ok
+ *  . -EINVAL if cmd or arg is invalid
+ *  . -EFAULT if the memory area pointed to by arg is not accessible
+ */
+static long kzimp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+  struct kzimp_comm_chan *chan; /* channel information */
+  struct kzimp_ctrl *ctrl;
+  long retval;
+  struct iovec *iov;
+
+  ctrl = filp->private_data;
+  chan = ctrl->channel;
+
+  printk(KERN_DEBUG "kzimp: process %i in kzimp_ioctl with cmd=%u and arg=%p\n", current->pid, cmd, (struct iovec*)arg);
+
+  switch (cmd)
+  {
+  case KZIMP_IOCTL_SPLICE_WRITE:
+    //todo
+    // 1. wait for writing
+    // 2. copy the iovec structure
+    // 3. set bitmap and wake up readers
+
+    iov = 0;
+    break;
+
+  default:
+    retval = -EINVAL;
+    break;
+  }
+
+  return retval;
+}
+
 static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
     int max_msg_size, int channel_size, long to, int compute_checksum,
     int init_lock)
@@ -509,6 +640,7 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
 
   channel->chan_id = chan_id;
   channel->max_msg_size = max_msg_size;
+  channel->max_msg_size_page_rounded = ROUND_UP_PAGE_SIZE(max_msg_size);
   channel->channel_size = channel_size;
   channel->compute_checksum = compute_checksum;
   channel->timeout_in_ms = to;
@@ -518,6 +650,7 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
   init_waitqueue_head(&channel->rq);
   init_waitqueue_head(&channel->wq);
   INIT_LIST_HEAD(&channel->readers);
+  INIT_LIST_HEAD(&channel->writers_big_msg);
 
   size = (unsigned long) channel->max_msg_size
       * (unsigned long) channel->channel_size;
@@ -546,7 +679,7 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
 
   if (init_lock)
   {
-     spin_lock_init(&channel->bcl);
+    spin_lock_init(&channel->bcl);
   }
 
   return 0;
@@ -585,6 +718,22 @@ static int kzimp_read_proc_file(char *page, char **start, off_t off, int count,
   }
 
   return len;
+}
+
+static void kzimp_free_channel(struct kzimp_comm_chan *chan)
+{
+  struct big_mem_area_elt *p, *next;
+
+  my_vfree(chan->messages_area);
+  my_kfree(chan->msgs);
+
+  // set the remaining readers on that bitmap to offline
+  list_for_each_entry_safe(p, next, &chan->writers_big_msg, next)
+  {
+    my_vfree(p->addr);
+    list_del(&p->next);
+    my_kfree(p);
+  }
 }
 
 // called when writing to file /proc/<procfs_name>
@@ -647,6 +796,7 @@ static int kzimp_write_proc_file(struct file *file, const char *buffer,
   // we can modify the channel only if there are no readers on it
   if (kzimp_channels[chan_id].nb_readers == 0)
   {
+    kzimp_free_channel(&kzimp_channels[chan_id]);
     err = kzimp_init_channel(&kzimp_channels[chan_id], chan_id, max_msg_size,
         channel_size, to, compute_checksum, 0);
   }
@@ -748,9 +898,7 @@ static void __exit kzimp_end(void)
   // delete channels
   for (i=0; i<nb_max_communication_channels; i++)
   {
-    my_vfree(kzimp_channels[i].messages_area);
-    my_kfree(kzimp_channels[i].msgs);
-
+    kzimp_free_channel(&kzimp_channels[i]);
     kzimp_del_cdev(&kzimp_channels[i]);
   }
   my_kfree(kzimp_channels);

@@ -18,6 +18,7 @@
 #include <linux/wait.h>         /* wait queues */
 #include <linux/list.h>         /* linked list */
 #include <linux/poll.h>         /* poll_table structure */
+#include <linux/mm.h>           /* about vma_struct */
 
 #include "mem_wrapper.h"
 
@@ -30,6 +31,12 @@
 // Used to define the size of the pad member
 // The last modulo is to prevent the padding to add CACHE_LINE_SIZE bytes to the structure
 #define PADDING_SIZE(S) ((CACHE_LINE_SIZE - S % CACHE_LINE_SIZE) % CACHE_LINE_SIZE)
+
+// Round up S to a multiple of the page size
+#define ROUND_UP_PAGE_SIZE(S) (S + (PAGE_SIZE - S % PAGE_SIZE) % PAGE_SIZE)
+
+// IOCTL commands
+#define KZIMP_IOCTL_SPLICE_WRITE 0x1
 
 // This module takes the following arguments:
 static int nb_max_communication_channels = 4;
@@ -64,16 +71,29 @@ static int kzimp_release(struct inode *, struct file *);
 static ssize_t kzimp_read(struct file *, char __user *, size_t, loff_t *);
 static ssize_t kzimp_write(struct file *, const char __user *, size_t, loff_t *);
 static unsigned int kzimp_poll(struct file *filp, poll_table *wait);
+static int kzimp_mmap(struct file *, struct vm_area_struct *);
+static long kzimp_ioctl(struct file *, unsigned int, unsigned long);
 
 // an open file is associated with a set of functions
 static struct file_operations kzimp_fops =
 {
-   .owner = THIS_MODULE,
-   .open = kzimp_open,
-   .release = kzimp_release,
-   .read = kzimp_read,
-   .write = kzimp_write,
-   .poll = kzimp_poll,
+    .owner = THIS_MODULE,
+    .open = kzimp_open,
+    .release = kzimp_release,
+    .read = kzimp_read,
+    .write = kzimp_write,
+    .poll = kzimp_poll,
+    .mmap = kzimp_mmap,
+    .unlocked_ioctl = kzimp_ioctl,
+};
+
+
+// VMA OPERATIONS
+static int kzimp_vma_fault(struct vm_area_struct *, struct vm_fault *);
+
+// operations for mmap on the vmas
+static struct vm_operations_struct kzimp_vm_ops = {
+    .fault = kzimp_vma_fault,
 };
 
 #define KZIMP_HEADER_SIZE (sizeof(unsigned long)+sizeof(int)+sizeof(short))
@@ -82,21 +102,23 @@ static struct file_operations kzimp_fops =
 // it must be packed so that we can compute the checksum
 struct kzimp_message
 {
-   unsigned long bitmap; /* the bitmap, alone on  */
-   int len;              /* length of the message */
-   short checksum;       /* the checksum */
+  unsigned long bitmap; /* the bitmap, alone on  */
+  int len;              /* length of the message */
+  short checksum;       /* the checksum */
 
-   short __p1;           /* to align properly the char* */
+  short __p1;           /* to align properly the char* */
 
-   char *data;           /* the message content */
+  char *data;           /* the message content */
 
-   // padding (to avoid false sharing)
-   char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*))];
+  //todo: something to know it's a big message, if we need to change the memory protection
+
+  // padding (to avoid false sharing)
+  char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*))];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 #define KZIMP_COMM_CHAN_SIZE1 (sizeof(int)+sizeof(int)+sizeof(long)+sizeof(unsigned long)+sizeof(wait_queue_head_t)*2+sizeof(atomic_t)*2+sizeof(struct kzimp_message*)+sizeof(char*))
 #define KZIMP_COMM_CHAN_SIZE2 (sizeof(int)+sizeof(spinlock_t))
-#define KZIMP_COMM_CHAN_SIZE3 (sizeof(struct list_head)+sizeof(int)+sizeof(int)+sizeof(int)+sizeof(struct cdev))
+#define KZIMP_COMM_CHAN_SIZE3 (sizeof(struct list_head)*2+sizeof(int)*2+sizeof(int)+sizeof(int)+sizeof(struct cdev))
 
 // kzimp communication channel
 struct kzimp_comm_chan
@@ -118,9 +140,11 @@ struct kzimp_comm_chan
   char __p2[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE2)];
 
   struct list_head readers;         /* List of pointers to the readers' control structure */
-  int chan_id;                      /* id of this channel */
+  struct list_head writers_big_msg; /* List of pointers to the writers' big messages areas */
   int max_msg_size;                 /* max message size */
+  int max_msg_size_page_rounded;    /* max message size, rounded to a multiple of the page size */
   int nb_readers;                   /* number of readers */
+  int chan_id;                      /* id of this channel */
   struct cdev cdev;                 /* char device structure */
 
   char __p3[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE3)];
@@ -129,24 +153,33 @@ struct kzimp_comm_chan
 // Each process that uses the channel to read has a control structure.
 struct kzimp_ctrl
 {
-   int next_read_idx;               /* index of the next read in the channel */
-   int bitmap_bit;                  /* position of the bit in the multicast mask modified by this reader */
-   pid_t pid;                       /* pid of this reader */
-   int online;                      /* is this reader still active or not? */
-   struct list_head next;           /* pointer to the next reader on this channel */
-   struct kzimp_comm_chan *channel; /* pointer to the channel */
+  int next_read_idx;               /* index of the next read in the channel */
+  int bitmap_bit;                  /* position of the bit in the multicast mask modified by this reader */
+  pid_t pid;                       /* pid of this reader */
+  int online;                      /* is this reader still active or not? */
+  char *big_msg_area;              /* pointer to the big area that will be mmapped, for big messages */
+  struct list_head next;           /* pointer to the next reader on this channel */
+  struct kzimp_comm_chan *channel; /* pointer to the channel */
 }__attribute__((__aligned__(CACHE_LINE_SIZE)));
+
+// element that contains an address and a pointer to the next element.
+// It is used by the channel to store the list of memory areas allocated by the writers,
+// to free them when removing the channel
+struct big_mem_area_elt {
+  char *addr;
+  struct list_head next;
+};
 
 // return 1 if the writer can writeits message, 0 otherwise
 static inline int writer_can_write(unsigned long bitmap)
 {
-   return (bitmap == 0);
+  return (bitmap == 0);
 }
 
 // return 1 if the reader has a message to read, 0 otherwise
 static inline int reader_can_read(unsigned long bitmap, int bit)
 {
-   return (bitmap & (1 << bit));
+  return (bitmap & (1 << bit));
 }
 
 

@@ -66,6 +66,4 @@ int main(void)
   do_writer();
 
   return 0;
-
-  return 0;
 }
