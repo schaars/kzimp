@@ -30,12 +30,16 @@ static int nb_nodes;
 
 static struct ump_channel *connections; // urpc_connections between nodes 0 and nodes i
 
+// round-robin recv for node 0
+static int rr;
 
 // Initialize resources for both the node and the clients
 // First initialization function called
 void IPC_initialize(int _nb_nodes)
 {
   nb_nodes = _nb_nodes;
+
+  rr = 1;
 
   char chaname[256];
   for (int i = 1; i < nb_nodes; i++)
@@ -137,14 +141,25 @@ void IPC_send_unicast(void *msg, size_t length, int nid)
 size_t IPC_receive(void *msg, size_t length)
 {
   size_t recv_size = 0;
-  struct ump_channel* rc;
 
   if (node_id == 0) // leader
   {
+#ifdef DEBUG
+    printf("Receiving from %i\n", rr);
+#endif
+
+    recv_size = recv_msg(&connections[rr], (char*) msg, length);
+    if (++rr == nb_nodes)
+    {
+      rr = 1;
+    }
+
+    // old code with select
     // the call is blocking because of the 3rd argument equal to 0
     // connections+1 because there is no channel on connections[0]
-    rc = bfish_mprotect_select(connections + 1, nb_nodes - 1, 0);
-    recv_size = recv_msg(rc, (char*) msg, length);
+    //struct ump_channel* rc;
+    //rc = bfish_mprotect_select(connections + 1, nb_nodes - 1, 0);
+    //recv_size = recv_msg(rc, (char*) msg, length);
   }
   else
   {

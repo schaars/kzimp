@@ -477,7 +477,7 @@ struct ump_channel* bfish_mprotect_select(struct ump_channel* chans, int l,
       break;
     }
 
-    WAIT();
+    //WAIT();
   }
 
   return NULL;

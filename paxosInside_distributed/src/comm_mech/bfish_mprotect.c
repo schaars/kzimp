@@ -36,6 +36,9 @@ static struct ump_channel leader_to_acceptor; // connection between leader and a
 static struct ump_channel *acceptor_to_learners; // connection between the acceptor and learner i
 static struct ump_channel *learners_to_clients; // connection between the learner i and the client 0
 
+// round-robin recv for client 0
+static int rr;
+
 
 // Initialize resources for both the node and the clients
 // First initialization function called
@@ -45,6 +48,8 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
   nb_clients = _nb_clients;
   nb_learners = nb_paxos_nodes - 2;
   total_nb_nodes = nb_paxos_nodes + nb_clients;
+
+  rr = 0;
 
   char chaname[256];
   for (int i = 0; i < nb_learners * 2 + 1 + 1; i++)
@@ -277,7 +282,6 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid)
 size_t IPC_receive(void *msg, size_t length)
 {
   size_t recv_size;
-  struct ump_channel* rc;
 
   if (node_id == 0) // leader
   {
@@ -289,9 +293,21 @@ size_t IPC_receive(void *msg, size_t length)
   }
   else if (node_id == nb_paxos_nodes) // client 0
   {
+#ifdef DEBUG
+    printf("Receiving from %i\n", rr);
+#endif
+
+    recv_size = recv_msg(&learners_to_clients[rr], (char*) msg, length);
+    if (++rr == nb_learners)
+    {
+      rr = 0;
+    }
+
+    // old code with select
     // the call is blocking because of the 3rd argument equal to 0
-    rc = bfish_mprotect_select(learners_to_clients, nb_learners, 0);
-    recv_size = recv_msg(rc, (char*) msg, length);
+    //struct ump_channel* rc;
+    //rc = bfish_mprotect_select(learners_to_clients, nb_learners, 0);
+    //recv_size = recv_msg(rc, (char*) msg, length);
   }
   else if (node_id > nb_paxos_nodes) // client 1
   {
