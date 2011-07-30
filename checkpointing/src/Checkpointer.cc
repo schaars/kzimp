@@ -22,8 +22,6 @@
 #define MSG_DEBUG
 #undef MSG_DEBUG
 
-// You can define LIMIT_THR to limit the throughput, in snapshots per second
-
 Checkpointer::Checkpointer(int _node_id, int _nb_nodes, uint64_t _nb_iter)
 {
   nid = _node_id;
@@ -82,10 +80,6 @@ void Checkpointer::run(void)
   uint64_t thr_elapsed_time;
   double elapsed_time_sec, throughput;
 
-#ifdef LIMIT_THR
-  double limit_thr = LIMIT_THR;
-#endif
-
   rdtsc(thr_start_time);
 
   while (iter < nb_iter)
@@ -93,25 +87,6 @@ void Checkpointer::run(void)
     // take a snapshot
     if (node_id() == 0 && !snapshot_in_progress)
     {
-#ifdef LIMIT_THR
-      // compute throughput
-      // thr_elapsed_time is in usec
-      rdtsc(thr_stop_time);
-      thr_elapsed_time = diffTime(thr_stop_time, thr_start_time);
-      elapsed_time_sec = (double) thr_elapsed_time / 1000000.0;
-      throughput = ((double) nb_iter) / elapsed_time_sec;
-
-      if (throughput > limit_thr)
-      {
-        // sleep until it is time
-        long sleeping_time = nb_iter / limit_thr * 1000000
-        - thr_elapsed_time * 1000000 - 10000;
-
-        if (sleeping_time > 0)
-        usleep(sleeping_time);
-      }
-#endif
-
       take_snapshot();
     }
 

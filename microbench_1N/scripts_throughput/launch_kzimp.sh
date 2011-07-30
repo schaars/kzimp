@@ -7,8 +7,6 @@
 #  $4: max nb of messages in the circular buffer
 
 
-#KZIMP_DIR="../kzimp/kzimp"
-#KZIMP_DIR="../kzimp/kzimp_smallbuff"
 KZIMP_DIR="../kzimp/kzimp_allMessagesArea"
 
 
