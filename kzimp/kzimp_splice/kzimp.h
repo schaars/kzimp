@@ -32,6 +32,9 @@
 // The last modulo is to prevent the padding to add CACHE_LINE_SIZE bytes to the structure
 #define PADDING_SIZE(S) ((CACHE_LINE_SIZE - S % CACHE_LINE_SIZE) % CACHE_LINE_SIZE)
 
+// round up to a page size
+#define ROUND_UP_PAGE_SIZE(S) (S + (PAGE_SIZE - S % PAGE_SIZE) % PAGE_SIZE)
+
 // IOCTL commands
 #define KZIMP_IOCTL_SPLICE_WRITE 0x1
 
@@ -114,7 +117,7 @@ struct kzimp_message
 
 #define KZIMP_COMM_CHAN_SIZE1 (sizeof(int)+sizeof(int)+sizeof(long)+sizeof(unsigned long)+sizeof(wait_queue_head_t)*2+sizeof(atomic_t)*2+sizeof(struct kzimp_message*)+sizeof(char*))
 #define KZIMP_COMM_CHAN_SIZE2 (sizeof(int)+sizeof(spinlock_t))
-#define KZIMP_COMM_CHAN_SIZE3 (sizeof(struct list_head)*2+sizeof(int)+sizeof(int)+sizeof(int)+sizeof(struct cdev))
+#define KZIMP_COMM_CHAN_SIZE3 (sizeof(struct list_head)*2+sizeof(int)*2+sizeof(int)+sizeof(int)+sizeof(struct cdev))
 
 // kzimp communication channel
 struct kzimp_comm_chan
@@ -138,6 +141,7 @@ struct kzimp_comm_chan
   struct list_head readers;         /* List of pointers to the readers' control structure */
   struct list_head writers_big_msg; /* List of pointers to the writers' big messages areas */
   int max_msg_size;                 /* max message size */
+  int max_msg_size_page_rounded;    /* max message size, rounded up to a multiple of the page size */
   int nb_readers;                   /* number of readers */
   int chan_id;                      /* id of this channel */
   struct cdev cdev;                 /* char device structure */

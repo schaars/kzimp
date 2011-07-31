@@ -9,6 +9,8 @@
 #include <asm/bitops.h>        /* atomic bitwise ops */
 #include <asm/param.h>         /* HZ value */
 #include <linux/sched.h>       /* TASK_*INTERRUPTIBLE macros */
+#include <linux/mman.h>        /* PROT_READ and PROT_WRITE */
+#include <linux/mm.h>          /* mprotect_fixup */
 
 #include "kzimp.h"
 
@@ -172,8 +174,10 @@ static int kzimp_open(struct inode *inode, struct file *filp)
 
   if (filp->f_mode & FMODE_WRITE)
   {
-    ctrl->big_msg_area_len = (unsigned long) chan->max_msg_size
-        * (unsigned long) chan->channel_size;
+    // there is one more message, otherwise the writer would be able to send channel_size messages and
+    // attempt to write to the first messages that has not been read yet and is still RO.
+    ctrl->big_msg_area_len = (unsigned long) chan->max_msg_size_page_rounded
+        * (unsigned long) (chan->channel_size + 1);
     ctrl->big_msg_area = my_vmalloc(ctrl->big_msg_area_len);
 
     bma = my_kmalloc(sizeof(*bma), GFP_KERNEL);
@@ -247,7 +251,7 @@ static int kzimp_release(struct inode *inode, struct file *filp)
  * Returns:
  *  . -EFAULT if the copy to buf has failed
  *  . -EAGAIN if the operations are non-blocking and the call would block.
- *  . -EBADF if this reader is no longer online (because the writer has experienced a timeout)
+ *  . -EBADF if this reader is no longer online (because the writer has experienced a timeout) or this process is not allowed to read
  *  . -EIO if the checksum is incorrect
  *  . -EINTR if the process has been interrupted by a signal while waiting
  *  . 0 if there has been an error when reading (count is <= 0)
@@ -266,6 +270,11 @@ static ssize_t kzimp_read
 
   ctrl = filp->private_data;
   chan = ctrl->channel;
+
+  if (unlikely(ctrl->next_read_idx < 0))
+  {
+    return -EBADF;
+  }
 
   m = &(chan->msgs[ctrl->next_read_idx]);
 
@@ -308,15 +317,6 @@ static ssize_t kzimp_read
     content = m->data;
   }
 
-  // FIXME: a malicious writer can make the checksum correct but the message incorrect:
-  //  -the malicious writer sends a message using the big messages area
-  //  -the reader computes the checksum. The comparison returns true. The reader is then preempted.
-  //  -the malicious writer modified the message via its mmapped region
-  //  -the reader is scheduled. It is going to copy the buffer. The checksum appeared to be correct,
-  //   but the message content has changed.
-  // The solution is to compute the checksum on the user-space copy of the message. Is it problematic?
-  // Note that we do not have/handle this problem if the checksum is computed on the header only.
-
   // compute checksum if required
   m4chksum.checksum = 0;
   if (chan->compute_checksum)
@@ -355,6 +355,12 @@ static ssize_t kzimp_read
     clear_bit(ctrl->bitmap_bit, &m->bitmap);
     if (writer_can_write(m->bitmap))
     {
+      //todo: if using big_msg_area, then send the pages RW again.
+      if (m->data == NULL)
+      {
+        //todo  m->big_msg_data;
+      }
+
       wake_up_interruptible(&chan->wq);
     }
 
@@ -584,13 +590,17 @@ static unsigned int kzimp_poll(struct file *filp, poll_table *wait)
 
 /*
  * kzimp mmap operation.
+ * FIXME: we should check the mapping has not already been requested.
+ * FIXME: This means saving the offsets for which a mapping has been requested and checking
+ * FIXME: if the present call is performed with a new offset or not. One problem with that is if
+ * FIXME: a process mmap, munmap, and then mmap again the same offset: the 2nd mmap will fail.
  * Returns:
  *  . -EACCES if the process has not the credentials for the requested permission.
+ *  . -EINVAL if the offset or the length are not valid
  *  . 0 otherwise.
  */
 static int kzimp_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-  int retval;
   struct kzimp_comm_chan *chan; /* channel information */
   struct kzimp_ctrl *ctrl;
 
@@ -602,14 +612,24 @@ static int kzimp_mmap(struct file *filp, struct vm_area_struct *vma)
    printk(KERN_DEBUG "kzimp: vm_start=%lu, vm_end=%lu, vm_pgoff=%lu, vm_flags=%lu\n", vma->vm_start, vma->vm_end, vma->vm_pgoff, vma->vm_flags);
    */
 
-  if (likely((vma->vm_flags & VM_WRITE) && (vma->vm_flags & VM_READ)))
+  // Check the requested size: if greater than the max msg size, then return -EACCES.
+  if (vma->vm_end - vma->vm_start > chan->max_msg_size_page_rounded)
   {
-    retval = 0;
+    printk(KERN_DEBUG "Request size too big: %lu > %i\n", vma->vm_end - vma->vm_start, chan->max_msg_size_page_rounded);
+    return -EINVAL;
   }
-  else
+
+  // Is the offset valid? Return -EINVAL if not
+  if (vma->vm_pgoff > chan->channel_size + 1)
   {
-    printk(KERN_DEBUG "kzimp: process %i in mmap does not have the rights for the requested credentials\n", current->pid);
-    retval = -EACCES;
+    printk(KERN_ERR "Invalid offset: %lu > %i\n", vma->vm_pgoff, chan->channel_size + 1);
+    return -EINVAL;
+  }
+
+  if (unlikely(!(vma->vm_flags & VM_WRITE) || !(vma->vm_flags & VM_READ)))
+  {
+    printk(KERN_ERR "kzimp: process %i in mmap does not have the rights for the requested credentials\n", current->pid);
+    return -EACCES;
   }
 
   /* don't do anything here: fault handles the page faults and the mapping */
@@ -618,18 +638,19 @@ static int kzimp_mmap(struct file *filp, struct vm_area_struct *vma)
   vma->vm_flags |= VM_CAN_NONLINEAR; // Has ->fault & does nonlinear pages
   vma->vm_private_data = filp->private_data; // pointer to the control structure
 
-  return retval;
+  return 0;
 }
 
 static int kzimp_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
+  struct kzimp_comm_chan *chan; /* channel information */
   struct kzimp_ctrl *ctrl;
   struct page *peyj;
-  unsigned long offset;
+  unsigned long msg_offset, offset;
   int retval;
 
   ctrl = vma->vm_private_data;
-  offset = (vmf->pgoff - vma->vm_pgoff) * PAGE_SIZE;
+  chan = ctrl->channel;
 
   /*
    printk(KERN_DEBUG "kzimp: process %i in kzimp_vma_fault\n", current->pid);
@@ -637,13 +658,76 @@ static int kzimp_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
    printk(KERN_DEBUG "kzimp: flags=%u, pgoff=%lu, virtual_addr=%p, page=%p\n", vmf->flags, vmf->pgoff, vmf->virtual_address, vmf->page);
    */
 
-  peyj = vmalloc_to_page((const void*) &(ctrl->big_msg_area[offset]));
+  // vma->vm_pgoff is the offset of the beginning of this message
+  // vmf->pgoff is the offset inside this message
+  msg_offset = vma->vm_pgoff * chan->max_msg_size_page_rounded;
+  offset = (vmf->pgoff - vma->vm_pgoff) * PAGE_SIZE;
+
+  //printk(KERN_DEBUG "kzimp: msg_offset=%lu, offset=%lu, sum=%lu, max=%lu\n", msg_offset, offset, msg_offset+offset, ctrl->big_msg_area_len);
+
+  peyj = vmalloc_to_page(
+      (const void*) &(ctrl->big_msg_area[msg_offset + offset]));
+
   get_page(peyj);
   retval = VM_FAULT_MINOR;
 
   vmf->page = peyj;
 
   return 0;
+}
+
+static long kzimp_ioctl_write(struct file *filp, unsigned long uaddr,
+    unsigned long offset, size_t count)
+{
+  long retval;
+  struct kzimp_comm_chan *chan; /* channel information */
+  struct kzimp_ctrl *ctrl;
+  struct kzimp_message *m;
+  struct vm_area_struct *vma, *prev;
+
+  ctrl = filp->private_data;
+  chan = ctrl->channel;
+
+  //printk(KERN_DEBUG "uaddr=%p, offset=%lu, count=%lu\n", (char*)uaddr, offset, count);
+
+  retval = kzimp_wait_for_writing_if_needed(filp, count, &m);
+  if (unlikely(retval != 1))
+  {
+    return retval;
+  }
+
+  m->big_msg_data = ctrl->big_msg_area + offset * chan->max_msg_size_page_rounded;
+
+  //printk(KERN_DEBUG "big_msg_area=%p, offset=%lu, big_msg_data=%p\n", ctrl->big_msg_area, (unsigned long)offset, m->big_msg_data);
+
+  // check if the address is valid (i.e. in the big messages area)
+  if (unlikely(m->big_msg_data < ctrl->big_msg_area || m->big_msg_data
+      >= ctrl->big_msg_area + ctrl->big_msg_area_len))
+  {
+    printk(KERN_DEBUG "%p < %p or %p >= %p\n", m->big_msg_data, ctrl->big_msg_area, m->big_msg_data
+        , ctrl->big_msg_area + ctrl->big_msg_area_len);
+    return -EFAULT;
+  }
+
+  m->data = NULL;
+
+  //todo: set the pages RO, otherwise this optimization is completely unreliable and pointless
+  //todo: maybe we also need to unmap the pages in the writer's address space (so that it will perform a fault the next time it accesses them)
+  //todo: tlb flush?
+  vma = find_vma(current->mm, uaddr);
+  prev = vma->vm_prev;
+  if (vma)
+  {
+    //todo: modify the kernel so that we can call mprotect_fixup
+    retval = mprotect_fixup(vma, &prev, vma->vm_start, vma->vm_end, PROT_READ);
+    //vma->vm_flags &= ~VM_WRITE; is not necessary: this is done by mprotect_fixup
+  }
+
+  //printk    (KERN_DEBUG "kzimp: process %i in kzimp_ioctl for a message @%p of size %i\n", current->pid, m->big_msg_data, m->len);
+
+  kzimp_finalize_write(chan, m, m->big_msg_data, count);
+
+  return count;
 }
 
 /*
@@ -662,9 +746,9 @@ static long kzimp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
   struct kzimp_comm_chan *chan; /* channel information */
   struct kzimp_ctrl *ctrl;
   long retval;
-  struct iovec *iov;
-  struct kzimp_message *m;
-  char* offset;
+  unsigned long uaddr;
+  unsigned long offset;
+  unsigned long *kzimp_addr_struct;
   size_t count;
 
   retval = 0;
@@ -672,7 +756,11 @@ static long kzimp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
   ctrl = filp->private_data;
   chan = ctrl->channel;
 
-  iov = (struct iovec*) arg;
+  // arg is a unsigned long[3]. It contains:
+  //  -arg[0]: user-space address of the message
+  //  -arg[1]: index of this message in the big messages area
+  //  -arg[2]: length
+  kzimp_addr_struct = (unsigned long*) arg;
 
   //printk(KERN_DEBUG "kzimp: process %i in kzimp_ioctl with cmd=%u and arg=%p\n", current->pid, cmd, iov);
 
@@ -685,45 +773,25 @@ static long kzimp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
       break;
     }
 
-    retval = get_user(count, &iov->iov_len);
+    retval = get_user(uaddr, &kzimp_addr_struct[0]);
     if (unlikely(retval))
     {
       break;
     }
 
-    retval = kzimp_wait_for_writing_if_needed(filp, count, &m);
-    if (likely(retval == 1))
+    retval = get_user(offset, &kzimp_addr_struct[1]);
+    if (unlikely(retval))
     {
-      // iov->iov_base is not the address in the address space of the user process,
-      // but the offset between ctrl->big_msg_area and the beginning of the message
-      retval = get_user(offset, &iov->iov_base);
-      if (unlikely(retval))
-      {
-        break;
-      }
-
-      //printk(KERN_DEBUG "big_msg_area=%p, offset=%lu, big_msg_data=%p\n", ctrl->big_msg_area, (unsigned long)offset, m->big_msg_data);
-
-      m->big_msg_data = ctrl->big_msg_area + (unsigned long) offset;
-
-      // check if the address is valid (i.e. in the big messages area)
-      if (unlikely(m->big_msg_data < ctrl->big_msg_area || m->big_msg_data
-          >= ctrl->big_msg_area + ctrl->big_msg_area_len))
-      {
-        printk(KERN_DEBUG "%p < %p or %p >= %p\n", m->big_msg_data, ctrl->big_msg_area, m->big_msg_data
-            , ctrl->big_msg_area + ctrl->big_msg_area_len);
-        retval = -EFAULT;
-        break;
-      }
-
-      m->data = NULL;
-
-      kzimp_finalize_write(chan, m, m->big_msg_data, count);
-
-      //todo: set the pages RO, otherwise this optimization is completely unreliable and pointless
-      //todo: maybe we also need to unmap the pages in the writer's address space (so that it will perform a fault the next time it accesses them)
-      //printk    (KERN_DEBUG "kzimp: process %i in kzimp_ioctl for a message @%p of size %i\n", current->pid, m->big_msg_data, m->len);
+      break;
     }
+
+    retval = get_user(count, &kzimp_addr_struct[2]);
+    if (unlikely(retval))
+    {
+      break;
+    }
+
+    retval = kzimp_ioctl_write(filp, uaddr, offset, count);
     break;
 
   default:
@@ -744,6 +812,7 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
 
   channel->chan_id = chan_id;
   channel->max_msg_size = max_msg_size;
+  channel->max_msg_size_page_rounded = ROUND_UP_PAGE_SIZE(max_msg_size);
   channel->channel_size = channel_size;
   channel->compute_checksum = compute_checksum;
   channel->timeout_in_ms = to;
