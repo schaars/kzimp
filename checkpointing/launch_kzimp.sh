@@ -14,14 +14,14 @@ CONFIG_FILE=config
 KZIMP_DIR="../kzimp/kzimp_allMessagesArea"
 
 # Do we compute the checksum?
-COMPUTE_CHKSUM=2
+COMPUTE_CHKSUM=0
 
 # Writer's timeout
 KZIMP_TIMEOUT=60000
 
 # macro for the version with 1 channel per node i -> 0
 # set it to 1 if you want 1 channel per node, 0 otherwise.
-ONE_CHANNEL_PER_NODE=1
+ONE_CHANNEL_PER_NODE=0
 
 
 if [ $# -eq 5 ]; then

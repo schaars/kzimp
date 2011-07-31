@@ -24,7 +24,7 @@ for msg_size in ${MSG_SIZE_ARRAY[@]}; do
   ./launch_ulm.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 50 $PROFILING
   ./launch_barrelfish_mp.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 1000 $PROFILING
   ./launch_kzimp.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 500 $PROFILING
-  ./launch_bfish_mprotect.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 250 $PROFILING
+  ./launch_bfish_mprotect.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 1000 $PROFILING
   ./launch_kbfish.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 250 $PROFILING
   ./launch_inet_tcp.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size $PROFILING
   ./launch_inet_udp.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size $PROFILING
