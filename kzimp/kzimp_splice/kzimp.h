@@ -32,9 +32,6 @@
 // The last modulo is to prevent the padding to add CACHE_LINE_SIZE bytes to the structure
 #define PADDING_SIZE(S) ((CACHE_LINE_SIZE - S % CACHE_LINE_SIZE) % CACHE_LINE_SIZE)
 
-// Round up S to a multiple of the page size
-#define ROUND_UP_PAGE_SIZE(S) (S + (PAGE_SIZE - S % PAGE_SIZE) % PAGE_SIZE)
-
 // IOCTL commands
 #define KZIMP_IOCTL_SPLICE_WRITE 0x1
 
@@ -102,22 +99,22 @@ static struct vm_operations_struct kzimp_vm_ops = {
 // it must be packed so that we can compute the checksum
 struct kzimp_message
 {
-  unsigned long bitmap; /* the bitmap, alone on  */
-  int len;              /* length of the message */
-  short checksum;       /* the checksum */
+  unsigned long bitmap;    /* the bitmap, alone on  */
+  int len;                 /* length of the message */
+  short checksum;          /* the checksum */
 
-  short __p1;           /* to align properly the char* */
+  short __p1;              /* to align properly the char* */
 
-  char *data;           /* the message content */
-  char *big_msg_addr;   /* the message content, for a big message */
+  char *data;              /* the message content */
+  char *big_msg_data;      /* the message content, for a big message */
 
   // padding (to avoid false sharing)
-  char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*)*2)];
+  char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*)*2 + sizeof(size_t))];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 #define KZIMP_COMM_CHAN_SIZE1 (sizeof(int)+sizeof(int)+sizeof(long)+sizeof(unsigned long)+sizeof(wait_queue_head_t)*2+sizeof(atomic_t)*2+sizeof(struct kzimp_message*)+sizeof(char*))
 #define KZIMP_COMM_CHAN_SIZE2 (sizeof(int)+sizeof(spinlock_t))
-#define KZIMP_COMM_CHAN_SIZE3 (sizeof(struct list_head)*2+sizeof(int)*2+sizeof(int)+sizeof(int)+sizeof(struct cdev))
+#define KZIMP_COMM_CHAN_SIZE3 (sizeof(struct list_head)*2+sizeof(int)+sizeof(int)+sizeof(int)+sizeof(struct cdev))
 
 // kzimp communication channel
 struct kzimp_comm_chan
@@ -141,7 +138,6 @@ struct kzimp_comm_chan
   struct list_head readers;         /* List of pointers to the readers' control structure */
   struct list_head writers_big_msg; /* List of pointers to the writers' big messages areas */
   int max_msg_size;                 /* max message size */
-  int max_msg_size_page_rounded;    /* max message size, rounded to a multiple of the page size */
   int nb_readers;                   /* number of readers */
   int chan_id;                      /* id of this channel */
   struct cdev cdev;                 /* char device structure */
@@ -157,6 +153,7 @@ struct kzimp_ctrl
   pid_t pid;                       /* pid of this reader */
   int online;                      /* is this reader still active or not? */
   char *big_msg_area;              /* pointer to the big area that will be mmapped, for big messages */
+  size_t big_msg_area_len;         /* length of the big messages area */
   struct list_head next;           /* pointer to the next reader on this channel */
   struct kzimp_comm_chan *channel; /* pointer to the channel */
 }__attribute__((__aligned__(CACHE_LINE_SIZE)));
@@ -166,6 +163,7 @@ struct kzimp_ctrl
 // to free them when removing the channel
 struct big_mem_area_elt {
   char *addr;
+  size_t len;
   struct list_head next;
 };
 

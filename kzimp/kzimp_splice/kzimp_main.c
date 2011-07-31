@@ -172,8 +172,9 @@ static int kzimp_open(struct inode *inode, struct file *filp)
 
   if (filp->f_mode & FMODE_WRITE)
   {
-    ctrl->big_msg_area
-    = my_vmalloc((unsigned long)chan->max_msg_size_page_rounded * (unsigned long)chan->channel_size);
+    ctrl->big_msg_area_len = (unsigned long) chan->max_msg_size
+        * (unsigned long) chan->channel_size;
+    ctrl->big_msg_area = my_vmalloc(ctrl->big_msg_area_len);
 
     bma = my_kmalloc(sizeof(*bma), GFP_KERNEL);
     if (unlikely(!bma))
@@ -183,6 +184,7 @@ static int kzimp_open(struct inode *inode, struct file *filp)
     }
 
     bma->addr = ctrl->big_msg_area;
+    bma->len = ctrl->big_msg_area_len;
     list_add_tail(&bma->next, &chan->writers_big_msg);
 
     // the writer needs the FMODE_READ right, otherwise it cannot mmap
@@ -257,6 +259,7 @@ static ssize_t kzimp_read
   int retval;
   struct kzimp_message *m, m4chksum;
   DEFINE_WAIT(__wait);
+  char *content;
 
   struct kzimp_comm_chan *chan; /* channel information */
   struct kzimp_ctrl *ctrl;
@@ -296,6 +299,24 @@ static ssize_t kzimp_read
   // check length
   count = (m->len < count ? m->len : count);
 
+  if (m->data == NULL)
+  {
+    content = m->big_msg_data;
+  }
+  else
+  {
+    content = m->data;
+  }
+
+  // FIXME: a malicious writer can make the checksum correct but the message incorrect:
+  //  -the malicious writer sends a message using the big messages area
+  //  -the reader computes the checksum. The comparison returns true. The reader is then preempted.
+  //  -the malicious writer modified the message via its mmapped region
+  //  -the reader is scheduled. It is going to copy the buffer. The checksum appeared to be correct,
+  //   but the message content has changed.
+  // The solution is to compute the checksum on the user-space copy of the message. Is it problematic?
+  // Note that we do not have/handle this problem if the checksum is computed on the header only.
+
   // compute checksum if required
   m4chksum.checksum = 0;
   if (chan->compute_checksum)
@@ -308,13 +329,13 @@ static ssize_t kzimp_read
 
     if (chan->compute_checksum == 1)
     {
-      m4chksum.checksum = oneC_sum(m4chksum.checksum, m->data, count);
+      m4chksum.checksum = oneC_sum(m4chksum.checksum, content, count);
     }
   }
 
   if (m4chksum.checksum == m->checksum)
   {
-    if (unlikely(copy_to_user(buf, m->data, count)))
+    if (unlikely(copy_to_user(buf, content, count)))
     {
       printk(KERN_ERR "kzimp: copy_to_user failed for process %i in read\n", current->pid);
       return -EFAULT;
@@ -525,7 +546,7 @@ static ssize_t kzimp_write
     return -EFAULT;
   }
 
-  m->big_msg_addr = NULL;
+  m->big_msg_data = NULL;
 
   kzimp_finalize_write(chan, m, m->data, count);
 
@@ -587,7 +608,7 @@ static int kzimp_mmap(struct file *filp, struct vm_area_struct *vma)
   }
   else
   {
-    printk(KERN_DEBUG "kzimp: process %i in mmap does not have the rights for the requested credwentials\n", current->pid);
+    printk(KERN_DEBUG "kzimp: process %i in mmap does not have the rights for the requested credentials\n", current->pid);
     retval = -EACCES;
   }
 
@@ -633,6 +654,7 @@ static int kzimp_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
  *  . -EFAULT if the buffer in the struct iovec is not valid
  *  . -EINTR if the process has been interrupted by a signal while waiting
  *  . -EAGAIN if the operations are non-blocking and the call would block.
+ *  . -EACCES if the process has not the rights to perform the requested action
  *  . The number of written bytes otherwise
  */
 static long kzimp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
@@ -642,36 +664,65 @@ static long kzimp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
   long retval;
   struct iovec *iov;
   struct kzimp_message *m;
+  char* offset;
   size_t count;
-  ssize_t ret;
 
   retval = 0;
 
   ctrl = filp->private_data;
   chan = ctrl->channel;
 
-  printk(KERN_DEBUG "kzimp: process %i in kzimp_ioctl with cmd=%u and arg=%p\n", current->pid, cmd, (struct iovec*)arg);
+  iov = (struct iovec*) arg;
+
+  //printk(KERN_DEBUG "kzimp: process %i in kzimp_ioctl with cmd=%u and arg=%p\n", current->pid, cmd, iov);
 
   switch (cmd)
   {
   case KZIMP_IOCTL_SPLICE_WRITE:
-    // copy iovec
-    //todo
-    iov = 0;
-    count = 0;
-    //todo: return -EFAULT if needed
-
-    ret = kzimp_wait_for_writing_if_needed(filp, count, &m);
-    if (likely(ret == 1))
+    if (!(filp->f_mode & FMODE_WRITE))
     {
-      //todo: register pages
-
-      //todo: this is not m->data but something else that I am going to add to the message structure
-      kzimp_finalize_write(chan, m, m->big_msg_addr, count);
+      retval = -EACCES;
+      break;
     }
-    else
+
+    retval = get_user(count, &iov->iov_len);
+    if (unlikely(retval))
     {
-      retval = ret;
+      break;
+    }
+
+    retval = kzimp_wait_for_writing_if_needed(filp, count, &m);
+    if (likely(retval == 1))
+    {
+      // iov->iov_base is not the address in the address space of the user process,
+      // but the offset between ctrl->big_msg_area and the beginning of the message
+      retval = get_user(offset, &iov->iov_base);
+      if (unlikely(retval))
+      {
+        break;
+      }
+
+      //printk(KERN_DEBUG "big_msg_area=%p, offset=%lu, big_msg_data=%p\n", ctrl->big_msg_area, (unsigned long)offset, m->big_msg_data);
+
+      m->big_msg_data = ctrl->big_msg_area + (unsigned long) offset;
+
+      // check if the address is valid (i.e. in the big messages area)
+      if (unlikely(m->big_msg_data < ctrl->big_msg_area || m->big_msg_data
+          >= ctrl->big_msg_area + ctrl->big_msg_area_len))
+      {
+        printk(KERN_DEBUG "%p < %p or %p >= %p\n", m->big_msg_data, ctrl->big_msg_area, m->big_msg_data
+            , ctrl->big_msg_area + ctrl->big_msg_area_len);
+        retval = -EFAULT;
+        break;
+      }
+
+      m->data = NULL;
+
+      kzimp_finalize_write(chan, m, m->big_msg_data, count);
+
+      //todo: set the pages RO, otherwise this optimization is completely unreliable and pointless
+      //todo: maybe we also need to unmap the pages in the writer's address space (so that it will perform a fault the next time it accesses them)
+      //printk    (KERN_DEBUG "kzimp: process %i in kzimp_ioctl for a message @%p of size %i\n", current->pid, m->big_msg_data, m->len);
     }
     break;
 
@@ -693,7 +744,6 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
 
   channel->chan_id = chan_id;
   channel->max_msg_size = max_msg_size;
-  channel->max_msg_size_page_rounded = ROUND_UP_PAGE_SIZE(max_msg_size);
   channel->channel_size = channel_size;
   channel->compute_checksum = compute_checksum;
   channel->timeout_in_ms = to;
