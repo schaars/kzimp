@@ -8,7 +8,7 @@ all: inet_tcp_microbench inet_udp_microbench unix_microbench pipe_microbench \
 	 kzimp_microbench bfish_mprotect_microbench kbfish_microbench
 
 C:=gcc
-CFLAGS:=-Wall -Werror -g -lm -ltcmalloc -O2
+CFLAGS:=-Wall -Werror -g -lm -ltcmalloc
 DEPS:=src/microbench.c
 
 inet_tcp_microbench: $(DEPS) src/tcp_net.c src/inet_tcp_socket.c 

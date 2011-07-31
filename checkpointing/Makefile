@@ -9,7 +9,7 @@ all: barrelfish_mp_checkpointing 	ulm_checkpointing 		kzimp_checkpointing 				\
 	 #kbfish_checkpointing
 
 C:=g++
-CFLAGS:=-Wall -Werror -g -ltcmalloc -O2
+CFLAGS:=-Wall -Werror -g -ltcmalloc
 DEPS:=src/time.h src/checkpointing.cc src/Checkpointer.cc src/Message.cc src/Checkpoint_request.cc src/Checkpoint_response.cc
 	
 barrelfish_mp_checkpointing: $(DEPS) src/comm_mech/urpc.h src/comm_mech/urpc_transport.c src/comm_mech/barrelfish_mp.c
