@@ -11,11 +11,7 @@
 #include "MessageTag.h"
 #include "Message.h"
 
-#ifdef IPC_MSG_QUEUE
-#include "comm_mech/ipc_interface.h"
-#endif
-
-#ifdef ULM
+#if defined(IPC_MSG_QUEUE) || defined(ULM) || defined(KZIMP_SPLICE)
 #include "comm_mech/ipc_interface.h"
 #endif
 
@@ -38,7 +34,7 @@ Message::Message(size_t len, MessageTag tag, int cid)
 
 Message::Message(size_t len, MessageTag tag)
 {
-#ifdef ULM
+#if defined(ULM) || defined(KZIMP_SPLICE)
   init_message(len, tag, true);
 #else
   init_message(len, tag);
@@ -76,6 +72,25 @@ void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int cid)
     msg_pos_in_ring_buffer = -1;
   }
 
+#elif defined(KZIMP_SPLICE)
+
+  if (ulm_alloc)
+  {
+    msg = get_next_message();
+    msg_pos_in_ring_buffer = 0; // only used when freeing the message, to know that it has been allocated or not
+  }
+  else
+  {
+    msg = (char*) malloc(len);
+    if (!msg)
+    {
+      perror("Message creation failed! ");
+      exit(errno);
+    }
+
+    msg_pos_in_ring_buffer = -1; // only used when freeing the message, to know that it has been allocated or not
+  }
+
 #else
 
   msg = (char*) malloc(len);
@@ -94,12 +109,12 @@ void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int cid)
 Message::~Message(void)
 {
 #ifndef IPC_MSG_QUEUE
-#ifdef ULM
+#if defined(ULM) || defined(KZIMP_SPLICE)
   if (msg_pos_in_ring_buffer == -1)
   {
 #endif
     free(msg);
-#ifdef ULM
+#if defined(ULM) || defined(KZIMP_SPLICE)
   }
 #endif
 #endif

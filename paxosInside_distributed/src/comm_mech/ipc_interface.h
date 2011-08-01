@@ -14,6 +14,11 @@ struct ipc_message
 }__attribute__((__packed__, __aligned__(64)));
 #endif
 
+#ifdef KZIMP_SPLICE
+static char *big_messages[CHANNEL_SIZE]; // array of messages
+static int next_msg_idx;
+#endif
+
 // Initialize resources for everyone
 // First initialization function called
 void IPC_initialize(int _nb_paxos_nodes, int _nb_clients);
@@ -101,5 +106,12 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid);
 size_t IPC_receive(void *msg, size_t length);
 
 #endif /* IPC_MSG_QUEUE */
+
+#ifdef KZIMP_SPLICE
+static inline char* get_next_message()
+{
+  return big_messages[next_msg_idx];
+}
+#endif
 
 #endif /* IPC_INTERFACE_H */

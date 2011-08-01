@@ -13,6 +13,11 @@
 #include <fcntl.h>
 #include <sys/select.h>
 
+#ifdef KZIMP_SPLICE
+#include <sys/mman.h>
+#include <sys/ioctl.h>
+#endif
+
 #ifdef ONE_CHANNEL_PER_LEARNER
 #include <time.h>
 #endif
@@ -25,6 +30,12 @@
 
 // Define MESSAGE_MAX_SIZE as the max size of a message in the channel
 // Define ONE_CHANNEL_PER_LEARNER if you want to run the version with 1 channel per learner i -> client 0
+// Define KZIMP_SPLICE if you want to use the splice version of kzimp (no copy when sending)
+// If KZIMP_SPLICE is defined, you also have to define CHANNEL_SIZE
+#ifdef KZIMP_SPLICE
+#define PAGE_SIZE 4096
+#define KZIMP_IOCTL_SPLICE_WRITE 0x1
+#endif
 
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #define MIN(a, b) (((a)<(b))?(a):(b))
@@ -48,10 +59,29 @@ static int *learneri_to_client; // learner i -> client 0
 #else
 static int learners_to_client; // learners -> client 0
 #endif
+
 // write wrapper which handles the errors
 ssize_t Write(int fd, const void *buf, size_t count)
 {
-  int r = write(fd, buf, count);
+  int r;
+
+#ifndef KZIMP_SPLICE
+  r = write(fd, buf, count);
+#else
+  unsigned long kzimp_addr_struct[3];
+
+  //  -arg[0]: user-space address of the message
+  //  -arg[1]: offset in the big memory area
+  //  -arg[2]: length
+  kzimp_addr_struct[0] = (unsigned long) big_messages[next_msg_idx];
+  kzimp_addr_struct[1] = next_msg_idx;
+  kzimp_addr_struct[2] = count;
+
+  r = ioctl(fd, KZIMP_IOCTL_SPLICE_WRITE, kzimp_addr_struct);
+
+  next_msg_idx = (next_msg_idx+1)%CHANNEL_SIZE;
+#endif
+
   if (r == -1)
   {
     switch (errno)
@@ -72,6 +102,24 @@ ssize_t Write(int fd, const void *buf, size_t count)
     case EINTR:
       printf("Node %i: write call has been interrupted @ %s:%i. Aborting.\n",
           node_id, __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    case EACCES:
+      printf("Node %i: bad permission for fd %i @ %s:%i. Aborting.\n", node_id,
+          fd, __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    case EAGAIN:
+      printf("Node %i: call would block @ %s:%i. Aborting.\n", node_id,
+          __FILE__, __LINE__);
+      exit(-1);
+      break;
+
+    case EINVAL:
+      printf("Node %i: bad ioctl command @ %s:%i. Aborting.\n", node_id,
+          __FILE__, __LINE__);
       exit(-1);
       break;
 
@@ -145,6 +193,34 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
   total_nb_nodes = nb_paxos_nodes + nb_clients;
 }
 
+#ifdef KZIMP_SPLICE
+static void mmap_big_messages(int fd)
+{
+  int i;
+  for (i = 0; i < CHANNEL_SIZE; i++)
+  {
+    big_messages[i] = (char*)mmap(NULL, MESSAGE_MAX_SIZE, PROT_WRITE | PROT_READ, MAP_SHARED,
+        fd, PAGE_SIZE * i);
+    if (big_messages[i] == (void *) -1)
+    {
+      perror("mmap failed");
+      exit(-1);
+    }
+  }
+
+  next_msg_idx = 0;
+}
+
+static void munmap_big_messages(int fd)
+{
+  int i;
+  for (i = 0; i < CHANNEL_SIZE; i++)
+  {
+    munmap(big_messages[i], MESSAGE_MAX_SIZE);
+  }
+}
+#endif
+
 static void init_node(int _node_id)
 {
   char chaname[256];
@@ -164,6 +240,10 @@ static void init_node(int _node_id)
       printf("Node %i experiences an error at %i\n", node_id, __LINE__);
       perror(">>> Error while opening channels\n");
     }
+
+#ifdef KZIMP_SPLICE
+    mmap_big_messages(leader_to_acceptor);
+#endif
   }
   else if (node_id == 1)
   {
@@ -178,6 +258,10 @@ static void init_node(int _node_id)
       printf("Node %i experiences an error at %i\n", node_id, __LINE__);
       perror(">>> Error while opening channels\n");
     }
+
+#ifdef KZIMP_SPLICE
+    mmap_big_messages(acceptor_multicast);
+#endif
   }
   else if (node_id == nb_paxos_nodes)
   {
@@ -222,6 +306,10 @@ static void init_node(int _node_id)
       printf("Node %i experiences an error at %i\n", node_id, __LINE__);
       perror(">>> Error while opening channels\n");
     }
+
+#ifdef KZIMP_SPLICE
+    mmap_big_messages(client_to_leader);
+#endif
   }
   else
   {
@@ -251,6 +339,10 @@ static void init_node(int _node_id)
       perror(">>> Error while opening channels\n");
     }
 
+#ifdef KZIMP_SPLICE
+    mmap_big_messages(*learneri_to_client);
+#endif
+
 #else
     snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 3);
     learners_to_client = open(chaname, O_WRONLY);
@@ -260,6 +352,11 @@ static void init_node(int _node_id)
       printf("Node %i experiences an error at %i\n", node_id, __LINE__);
       perror(">>> Error while opening channels\n");
     }
+
+#ifdef KZIMP_SPLICE
+    mmap_big_messages(learners_to_client);
+#endif
+
 #endif
   }
 }
@@ -287,11 +384,21 @@ static void clean_node(void)
   if (node_id == 0)
   {
     close(client_to_leader);
+
+#ifdef KZIMP_SPLICE
+    munmap_big_messages(leader_to_acceptor);
+#endif
+
     close(leader_to_acceptor);
   }
   else if (node_id == 1)
   {
     close(leader_to_acceptor);
+
+#ifdef KZIMP_SPLICE
+    munmap_big_messages(acceptor_multicast);
+#endif
+
     close(acceptor_multicast);
   }
   else if (node_id == nb_paxos_nodes)
@@ -309,15 +416,31 @@ static void clean_node(void)
   }
   else if (node_id > nb_paxos_nodes)
   {
+
+#ifdef KZIMP_SPLICE
+    munmap_big_messages(client_to_leader);
+#endif
+
     close(client_to_leader);
   }
   else
   {
     close(acceptor_multicast);
+
 #ifdef ONE_CHANNEL_PER_LEARNER
+
+#ifdef KZIMP_SPLICE
+    munmap_big_messages(*learneri_to_client);
+#endif
+
     close(*learneri_to_client);
     free(learneri_to_client);
 #else
+
+#ifdef KZIMP_SPLICE
+    munmap_big_messages(learners_to_client);
+#endif
+
     close(learners_to_client);
 #endif
   }

@@ -12,7 +12,7 @@
 
 #include "MessageTag.h"
 
-#ifdef IPC_MSG_QUEUE
+#if defined(IPC_MSG_QUEUE) || defined(KZIMP_SPLICE)
 #include "comm_mech/ipc_interface.h"
 #endif
 
@@ -73,7 +73,7 @@ protected:
 
   char* msg;
 
-#ifdef ULM
+#if defined(ULM) || defined(KZIMP_SPLICE)
   int msg_pos_in_ring_buffer;
 #endif
 

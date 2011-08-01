@@ -13,7 +13,8 @@
 CONFIG_FILE=config
 PROFDIR=../profiler
 
-KZIMP_DIR="../kzimp/kzimp_allMessagesArea"
+#KZIMP_DIR="../kzimp/kzimp_allMessagesArea"
+KZIMP_DIR="../kzimp/kzimp_splice"
 
 # Do we compute the checksum?
 COMPUTE_CHKSUM=2
@@ -61,12 +62,12 @@ else
 fi
 cd $KZIMP_DIR
 make
-./kzimp.sh unload
-./kzimp.sh load nb_max_communication_channels=${NB_MAX_CHANNELS} default_channel_size=${MSG_CHANNEL} default_max_msg_size=${MESSAGE_MAX_SIZE} default_timeout_in_ms=${KZIMP_TIMEOUT} default_compute_checksum=${COMPUTE_CHKSUM}
-if [ $? -eq 1 ]; then
-   echo "An error has occured when loading kzimp. Aborting the experiment"
-   exit 0
-fi
+#./kzimp.sh unload
+#./kzimp.sh load nb_max_communication_channels=${NB_MAX_CHANNELS} default_channel_size=${MSG_CHANNEL} default_max_msg_size=${MESSAGE_MAX_SIZE} default_timeout_in_ms=${KZIMP_TIMEOUT} default_compute_checksum=${COMPUTE_CHKSUM}
+#if [ $? -eq 1 ]; then
+#   echo "An error has occured when loading kzimp. Aborting the experiment"
+#   exit 0
+#fi
 
 cd -
 
@@ -75,8 +76,12 @@ echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > KZIMP_PROPERTIES
 if [ $ONE_CHANNEL_PER_LEARNER -eq 1 ]; then
    echo "-DONE_CHANNEL_PER_LEARNER" >> KZIMP_PROPERTIES
 fi
+if [ $KZIMP_DIR = "../kzimp/kzimp_splice" ]; then
+   echo "-DKZIMP_SPLICE -DCHANNEL_SIZE=$((${MSG_CHANNEL}+1))" >> KZIMP_PROPERTIES
+fi
 make kzimp_paxosInside
 
+exit 0
 
 #####################################
 ############# Profiler  #############

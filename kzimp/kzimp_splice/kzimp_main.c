@@ -720,8 +720,9 @@ static int kzimp_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 /*
  * May return:
- *  . -EAGAIN
- *  . -EINTR
+ *  . -EAGAIN if non-blocking and would block
+ *  . -EINTR if interrupted by a signal
+ *  . -EFAULT if memory problem
  *  . count if everything is ok
  */
 static long kzimp_ioctl_write(struct file *filp, unsigned long uaddr,
@@ -803,6 +804,7 @@ static long kzimp_ioctl_write(struct file *filp, unsigned long uaddr,
  *  . -EINTR if the process has been interrupted by a signal while waiting
  *  . -EAGAIN if the operations are non-blocking and the call would block.
  *  . -EACCES if the process has not the rights to perform the requested action
+ *  . -EINVAL bad ioctl command
  *  . The number of written bytes otherwise
  */
 static long kzimp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
