@@ -219,13 +219,12 @@ static int kzimp_release(struct inode *inode, struct file *filp)
   struct kzimp_ctrl *ctrl;
 
   ctrl = filp->private_data;
+  chan = ctrl->channel;
 
   // writers need FMODE_READ in order to mmap the big messages area. However, they are
   // not readers, so we check the value of next_read_idx
   if ((filp->f_mode & FMODE_READ) && ctrl->next_read_idx >= 0)
   {
-    chan = ctrl->channel;
-
     spin_lock(&chan->bcl);
 
     clear_bit(ctrl->bitmap_bit, &(chan->multicast_mask));
@@ -248,8 +247,6 @@ static int kzimp_release(struct inode *inode, struct file *filp)
   // the writer unsets m->writer on its messages
   if (filp->f_mode & FMODE_WRITE)
   {
-    chan = ctrl->channel;
-
     for (i = 0; i < chan->channel_size; i++)
     {
       if (chan->msgs[i].writer && chan->msgs[i].writer->pid == current->pid)
@@ -402,6 +399,9 @@ static ssize_t kzimp_read
           return -EFAULT;
         }
       }
+
+      m->writer = NULL;
+      m->vma = NULL;
 
       wake_up_interruptible(&chan->wq);
     }
@@ -595,6 +595,8 @@ static ssize_t kzimp_write
   }
 
   m->big_msg_data = NULL;
+  m->writer = NULL;
+  m->vma = NULL;
 
   kzimp_finalize_write(chan, m, m->data, count);
 
@@ -910,6 +912,8 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
   addr = channel->messages_area;
   for (i = 0; i < channel->channel_size; i++)
   {
+    channel->msgs[i].writer = NULL;
+    channel->msgs[i].vma = NULL;
     channel->msgs[i].data = addr;
     channel->msgs[i].bitmap = 0;
     addr += MY_MIN(channel->max_msg_size, PAGE_SIZE);
