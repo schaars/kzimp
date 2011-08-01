@@ -12,7 +12,7 @@
 #include <sys/uio.h>
 
 #define MAX_MSG_SIZE 10240
-#define CHAN_SIZE (10+1)
+#define CHAN_SIZE (1+1)
 #define NB_MSG 10
 
 // round up to a page size
@@ -23,7 +23,7 @@
 
 void do_write(int fd)
 {
-  int i;
+  int i, j;
   size_t msg_area_len;
   size_t max_msg_size_rounded_up;
   char* messages[CHAN_SIZE];
@@ -44,84 +44,42 @@ void do_write(int fd)
     }
   }
 
-  // create the message
-  for (i = 0; i < 10; i++)
-  {
-    messages[next_msg_idx][i] = 42 + i;
-  }
-
-  // send the message
-  //  -arg[0]: user-space address of the message
-  //  -arg[1]: offset in the big memory area
-  //  -arg[2]: length
-  kzimp_addr_struct[0] = (unsigned long)messages[next_msg_idx];
-  kzimp_addr_struct[1] = next_msg_idx;
-  kzimp_addr_struct[2] = MAX_MSG_SIZE;
-
-  printf("uaddr=%p, offset=%lu, count=%lu\n", (char*)kzimp_addr_struct[0], kzimp_addr_struct[1], kzimp_addr_struct[2]);
-
-  ioctl(fd, KZIMP_IOCTL_SPLICE_WRITE, kzimp_addr_struct);
-
-  messages[next_msg_idx][0] = 0;
-  printf("No segfault?!\n");
-
-  next_msg_idx = (next_msg_idx + 1 ) % CHAN_SIZE;
-
-  for (i = 0; i < CHAN_SIZE; i++)
-  {
-    munmap(messages[i], MAX_MSG_SIZE);
-  }
-
-  // old code
-#if 0
-  int j;
-  unsigned long offset;
-  unsigned long kzimp_addr_struct[3];
-
-  // MAP_SHARED is necessary, otherwise changes are not sent to the file but copy-on-write is used
-  msg_area
-  = mmap(NULL, msg_area_len, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);
-
-  bzero(msg_area, msg_area_len);
-
-  offset = 0;
   for (j = 0; j < NB_MSG; j++)
   {
     // create the message
+    printf(">>>Sending:");
     for (i = 0; i < 10; i++)
     {
-      *(msg_area + offset + i) = 42 + j;
+      messages[next_msg_idx][i] = 42 + i*j;
+      printf(" %x", messages[next_msg_idx][i]);
     }
+    printf("\n");
 
     // send the message
     //  -arg[0]: user-space address of the message
     //  -arg[1]: offset in the big memory area
     //  -arg[2]: length
-    kzimp_addr_struct[0] = (unsigned long)(msg_area + offset);
-    kzimp_addr_struct[1] = offset;
+    kzimp_addr_struct[0] = (unsigned long) messages[next_msg_idx];
+    kzimp_addr_struct[1] = next_msg_idx;
     kzimp_addr_struct[2] = MAX_MSG_SIZE;
 
-    printf("uaddr=%p, offset=%lu, count=%lu\n", (char*)kzimp_addr_struct[0], kzimp_addr_struct[1], kzimp_addr_struct[2]);
-
-    printf("You have 10 seconds to pmap...\n");
-    sleep(10);
+    //system(
+    //    "echo '==1=='; pmap $(ps -A | grep test | awk '{print $1}') | grep /dev/kzimp0");
 
     ioctl(fd, KZIMP_IOCTL_SPLICE_WRITE, kzimp_addr_struct);
 
-    printf("You have 10 seconds to pmap...\n");
-    sleep(10);
+    //system(
+    //    "echo '==2=='; pmap $(ps -A | grep test | awk '{print $1}') | grep /dev/kzimp0");
 
-    // now that we have sent the message, modify it
-    // this should segfault
-    *(msg_area + offset) = 32;
-
-    offset += max_msg_size_rounded_up;
-    if (offset > msg_area_len)
-    {
-      offset = 0;
-    }
+    next_msg_idx = (next_msg_idx + 1) % CHAN_SIZE;
   }
-#endif
+
+  sleep(10);
+
+  for (i = 0; i < CHAN_SIZE; i++)
+  {
+    munmap(messages[i], MAX_MSG_SIZE);
+  }
 
   close(fd);
 }
@@ -133,11 +91,17 @@ void do_read(int fd)
 
   for (j = 0; j < NB_MSG; j++)
   {
+    //system(
+    //    "echo '==3=='; pmap $(ps -A | grep test | awk '{print $1}') | grep /dev/kzimp0");
+
     // read the message
     read(fd, buf, MAX_MSG_SIZE);
 
+    //system(
+    //    "echo '==4=='; pmap $(ps -A | grep test | awk '{print $1}') | grep /dev/kzimp0");
+
     // display the message
-    printf("Reading:");
+    printf("<<<Reading:");
     for (i = 0; i < 10; i++)
     {
       printf(" %x", buf[i]);
@@ -167,8 +131,14 @@ int main(void)
     return;
   }
 
-  do_write(fd_write);
-  //fixme: do_read(fd_read);
+  if (!fork())
+  {
+    do_write(fd_write);
+  }
+  else
+  {
+    do_read(fd_read);
+  }
 
   return 0;
 }

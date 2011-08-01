@@ -102,17 +102,19 @@ static struct vm_operations_struct kzimp_vm_ops = {
 // it must be packed so that we can compute the checksum
 struct kzimp_message
 {
-  unsigned long bitmap;    /* the bitmap, alone on  */
-  int len;                 /* length of the message */
-  short checksum;          /* the checksum */
+  unsigned long bitmap;       /* the bitmap, alone on  */
+  int len;                    /* length of the message */
+  short checksum;             /* the checksum */
 
-  short __p1;              /* to align properly the char* */
+  short __p1;                 /* to align properly the char* */
 
-  char *data;              /* the message content */
-  char *big_msg_data;      /* the message content, for a big message */
+  char *data;                 /* the message content */
+  char *big_msg_data;         /* the message content, for a big message */
+  struct task_struct *writer; /* task_struct of the writer */
+  struct vm_area_struct *vma; /* pointer to the vma of the writer */
 
   // padding (to avoid false sharing)
-  char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*)*2 + sizeof(size_t))];
+  char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*)*2 + sizeof(struct task_struct *) + sizeof(struct vm_area_struct *))];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 #define KZIMP_COMM_CHAN_SIZE1 (sizeof(int)+sizeof(int)+sizeof(long)+sizeof(unsigned long)+sizeof(wait_queue_head_t)*2+sizeof(atomic_t)*2+sizeof(struct kzimp_message*)+sizeof(char*))

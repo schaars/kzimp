@@ -12,10 +12,15 @@
 #include <linux/mman.h>        /* PROT_READ and PROT_WRITE */
 #include <linux/mm.h>          /* mprotect_fixup */
 
+//Note: in order to call mprotect_fixup, you need to modify the linux kernel so that mprotect_fixup is exported:
+// add EXPORT_SYMBOL(mprotect_fixup) in mm/mprotect.c, after the code of mprotect_fixup.
+
 #include "kzimp.h"
 
 // debug flag
 #undef DEBUG
+
+#define MY_MIN(a, b) ((a) < (b) ? (a) : (b))
 
 // character device files need a major and minor number.
 // They are set automatically when loading the module
@@ -240,6 +245,21 @@ static int kzimp_release(struct inode *inode, struct file *filp)
   // However this cannot be done here: you need to be sure there is no message left to be read.
   // We choose to free the area only when unloading the module.
 
+  // the writer unsets m->writer on its messages
+  if (filp->f_mode & FMODE_WRITE)
+  {
+    chan = ctrl->channel;
+
+    for (i = 0; i < chan->channel_size; i++)
+    {
+      if (chan->msgs[i].writer && chan->msgs[i].writer->pid == current->pid)
+      {
+        chan->msgs[i].writer = NULL;
+        chan->msgs[i].vma = NULL;
+      }
+    }
+  }
+
   my_kfree(ctrl);
 
   return 0;
@@ -249,7 +269,7 @@ static int kzimp_release(struct inode *inode, struct file *filp)
  * kzimp read operation.
  * Blocking by default. May be non blocking (if O_NONBLOCK is set when calling open()).
  * Returns:
- *  . -EFAULT if the copy to buf has failed
+ *  . -EFAULT if the copy to buf has failed or there was a problem with the VMA
  *  . -EAGAIN if the operations are non-blocking and the call would block.
  *  . -EBADF if this reader is no longer online (because the writer has experienced a timeout) or this process is not allowed to read
  *  . -EIO if the checksum is incorrect
@@ -264,6 +284,8 @@ static ssize_t kzimp_read
   struct kzimp_message *m, m4chksum;
   DEFINE_WAIT(__wait);
   char *content;
+  struct mm_struct *mm;
+  struct vm_area_struct *vma, *prev;
 
   struct kzimp_comm_chan *chan; /* channel information */
   struct kzimp_ctrl *ctrl;
@@ -355,10 +377,30 @@ static ssize_t kzimp_read
     clear_bit(ctrl->bitmap_bit, &m->bitmap);
     if (writer_can_write(m->bitmap))
     {
-      //todo: if using big_msg_area, then send the pages RW again.
-      if (m->data == NULL)
+      // if using big_msg_area, then send the pages RW again, only if the writer still exists
+      if (m->data == NULL && m->writer != NULL)
       {
-        //todo  m->big_msg_data;
+        mm = m->writer->mm;
+        vma = m->vma;
+        prev = vma->vm_prev;
+        if (mm && vma)
+        {
+          down_write(&mm->mmap_sem);
+
+          retval = mprotect_fixup(vma, &prev, vma->vm_start, vma->vm_end, PROT_READ | PROT_WRITE);
+          if (retval)
+          {
+            up_write(&mm->mmap_sem);
+            return retval;
+          }
+          vma->vm_flags |= VM_SHARED; // is unset by mprotect_fixup. We need to set it again
+
+          up_write(&mm->mmap_sem);
+        }
+        else
+        {
+          return -EFAULT;
+        }
       }
 
       wake_up_interruptible(&chan->wq);
@@ -440,7 +482,7 @@ static ssize_t kzimp_wait_for_writing_if_needed(struct file *filp,
   chan = ctrl->channel;
 
   // Check the validity of the arguments
-  if (unlikely(count <= 0 || count > chan->max_msg_size))
+  if (unlikely(count <= 0 || count > MY_MIN(chan->max_msg_size, PAGE_SIZE)))
   {
     printk(KERN_ERR "kzimp: count is not valid: %lu (process %i in write on channel %i)\n", (unsigned long)count, current->pid, chan->chan_id);
     return 0;
@@ -676,6 +718,12 @@ static int kzimp_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
   return 0;
 }
 
+/*
+ * May return:
+ *  . -EAGAIN
+ *  . -EINTR
+ *  . count if everything is ok
+ */
 static long kzimp_ioctl_write(struct file *filp, unsigned long uaddr,
     unsigned long offset, size_t count)
 {
@@ -696,7 +744,8 @@ static long kzimp_ioctl_write(struct file *filp, unsigned long uaddr,
     return retval;
   }
 
-  m->big_msg_data = ctrl->big_msg_area + offset * chan->max_msg_size_page_rounded;
+  m->big_msg_data = ctrl->big_msg_area + offset
+      * chan->max_msg_size_page_rounded;
 
   //printk(KERN_DEBUG "big_msg_area=%p, offset=%lu, big_msg_data=%p\n", ctrl->big_msg_area, (unsigned long)offset, m->big_msg_data);
 
@@ -704,23 +753,38 @@ static long kzimp_ioctl_write(struct file *filp, unsigned long uaddr,
   if (unlikely(m->big_msg_data < ctrl->big_msg_area || m->big_msg_data
       >= ctrl->big_msg_area + ctrl->big_msg_area_len))
   {
-    printk(KERN_DEBUG "%p < %p or %p >= %p\n", m->big_msg_data, ctrl->big_msg_area, m->big_msg_data
+    printk(KERN_ERR "%p < %p or %p >= %p\n", m->big_msg_data, ctrl->big_msg_area, m->big_msg_data
         , ctrl->big_msg_area + ctrl->big_msg_area_len);
     return -EFAULT;
   }
 
   m->data = NULL;
 
-  //todo: set the pages RO, otherwise this optimization is completely unreliable and pointless
-  //todo: maybe we also need to unmap the pages in the writer's address space (so that it will perform a fault the next time it accesses them)
-  //todo: tlb flush?
   vma = find_vma(current->mm, uaddr);
   prev = vma->vm_prev;
+
+  m->writer = current;
+  m->vma = vma;
+
   if (vma)
   {
-    //todo: modify the kernel so that we can call mprotect_fixup
+    down_write(&current->mm->mmap_sem);
+
+    //FIXME: a user-space process may call mprotect() in order to reset the protection on the area.
+    //FIXME: This can be prevented by hooking the mprotect() syscall.
     retval = mprotect_fixup(vma, &prev, vma->vm_start, vma->vm_end, PROT_READ);
-    //vma->vm_flags &= ~VM_WRITE; is not necessary: this is done by mprotect_fixup
+    if (retval)
+    {
+      up_write(&current->mm->mmap_sem);
+      return retval;
+    }
+    vma->vm_flags |= VM_SHARED; // is unset by mprotect_fixup. We need to set it again
+
+    up_write(&current->mm->mmap_sem);
+  }
+  else
+  {
+    return -EFAULT;
   }
 
   //printk    (KERN_DEBUG "kzimp: process %i in kzimp_ioctl for a message @%p of size %i\n", current->pid, m->big_msg_data, m->len);
@@ -735,7 +799,7 @@ static long kzimp_ioctl_write(struct file *filp, unsigned long uaddr,
  * cmd must be KZIMP_IOCTL_SPLICE_WRITE
  * Return:
  *  . 0 if the size of the user-level buffer is less or equal than 0 or greater than the maximal message size
- *  . -EFAULT if the buffer in the struct iovec is not valid
+ *  . -EFAULT if the buffer in the struct iovec is not valid or there was an error when accessing the writer's vma
  *  . -EINTR if the process has been interrupted by a signal while waiting
  *  . -EAGAIN if the operations are non-blocking and the call would block.
  *  . -EACCES if the process has not the rights to perform the requested action
@@ -824,7 +888,7 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
   INIT_LIST_HEAD(&channel->readers);
   INIT_LIST_HEAD(&channel->writers_big_msg);
 
-  size = (unsigned long) channel->max_msg_size
+  size = (unsigned long) MY_MIN(channel->max_msg_size, PAGE_SIZE)
       * (unsigned long) channel->channel_size;
   channel->messages_area = my_vmalloc(size);
   if (unlikely(!channel->messages_area))
@@ -846,7 +910,7 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
   {
     channel->msgs[i].data = addr;
     channel->msgs[i].bitmap = 0;
-    addr += channel->max_msg_size;
+    addr += MY_MIN(channel->max_msg_size, PAGE_SIZE);
   }
 
   if (init_lock)
