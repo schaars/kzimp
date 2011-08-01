@@ -618,8 +618,6 @@ static int kzimp_read_proc_file(char *page, char **start, off_t off, int count,
 
 static void kzimp_free_channel(struct kzimp_comm_chan *chan)
 {
-  struct big_mem_area_elt *p, *next;
-
   my_vfree(chan->messages_area);
   my_kfree(chan->msgs);
 }
