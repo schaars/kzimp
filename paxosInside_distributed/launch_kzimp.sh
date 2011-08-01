@@ -81,8 +81,6 @@ if [ $KZIMP_DIR = "../kzimp/kzimp_splice" ]; then
 fi
 make kzimp_paxosInside
 
-exit 0
-
 #####################################
 ############# Profiler  #############
 if [ ! -z $PROFILER ]; then

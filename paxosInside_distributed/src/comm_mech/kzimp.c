@@ -60,6 +60,19 @@ static int *learneri_to_client; // learner i -> client 0
 static int learners_to_client; // learners -> client 0
 #endif
 
+#ifdef KZIMP_SPLICE
+static char *big_messages[CHANNEL_SIZE]; // array of messages
+static int next_msg_idx;
+#endif
+
+#ifdef KZIMP_SPLICE
+char* get_next_message(void)
+{
+  return big_messages[next_msg_idx];
+}
+#endif
+
+
 // write wrapper which handles the errors
 ssize_t Write(int fd, const void *buf, size_t count)
 {
