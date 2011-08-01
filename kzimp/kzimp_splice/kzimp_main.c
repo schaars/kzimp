@@ -372,7 +372,9 @@ static ssize_t kzimp_read
   if (likely(ctrl->online))
   {
     clear_bit(ctrl->bitmap_bit, &m->bitmap);
-    if (writer_can_write(m->bitmap))
+
+    // multiple readers can go in this test :( We need an atomic here
+    if (writer_can_write(m->bitmap) && !atomic_cmpxchg(&m->waking_up_writer, 0, 1))
     {
       // if using big_msg_area, then send the pages RW again, only if the writer still exists
       if (m->data == NULL && m->writer != NULL)
@@ -394,16 +396,14 @@ static ssize_t kzimp_read
 
           up_write(&mm->mmap_sem);
         }
-        else
-        {
-          return -EFAULT;
-        }
       }
 
       m->writer = NULL;
       m->vma = NULL;
 
       wake_up_interruptible(&chan->wq);
+
+      atomic_set(&m->waking_up_writer, 0);
     }
 
     ctrl->next_read_idx = (ctrl->next_read_idx + 1) % chan->channel_size;
@@ -916,6 +916,7 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
     channel->msgs[i].vma = NULL;
     channel->msgs[i].data = addr;
     channel->msgs[i].bitmap = 0;
+    atomic_set(&channel->msgs[i].waking_up_writer, 0);
     addr += MY_MIN(channel->max_msg_size, PAGE_SIZE);
   }
 

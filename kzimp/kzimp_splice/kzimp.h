@@ -112,9 +112,10 @@ struct kzimp_message
   char *big_msg_data;         /* the message content, for a big message */
   struct task_struct *writer; /* task_struct of the writer */
   struct vm_area_struct *vma; /* pointer to the vma of the writer */
+  atomic_t waking_up_writer;  /* 1 if a process is currently waking up the writers, 0 otherwise */
 
   // padding (to avoid false sharing)
-  char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*)*2 + sizeof(struct task_struct *) + sizeof(struct vm_area_struct *))];
+  char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*)*2 + sizeof(struct task_struct *) + sizeof(struct vm_area_struct *) + sizeof(atomic_t))];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
 #define KZIMP_COMM_CHAN_SIZE1 (sizeof(int)+sizeof(int)+sizeof(long)+sizeof(unsigned long)+sizeof(wait_queue_head_t)*2+sizeof(atomic_t)*2+sizeof(struct kzimp_message*)+sizeof(char*))
