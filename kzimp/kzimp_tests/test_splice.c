@@ -7,8 +7,6 @@
 #include <strings.h>
 #include <sys/mman.h>
 
-//#define _GNU_SOURCE
-//#include <fcntl.h>
 #include <sys/uio.h>
 
 #define MAX_MSG_SIZE 10240
