@@ -96,11 +96,23 @@ void IPC_send_client_to_node(void *msg, size_t length);
 // called by the learners
 void IPC_send_node_to_client(void *msg, size_t length, int cid);
 
+#endif /* IPC_MSG_QUEUE */
+
+#ifdef KZIMP_READ_SPLICE
+
+// receive a message.
+// Return MESSAGE_MAX_SIZE if everything is ok, 0 otherwise.
+size_t IPC_receive(char **msg);
+
+// finalize the reception of a message
+void IPC_receive_finalize(void);
+#else
+
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
 size_t IPC_receive(void *msg, size_t length);
 
-#endif /* IPC_MSG_QUEUE */
+#endif
 
 #ifdef KZIMP_SPLICE
 char* get_next_message(void);

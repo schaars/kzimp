@@ -50,10 +50,15 @@ PaxosNode::~PaxosNode(void)
 void PaxosNode::recv(void)
 {
   Message m;
+  size_t s;
 
   while (1)
   {
-    size_t s = IPC_receive(m.content(), m.length());
+#ifdef KZIMP_READ_SPLICE
+    s = IPC_receive(m.content_addr());
+#else
+    s = IPC_receive(m.content(), m.length());
+#endif
 
 #ifdef MSG_DEBUG
     printf(
@@ -81,6 +86,10 @@ void PaxosNode::recv(void)
           nid, (unsigned long) m.length(), (unsigned long) s, m.tag());
       break;
     }
+
+#ifdef KZIMP_READ_SPLICE
+    IPC_receive_finalize();
+#endif
   }
 }
 

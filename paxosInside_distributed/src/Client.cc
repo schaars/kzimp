@@ -40,6 +40,7 @@ Client::~Client(void)
 void Client::recv(void)
 {
   Message m;
+  size_t s;
   uint64_t thr_start_time, thr_stop_time;
 
   // in order to ensure that the paxos nodes are launched
@@ -51,7 +52,11 @@ void Client::recv(void)
 
   while (iter < nb_iter)
   {
-    size_t s = IPC_receive(m.content(), m.length());
+#ifdef KZIMP_READ_SPLICE
+    s = IPC_receive(m.content_addr());
+#else
+    s = IPC_receive(m.content(), m.length());
+#endif
 
     // wait for the first response before starting the timer
     if (thr_start_time == 0)
@@ -75,6 +80,10 @@ void Client::recv(void)
     {
       // either this message is not valid or the received value is not the expected one
     }
+
+#ifdef KZIMP_READ_SPLICE
+    IPC_receive_finalize();
+#endif
   }
 
   rdtsc(thr_stop_time);

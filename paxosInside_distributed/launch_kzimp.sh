@@ -14,7 +14,8 @@ CONFIG_FILE=config
 PROFDIR=../profiler
 
 #KZIMP_DIR="../kzimp/kzimp_allMessagesArea"
-KZIMP_DIR="../kzimp/kzimp_splice"
+#KZIMP_DIR="../kzimp/kzimp_splice"
+KZIMP_DIR="../kzimp/kzimp_reader_splice"
 
 # Do we compute the checksum?
 COMPUTE_CHKSUM=2
@@ -78,6 +79,9 @@ if [ $ONE_CHANNEL_PER_LEARNER -eq 1 ]; then
 fi
 if [ $KZIMP_DIR = "../kzimp/kzimp_splice" ]; then
    echo "-DKZIMP_SPLICE -DCHANNEL_SIZE=$((${MSG_CHANNEL}+1))" >> KZIMP_PROPERTIES
+fi
+if [ KZIMP_DIR= "../kzimp/kzimp_reader_splice" ]; then
+   echo "-DKZIMP_READ_SPLICE -DCHANNEL_SIZE=${MSG_CHANNEL}" >> KZIMP_PROPERTIES
 fi
 make kzimp_paxosInside
 

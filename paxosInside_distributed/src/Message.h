@@ -51,6 +51,10 @@ public:
   char* content(void) const;
 #endif
 
+#ifdef KZIMP_READ_SPLICE
+  char** content_addr(void);
+#endif
+
 #ifdef ULM
   // return the position of the message in the shared buffer of ULM
   int get_msg_pos(void);
@@ -63,7 +67,8 @@ public:
   size_t length(void) const;
 
   // initialize the message
-  void init_message(size_t len, MessageTag tag, bool ulm_alloc = false, int cid = 0);
+  void init_message(size_t len, MessageTag tag, bool ulm_alloc = false,
+      int cid = 0, int doNotFree = 0);
 
 protected:
 
@@ -75,6 +80,10 @@ protected:
 
 #if defined(ULM) || defined(KZIMP_SPLICE)
   int msg_pos_in_ring_buffer;
+#endif
+
+#ifdef KZIMP_READ_SPLICE
+  int kzimp_reader_splice_do_not_free;
 #endif
 
 private:
@@ -92,6 +101,13 @@ inline struct ipc_message* Message::content(void)
 inline char* Message::content(void) const
 {
   return msg;
+}
+#endif
+
+#ifdef KZIMP_READ_SPLICE
+inline char** Message::content_addr(void)
+{
+  return &msg;
 }
 #endif
 

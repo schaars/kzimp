@@ -17,7 +17,11 @@
 
 Message::Message(void)
 {
+#ifdef KZIMP_READ_SPLICE
   init_message(Max_message_size, UNKNOWN);
+#else
+  init_message(Max_message_size, UNKNOWN, false, 0, 1);
+#endif
 }
 
 Message::Message(MessageTag tag)
@@ -41,7 +45,8 @@ Message::Message(size_t len, MessageTag tag)
 #endif
 }
 
-void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int cid)
+void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int cid,
+    int doNotFree)
 {
 #if defined(IPC_MSG_QUEUE)
 
@@ -91,6 +96,19 @@ void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int cid)
     msg_pos_in_ring_buffer = -1; // only used when freeing the message, to know that it has been allocated or not
   }
 
+#elif defined(KZIMP_READ_SPLICE)
+
+  kzimp_reader_splice_do_not_free = doNotFree;
+  if (!kzimp_reader_splice_do_not_free)
+  {
+    msg = (char*) malloc(len);
+    if (!msg)
+    {
+      perror("Message creation failed! ");
+      exit(errno);
+    }
+  }
+
 #else
 
   msg = (char*) malloc(len);
@@ -108,14 +126,25 @@ void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int cid)
 
 Message::~Message(void)
 {
+#ifdef KZIMP_READ_SPLICE
+
+  if (!kzimp_reader_splice_do_not_free)
+  {
+    free(msg);
+  }
+
+#else
+
 #ifndef IPC_MSG_QUEUE
 #if defined(ULM) || defined(KZIMP_SPLICE)
   if (msg_pos_in_ring_buffer == -1)
   {
 #endif
-    free(msg);
+  free(msg);
 #if defined(ULM) || defined(KZIMP_SPLICE)
-  }
+}
 #endif
-#endif
+#endif /* IPC_MSG_QUEUE */
+
+#endif /* KZIMP_READ_SPLICE */
 }

@@ -35,8 +35,8 @@
 #define ROUND_UP_PAGE_SIZE(S) ((S) + ((PAGE_SIZE - ((S) % PAGE_SIZE)) % PAGE_SIZE))
 
 // IOCTL commands
-#define KZIMP_IOCTL_SPLICE_START_READ 0x2
-#define KZIMP_IOCTL_SPLICE_FINISH_READ 0x4
+#define KZIMP_IOCTL_SPLICE_START_READ 0x7
+#define KZIMP_IOCTL_SPLICE_FINISH_READ 0x8
 
 // This module takes the following arguments:
 static int nb_max_communication_channels = 4;

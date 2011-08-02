@@ -13,7 +13,7 @@
 #include <fcntl.h>
 #include <sys/select.h>
 
-#ifdef KZIMP_SPLICE
+#if defined(KZIMP_SPLICE) || defined(KZIMP_READ_SPLICE)
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #endif
@@ -32,9 +32,27 @@
 // Define ONE_CHANNEL_PER_LEARNER if you want to run the version with 1 channel per learner i -> client 0
 // Define KZIMP_SPLICE if you want to use the splice version of kzimp (no copy when sending)
 // If KZIMP_SPLICE is defined, you also have to define CHANNEL_SIZE
+// Define KZIMP_READ_SPLICE if you want to use the reader_splice version of kzimp (no copy when receiving)
+// Note that it does not work with ONE_CHANNEL_PER_LEARNER.
+// You also need to define CHANNEL_SIZE
+
+
+#if (defined(KZIMP_SPLICE) || defined(KZIMP_READ_SPLICE)) && !defined(CHANNEL_SIZE)
+#error "KZIMP_(READ_)SPLICE must come with CHANNEL_SIZE"
+#endif
+
+#if defined(KZIMP_READ_SPLICE) && defined(ONE_CHANNEL_PER_LEARNER)
+#error "KZIMP_READ_SPLICE with ONE_CHANNEL_PER_LEARNER not implemented"
+#endif
+
 #ifdef KZIMP_SPLICE
 #define PAGE_SIZE 4096
 #define KZIMP_IOCTL_SPLICE_WRITE 0x1
+#endif
+
+#ifdef KZIMP_READ_SPLICE
+#define KZIMP_IOCTL_SPLICE_START_READ 0x7
+#define KZIMP_IOCTL_SPLICE_FINISH_READ 0x8
 #endif
 
 #define MAX(a, b) (((a)>(b))?(a):(b))
@@ -65,13 +83,17 @@ static char *big_messages[CHANNEL_SIZE]; // array of messages
 static int next_msg_idx;
 #endif
 
+#ifdef KZIMP_READ_SPLICE
+static char *messages; // mmapped area
+static size_t msg_area_len; // size of the mmapped area
+#endif
+
 #ifdef KZIMP_SPLICE
 char* get_next_message(void)
 {
   return big_messages[next_msg_idx];
 }
 #endif
-
 
 // write wrapper which handles the errors
 ssize_t Write(int fd, const void *buf, size_t count)
@@ -150,7 +172,9 @@ ssize_t Write(int fd, const void *buf, size_t count)
 // read wrapper which handles the errors
 ssize_t Read(int fd, void *buf, size_t count)
 {
-  int r = read(fd, buf, count);
+  int r;
+
+  r = read(fd, buf, count);
   if (r == -1)
   {
     switch (errno)
@@ -204,6 +228,10 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
   nb_learners = nb_paxos_nodes - 2;
   nb_clients = _nb_clients;
   total_nb_nodes = nb_paxos_nodes + nb_clients;
+
+#ifdef KZIMP_READ_SPLICE
+  msg_area_len = (size_t)MESSAGE_MAX_SIZE * (size_t)CHANNEL_SIZE;
+#endif
 }
 
 #ifdef KZIMP_SPLICE
@@ -234,6 +262,22 @@ static void munmap_big_messages(int fd)
 }
 #endif
 
+#ifdef KZIMP_READ_SPLICE
+static void mmap_messages(int fd)
+{
+  messages = (char*)mmap(NULL, msg_area_len, PROT_READ, MAP_SHARED, fd, 0);
+  if (messages == (void*) -1)
+  {
+    perror("mmap");
+    exit(-1);
+  }
+}
+
+static void munmap_messages(int fd)
+{
+  munmap(messages, msg_area_len);
+}
+#endif
 static void init_node(int _node_id)
 {
   char chaname[256];
@@ -254,6 +298,10 @@ static void init_node(int _node_id)
       perror(">>> Error while opening channels\n");
     }
 
+#ifdef KZIMP_READ_SPLICE
+    mmap_messages(client_to_leader);
+#endif
+
 #ifdef KZIMP_SPLICE
     mmap_big_messages(leader_to_acceptor);
 #endif
@@ -271,6 +319,10 @@ static void init_node(int _node_id)
       printf("Node %i experiences an error at %i\n", node_id, __LINE__);
       perror(">>> Error while opening channels\n");
     }
+
+#ifdef KZIMP_READ_SPLICE
+    mmap_messages(leader_to_acceptor);
+#endif
 
 #ifdef KZIMP_SPLICE
     mmap_big_messages(acceptor_multicast);
@@ -307,6 +359,10 @@ static void init_node(int _node_id)
       printf("Node %i experiences an error at %i\n", node_id, __LINE__);
       perror(">>> Error while opening channels\n");
     }
+
+#ifdef KZIMP_READ_SPLICE
+    mmap_messages(learners_to_client);
+#endif
 #endif
   }
   else if (node_id > nb_paxos_nodes)
@@ -334,6 +390,10 @@ static void init_node(int _node_id)
       printf("Node %i experiences an error at %i\n", node_id, __LINE__);
       perror(">>> Error while opening channels\n");
     }
+
+#ifdef KZIMP_READ_SPLICE
+    mmap_messages(acceptor_multicast);
+#endif
 
 #ifdef ONE_CHANNEL_PER_LEARNER
     learneri_to_client = (int*) malloc(sizeof(int));
@@ -396,6 +456,10 @@ static void clean_node(void)
 {
   if (node_id == 0)
   {
+#ifdef KZIMP_READ_SPLICE
+    munmap_messages(client_to_leader);
+#endif
+
     close(client_to_leader);
 
 #ifdef KZIMP_SPLICE
@@ -406,6 +470,10 @@ static void clean_node(void)
   }
   else if (node_id == 1)
   {
+#ifdef KZIMP_READ_SPLICE
+    munmap_messages(leader_to_acceptor);
+#endif
+
     close(leader_to_acceptor);
 
 #ifdef KZIMP_SPLICE
@@ -424,6 +492,10 @@ static void clean_node(void)
     }
     free(learneri_to_client);
 #else
+#ifdef KZIMP_READ_SPLICE
+    munmap_messages(learners_to_client);
+#endif
+
     close(learners_to_client);
 #endif
   }
@@ -438,6 +510,10 @@ static void clean_node(void)
   }
   else
   {
+#ifdef KZIMP_READ_SPLICE
+    munmap_messages(acceptor_multicast);
+#endif
+
     close(acceptor_multicast);
 
 #ifdef ONE_CHANNEL_PER_LEARNER
@@ -502,6 +578,51 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid)
 #endif
 }
 
+#ifdef KZIMP_READ_SPLICE
+int get_fd(void)
+{
+  if (node_id == 0)
+  {
+    return client_to_leader;
+  }
+  else if (node_id == 1)
+  {
+    return leader_to_acceptor;
+  }
+  else if (node_id == nb_paxos_nodes)
+  {
+    return learners_to_client;
+  }
+  else
+  {
+    return acceptor_multicast;
+  }
+}
+
+// receive a message.
+// Return MAX_MESSAGE_SIZE if everything is ok, 0 otherwise.
+size_t IPC_receive(char **msg)
+{
+  int idx = -1;
+
+  while (idx < 0)
+  {
+    idx = ioctl(get_fd(), KZIMP_IOCTL_SPLICE_START_READ);
+  }
+
+  *msg = messages + idx * MESSAGE_MAX_SIZE;
+
+  return MESSAGE_MAX_SIZE;
+}
+
+// finalize the reception of a message
+void IPC_receive_finalize(void)
+{
+  ioctl(get_fd(), KZIMP_IOCTL_SPLICE_FINISH_READ);
+}
+
+#else
+
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
 size_t IPC_receive(void *msg, size_t length)
@@ -558,3 +679,6 @@ size_t IPC_receive(void *msg, size_t length)
     return Read(acceptor_multicast, msg, length);
   }
 }
+
+#endif
+

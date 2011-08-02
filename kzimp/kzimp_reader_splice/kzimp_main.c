@@ -691,6 +691,7 @@ static long kzimp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
   if (!(filp->f_mode & FMODE_READ) || (filp->f_mode & FMODE_WRITE))
   {
+    printk(KERN_DEBUG "kzimp: process %i with bad rights: %i and %i\n", current->pid, filp->f_mode & FMODE_READ, filp->f_mode & FMODE_WRITE);
     return -EACCES;
   }
 
@@ -700,7 +701,7 @@ static long kzimp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
   {
   case KZIMP_IOCTL_SPLICE_START_READ:
     retval = kzimp_wait_for_reading_if_needed(filp, m);
-    if (!retval)
+    if (retval)
     {
       break;
     }
