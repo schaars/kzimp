@@ -263,39 +263,22 @@ static int kzimp_release(struct inode *inode, struct file *filp)
 }
 
 /*
- * kzimp read operation.
+ * kzimp wait for reading
  * Blocking by default. May be non blocking (if O_NONBLOCK is set when calling open()).
  * Returns:
- *  . -EFAULT if the copy to buf has failed or there was a problem with the VMA
  *  . -EAGAIN if the operations are non-blocking and the call would block.
- *  . -EBADF if this reader is no longer online (because the writer has experienced a timeout) or this process is not allowed to read
- *  . -EIO if the checksum is incorrect
  *  . -EINTR if the process has been interrupted by a signal while waiting
- *  . 0 if there has been an error when reading (count is <= 0)
- *  . The number of read bytes otherwise
+ *  . 0 otherwise
  */
-static ssize_t kzimp_read
-(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
+static ssize_t kzimp_wait_for_reading_if_needed(struct file *filp, struct kzimp_message *m)
 {
-  int retval, error;
-  struct kzimp_message *m, m4chksum;
   DEFINE_WAIT(__wait);
-  char *content;
-  struct mm_struct *mm;
-  struct vm_area_struct *vma, *prev;
 
   struct kzimp_comm_chan *chan; /* channel information */
   struct kzimp_ctrl *ctrl;
 
   ctrl = filp->private_data;
   chan = ctrl->channel;
-
-  if (unlikely(ctrl->next_read_idx < 0))
-  {
-    return -EBADF;
-  }
-
-  m = &(chan->msgs[ctrl->next_read_idx]);
 
   // we do not need this test to be atomic
   while (!reader_can_read(m->bitmap, ctrl->bitmap_bit))
@@ -324,48 +307,50 @@ static ssize_t kzimp_read
   }
   finish_wait(&chan->rq, &__wait);
 
-  // check length
-  count = (m->len < count ? m->len : count);
+  return 0;
+}
 
-  if (m->data == NULL)
-  {
-    content = m->big_msg_data;
-  }
-  else
-  {
-    content = m->data;
-  }
+/*
+ * Verify the checksum.
+ * Return 1 if valid, 0 otherwise.
+ */
+static int kzimp_verify_checksum(struct kzimp_message *m, char *content, size_t count, struct kzimp_comm_chan *chan) {
+   struct kzimp_message m4chksum;
 
-  // compute checksum if required
-  m4chksum.checksum = 0;
-  if (chan->compute_checksum)
-  {
-    // construct the header
-    memset(&m4chksum, 0, KZIMP_HEADER_SIZE);
-    m4chksum.len = count;
-    m4chksum.bitmap = 0;
-    m4chksum.checksum = oneC_sum(0, &m4chksum, KZIMP_HEADER_SIZE);
+   // compute checksum if required
+   m4chksum.checksum = 0;
+   if (chan->compute_checksum)
+   {
+      // construct the header
+      memset(&m4chksum, 0, KZIMP_HEADER_SIZE);
+      m4chksum.len = count;
+      m4chksum.bitmap = 0;
+      m4chksum.checksum = oneC_sum(0, &m4chksum, KZIMP_HEADER_SIZE);
 
-    if (chan->compute_checksum == 1)
-    {
-      m4chksum.checksum = oneC_sum(m4chksum.checksum, content, count);
-    }
-  }
+      if (chan->compute_checksum == 1)
+      {
+         m4chksum.checksum = oneC_sum(m4chksum.checksum, content, count);
+      }
+   }
 
-  if (m4chksum.checksum == m->checksum)
-  {
-    if (unlikely(copy_to_user(buf, content, count)))
-    {
-      printk(KERN_ERR "kzimp: copy_to_user failed for process %i in read\n", current->pid);
-      return -EFAULT;
-    }
-    retval = count;
-  }
-  else
-  {
-    printk(KERN_WARNING "kzimp: Process %i in read has found an incorrect checksum: %hi != %hi\n", current->pid, m4chksum.checksum, m->checksum);
-    retval = -EIO;
-  }
+   if (m4chksum.checksum == m->checksum) {
+      return 1;
+   } else {
+      printk(KERN_WARNING "kzimp: Process %i in read has found an incorrect checksum: %hi != %hi\n", current->pid, m4chksum.checksum, m->checksum);
+      return 0;
+   }
+}
+
+
+/*
+ * finalize the write: unset the bit in the bitmap, wake up the writers, update next_write_idx
+ */
+static int finalize_read(struct kzimp_message *m, struct kzimp_ctrl *ctrl, struct kzimp_comm_chan *chan, size_t count) {
+   int retval, error;
+  struct mm_struct *mm;
+  struct vm_area_struct *vma, *prev;
+
+   retval = count;
 
   // the timeout at the writer may have expired, and the writer may have started to write
   // a new message at m
@@ -386,13 +371,13 @@ static ssize_t kzimp_read
         {
           down_write(&mm->mmap_sem);
 
-          error = mprotect_fixup(vma, &prev, vma->vm_start, vma->vm_end, PROT_READ | PROT_WRITE);
-          if (error)
-          {
+        error = mprotect_fixup(vma, &prev, vma->vm_start, vma->vm_end, PROT_READ | PROT_WRITE);
+        if (error)
+        {
             up_write(&mm->mmap_sem);
-            return error;
-          }
-          vma->vm_flags |= VM_SHARED; // is unset by mprotect_fixup. We need to set it again
+          return error;
+        }
+        vma->vm_flags |= VM_SHARED; // is unset by mprotect_fixup. We need to set it again
 
           up_write(&mm->mmap_sem);
         }
@@ -415,6 +400,70 @@ static ssize_t kzimp_read
   }
 
   return retval;
+}
+
+
+/*
+ * kzimp read operation.
+ * Blocking by default. May be non blocking (if O_NONBLOCK is set when calling open()).
+ * Returns:
+ *  . -EFAULT if the copy to buf has failed or there was a problem with the VMA
+ *  . -EAGAIN if the operations are non-blocking and the call would block.
+ *  . -EBADF if this reader is no longer online (because the writer has experienced a timeout) or this process is not allowed to read
+ *  . -EIO if the checksum is incorrect
+ *  . -EINTR if the process has been interrupted by a signal while waiting
+ *  . 0 if there has been an error when reading (count is <= 0)
+ *  . The number of read bytes otherwise
+ */
+static ssize_t kzimp_read
+(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
+{
+  int retval;
+  struct kzimp_message *m;
+  DEFINE_WAIT(__wait);
+  char *content;
+
+  struct kzimp_comm_chan *chan; /* channel information */
+  struct kzimp_ctrl *ctrl;
+
+  ctrl = filp->private_data;
+  chan = ctrl->channel;
+
+  if (unlikely(ctrl->next_read_idx < 0))
+  {
+    return -EBADF;
+  }
+
+  m = &(chan->msgs[ctrl->next_read_idx]);
+
+  retval = kzimp_wait_for_reading_if_needed(filp, m);
+  if (retval) {
+     return retval;
+  }
+
+  // check length
+  count = (m->len < count ? m->len : count);
+
+  if (m->data == NULL)
+  {
+    content = m->big_msg_data;
+  }
+  else
+  {
+    content = m->data;
+  }
+
+  if (!kzimp_verify_checksum(m, content, count, chan)) {
+     return -EIO;
+  }
+
+  if (unlikely(copy_to_user(buf, content, count)))
+  {
+     printk(KERN_ERR "kzimp: copy_to_user failed for process %i in read\n", current->pid);
+     return -EFAULT;
+  }
+
+  return finalize_read(m, ctrl, chan, count);
 }
 
 // When the timeout expires, the writer removes the bits that are at 1 in this bitmap, for all the messages
@@ -778,19 +827,19 @@ static long kzimp_ioctl_write(struct file *filp, unsigned long uaddr,
 
   if (vma)
   {
-    down_write(&current->mm->mmap_sem);
+     down_write(&current->mm->mmap_sem);
 
-    //FIXME: a user-space process may call mprotect() in order to reset the protection on the area.
-    //FIXME: This can be prevented by hooking the mprotect() syscall.
-    //FIXME: There is a bug if we remove the write protection on the message
-    //retval = mprotect_fixup(vma, &prev, vma->vm_start, vma->vm_end, PROT_READ);
-    retval = mprotect_fixup(vma, &prev, vma->vm_start, vma->vm_end, PROT_READ | PROT_WRITE);
-    if (retval)
-    {
+  //FIXME: a user-space process may call mprotect() in order to reset the protection on the area.
+  //FIXME: This can be prevented by hooking the mprotect() syscall.
+  //FIXME: There is a bug if we remove the write protection on the message
+  //retval = mprotect_fixup(vma, &prev, vma->vm_start, vma->vm_end, PROT_READ);
+  retval = mprotect_fixup(vma, &prev, vma->vm_start, vma->vm_end, PROT_READ | PROT_WRITE);
+  if (retval)
+  {
       up_write(&current->mm->mmap_sem);
-      return retval;
-    }
-    vma->vm_flags |= VM_SHARED; // is unset by mprotect_fixup. We need to set it again
+    return retval;
+  }
+  vma->vm_flags |= VM_SHARED; // is unset by mprotect_fixup. We need to set it again
 
     up_write(&current->mm->mmap_sem);
   }
