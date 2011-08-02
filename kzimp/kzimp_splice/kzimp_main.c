@@ -277,7 +277,7 @@ static int kzimp_release(struct inode *inode, struct file *filp)
 static ssize_t kzimp_read
 (struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 {
-  int retval;
+  int retval, error;
   struct kzimp_message *m, m4chksum;
   DEFINE_WAIT(__wait);
   char *content;
@@ -386,11 +386,11 @@ static ssize_t kzimp_read
         {
           down_write(&mm->mmap_sem);
 
-          retval = mprotect_fixup(vma, &prev, vma->vm_start, vma->vm_end, PROT_READ | PROT_WRITE);
-          if (retval)
+          error = mprotect_fixup(vma, &prev, vma->vm_start, vma->vm_end, PROT_READ | PROT_WRITE);
+          if (error)
           {
             up_write(&mm->mmap_sem);
-            return retval;
+            return error;
           }
           vma->vm_flags |= VM_SHARED; // is unset by mprotect_fixup. We need to set it again
 
@@ -480,13 +480,6 @@ static ssize_t kzimp_wait_for_writing_if_needed(struct file *filp,
 
   ctrl = filp->private_data;
   chan = ctrl->channel;
-
-  // Check the validity of the arguments
-  if (unlikely(count <= 0 || count > MY_MIN(chan->max_msg_size, PAGE_SIZE)))
-  {
-    printk(KERN_ERR "kzimp: count is not valid: %lu (process %i in write on channel %i)\n", (unsigned long)count, current->pid, chan->chan_id);
-    return 0;
-  }
 
   spin_lock(&chan->bcl);
 
@@ -580,6 +573,13 @@ static ssize_t kzimp_write
 
   ctrl = filp->private_data;
   chan = ctrl->channel;
+
+  // Check the validity of the arguments
+  if (unlikely(count <= 0 || count > MY_MIN(chan->max_msg_size, PAGE_SIZE)))
+  {
+    printk(KERN_ERR "kzimp: count is not valid: %lu (process %i in write on channel %i)\n", (unsigned long)count, current->pid, chan->chan_id);
+    return 0;
+  }
 
   ret = kzimp_wait_for_writing_if_needed(filp, count, &m);
   if (unlikely(ret != 1))
@@ -741,6 +741,13 @@ static long kzimp_ioctl_write(struct file *filp, unsigned long uaddr,
 
   //printk(KERN_DEBUG "uaddr=%p, offset=%lu, count=%lu\n", (char*)uaddr, offset, count);
 
+  // Check the validity of the arguments
+  if (unlikely(count <= 0 || count > chan->max_msg_size_page_rounded))
+  {
+    printk(KERN_ERR "kzimp: count is not valid: %lu (process %i in ioctl_write on channel %i)\n", (unsigned long)count, current->pid, chan->chan_id);
+    return 0;
+  }
+
   retval = kzimp_wait_for_writing_if_needed(filp, count, &m);
   if (unlikely(retval != 1))
   {
@@ -775,7 +782,9 @@ static long kzimp_ioctl_write(struct file *filp, unsigned long uaddr,
 
     //FIXME: a user-space process may call mprotect() in order to reset the protection on the area.
     //FIXME: This can be prevented by hooking the mprotect() syscall.
-    retval = mprotect_fixup(vma, &prev, vma->vm_start, vma->vm_end, PROT_READ);
+    //FIXME: There is a bug if we remove the write protection on the message
+    //retval = mprotect_fixup(vma, &prev, vma->vm_start, vma->vm_end, PROT_READ);
+    retval = mprotect_fixup(vma, &prev, vma->vm_start, vma->vm_end, PROT_READ | PROT_WRITE);
     if (retval)
     {
       up_write(&current->mm->mmap_sem);

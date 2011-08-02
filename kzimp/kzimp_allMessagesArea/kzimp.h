@@ -29,7 +29,7 @@
 
 // Used to define the size of the pad member
 // The last modulo is to prevent the padding to add CACHE_LINE_SIZE bytes to the structure
-#define PADDING_SIZE(S) ((CACHE_LINE_SIZE - S % CACHE_LINE_SIZE) % CACHE_LINE_SIZE)
+#define PADDING_SIZE(S) ((CACHE_LINE_SIZE - ((S) % CACHE_LINE_SIZE)) % CACHE_LINE_SIZE)
 
 // This module takes the following arguments:
 static int nb_max_communication_channels = 4;

@@ -30,10 +30,10 @@
 
 // Used to define the size of the pad member
 // The last modulo is to prevent the padding to add CACHE_LINE_SIZE bytes to the structure
-#define PADDING_SIZE(S) ((CACHE_LINE_SIZE - S % CACHE_LINE_SIZE) % CACHE_LINE_SIZE)
+#define PADDING_SIZE(S) ((CACHE_LINE_SIZE - ((S) % CACHE_LINE_SIZE)) % CACHE_LINE_SIZE)
 
 // round up to a page size
-#define ROUND_UP_PAGE_SIZE(S) (S + (PAGE_SIZE - S % PAGE_SIZE) % PAGE_SIZE)
+#define ROUND_UP_PAGE_SIZE(S) ((S) + ((PAGE_SIZE - ((S) % PAGE_SIZE)) % PAGE_SIZE))
 
 // IOCTL commands
 #define KZIMP_IOCTL_SPLICE_WRITE 0x1
