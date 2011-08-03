@@ -80,7 +80,7 @@ fi
 if [ $KZIMP_DIR = "../kzimp/kzimp_splice" ]; then
    echo "-DKZIMP_SPLICE -DCHANNEL_SIZE=$((${MSG_CHANNEL}+1))" >> KZIMP_PROPERTIES
 fi
-if [ KZIMP_DIR= "../kzimp/kzimp_reader_splice" ]; then
+if [ $KZIMP_DIR = "../kzimp/kzimp_reader_splice" ]; then
    echo "-DKZIMP_READ_SPLICE -DCHANNEL_SIZE=${MSG_CHANNEL}" >> KZIMP_PROPERTIES
 fi
 make kzimp_paxosInside

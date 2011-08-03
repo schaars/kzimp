@@ -612,8 +612,7 @@ static int kzimp_mmap(struct file *filp, struct vm_area_struct *vma)
   }
 
   // Check the requested size: if greater than the messages area size then return -EINVAL.
-  size = (unsigned long) chan->max_msg_size * (unsigned long) chan->channel_size;
-  if (vma->vm_end - vma->vm_start > size)
+  if (vma->vm_end - vma->vm_start > chan->channel_size_in_bytes)
   {
     printk(KERN_DEBUG "Requested size too big: %lu > %lu\n", vma->vm_end - vma->vm_start, size);
     return -EINVAL;
@@ -749,6 +748,7 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
 
   size = (unsigned long) channel->max_msg_size
       * (unsigned long) channel->channel_size;
+  channel->channel_size_in_bytes = ROUND_UP_PAGE_SIZE(size);
   channel->messages_area = my_vmalloc(size);
   if (unlikely(!channel->messages_area))
   {

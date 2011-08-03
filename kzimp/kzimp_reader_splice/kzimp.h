@@ -117,7 +117,7 @@ struct kzimp_message
 
 #define KZIMP_COMM_CHAN_SIZE1 (sizeof(int)+sizeof(int)+sizeof(long)+sizeof(unsigned long)+sizeof(wait_queue_head_t)*2+sizeof(atomic_t)*2+sizeof(struct kzimp_message*)+sizeof(char*))
 #define KZIMP_COMM_CHAN_SIZE2 (sizeof(int)+sizeof(spinlock_t))
-#define KZIMP_COMM_CHAN_SIZE3 (sizeof(struct list_head)+sizeof(int)+sizeof(int)+sizeof(int)+sizeof(struct cdev))
+#define KZIMP_COMM_CHAN_SIZE3 (sizeof(struct list_head)+sizeof(int)+sizeof(size_t)+sizeof(int)+sizeof(int)+sizeof(struct cdev))
 
 // kzimp communication channel
 struct kzimp_comm_chan
@@ -140,6 +140,7 @@ struct kzimp_comm_chan
 
   struct list_head readers;         /* List of pointers to the readers' control structure */
   int max_msg_size;                 /* max message size */
+  size_t channel_size_in_bytes;     /* size of a channel in bytes, rounded up to a multiple of the page size */
   int nb_readers;                   /* number of readers */
   int chan_id;                      /* id of this channel */
   struct cdev cdev;                 /* char device structure */
