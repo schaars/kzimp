@@ -118,39 +118,29 @@ struct kzimp_message
   char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*)*2 + sizeof(struct task_struct *) + sizeof(struct vm_area_struct *) + sizeof(atomic_t))];
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
 
-#define KZIMP_COMM_CHAN_SIZE1 (sizeof(int)+sizeof(int)+sizeof(long)+sizeof(unsigned long)+sizeof(wait_queue_head_t)*2+sizeof(atomic_t)*2+sizeof(struct kzimp_message*)+sizeof(char*))
-#define KZIMP_COMM_CHAN_SIZE2 (sizeof(int)+sizeof(spinlock_t))
-#define KZIMP_COMM_CHAN_SIZE3 (sizeof(struct list_head)*2+sizeof(int)*2+sizeof(int)+sizeof(int)+sizeof(struct cdev))
-
 // kzimp communication channel
 struct kzimp_comm_chan
 {
   int channel_size;                 /* max number of messages in the channel */
   int compute_checksum;             /* do we compute the checksum? 0: no, 1: yes, 2: partial */
-  long timeout_in_ms;               /* writer's timeout in miliseconds */
   unsigned long multicast_mask;     /* the multicast mask, used for the bitmap */
-  wait_queue_head_t rq, wq;         /* the wait queues */
   struct kzimp_message* msgs;       /* the messages of the channel */
   char *messages_area;              /* pointer to the big allocated area of messages */
-
-  char __p1[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE1)];
+  long timeout_in_ms;               /* writer's timeout in miliseconds */
+  wait_queue_head_t rq, wq;         /* the wait queues */
 
   // these variables are used by the writers only.
   int next_write_idx;               /* position of the next written message */
-  spinlock_t bcl;                   /* the Big Channel Lock :) */ //TODO: profile/test with atomic
+  spinlock_t bcl;                   /* the Big Channel Lock :) */
 
-  char __p2[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE2)];
-
-  struct list_head readers;         /* List of pointers to the readers' control structure */
   struct list_head writers_big_msg; /* List of pointers to the writers' big messages areas */
   int max_msg_size;                 /* max message size */
   int max_msg_size_page_rounded;    /* max message size, rounded up to a multiple of the page size */
   int nb_readers;                   /* number of readers */
+  struct list_head readers;         /* List of pointers to the readers' control structure */
   int chan_id;                      /* id of this channel */
   struct cdev cdev;                 /* char device structure */
-
-  char __p3[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE3)];
-}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE))); // TODO: reorganize the structure properly. Do we need padding?
+}__attribute__((__aligned__(CACHE_LINE_SIZE)));
 
 // Each process that uses the channel to read has a control structure.
 struct kzimp_ctrl

@@ -30,7 +30,7 @@
 
 // define CHANNEL_WRITE_IDX_ATOMIC if you want next_write_idx to be an atomic_t
 // which will overflow. The writers will compute the modulo without a lock.
-#define CHANNEL_WRITE_IDX_ATOMIC
+//#define CHANNEL_WRITE_IDX_ATOMIC
 
 // even if all the machines do not necessarily have lines of 64B, we don't really care
 #define CACHE_LINE_SIZE 64
