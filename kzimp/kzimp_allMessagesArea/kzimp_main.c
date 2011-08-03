@@ -144,7 +144,11 @@ static int kzimp_open(struct inode *inode, struct file *filp)
 
     // we set next_read_idx to the next position where the writer is going to write
     // so that it gets the next message
+#ifdef CHANNEL_WRITE_IDX_ATOMIC
+    ctrl->next_read_idx = atomic_read(&chan->next_write_idx);
+#else
     ctrl->next_read_idx = chan->next_write_idx;
+#endif
     ctrl->bitmap_bit = get_new_bitmap_bit(chan);
     ctrl->online = 1;
 
@@ -310,9 +314,17 @@ static int finalize_read(struct kzimp_message *m, struct kzimp_ctrl *ctrl,
   if (likely(ctrl->online))
   {
     clear_bit(ctrl->bitmap_bit, &m->bitmap);
-    if (writer_can_write(m->bitmap))
+    if (writer_can_write(m->bitmap)
+#ifdef ATOMIC_WAKE_UP
+        && !atomic_cmpxchg(&m->waking_up_writer, 0, 1)
+#endif
+    )
     {
       wake_up_interruptible(&chan->wq);
+
+#ifdef ATOMIC_WAKE_UP
+      atomic_set(&m->waking_up_writer, 0);
+#endif
     }
 
     ctrl->next_read_idx = (ctrl->next_read_idx + 1) % chan->channel_size;
@@ -427,6 +439,15 @@ static void handle_timeout(struct kzimp_comm_chan *chan,
   spin_unlock(&chan->bcl);
 }
 
+#ifdef CHANNEL_WRITE_IDX_ATOMIC
+static inline int kzimp_modulo(int a, int b)
+{
+  int c;
+  c = a % b;
+  return (c < 0) ? c + b : c;
+}
+#endif
+
 // Wait for writing if needed.
 // Return 1 if everything is ok, an error otherwise.
 static ssize_t kzimp_wait_for_writing_if_needed(struct file *filp,
@@ -435,6 +456,10 @@ static ssize_t kzimp_wait_for_writing_if_needed(struct file *filp,
   long to_expired;
   struct kzimp_message *m;
   DEFINE_WAIT(__wait);
+
+#ifdef CHANNEL_WRITE_IDX_ATOMIC
+  int next_wr_idx;
+#endif
 
   struct kzimp_comm_chan *chan; /* channel information */
   struct kzimp_ctrl *ctrl;
@@ -449,12 +474,16 @@ static ssize_t kzimp_wait_for_writing_if_needed(struct file *filp,
     return 0;
   }
 
+#ifdef CHANNEL_WRITE_IDX_ATOMIC
+  next_wr_idx = atomic_inc_return(&chan->next_write_idx);
+  next_wr_idx = kzimp_modulo(next_wr_idx-1, chan->channel_size);
+  m = &(chan->msgs[next_wr_idx]);
+#else
   spin_lock(&chan->bcl);
-
   m = &(chan->msgs[chan->next_write_idx]);
   chan->next_write_idx = (chan->next_write_idx + 1) % chan->channel_size;
-
   spin_unlock(&chan->bcl);
+#endif
 
   // there is only 1 writer at a time, which will sleep until
   // the bitmap is empty or the timeout expires.
@@ -603,7 +632,11 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
   channel->timeout_in_ms = to;
   channel->multicast_mask = 0;
   channel->nb_readers = 0;
+#ifdef CHANNEL_WRITE_IDX_ATOMIC
+  atomic_set(&channel->next_write_idx, 0);
+#else
   channel->next_write_idx = 0;
+#endif
   init_waitqueue_head(&channel->rq);
   init_waitqueue_head(&channel->wq);
   INIT_LIST_HEAD(&channel->readers);
@@ -630,6 +663,9 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
   {
     channel->msgs[i].data = addr;
     channel->msgs[i].bitmap = 0;
+#ifdef ATOMIC_WAKE_UP
+    atomic_set(&channel->msgs[i].waking_up_writer, 0);
+#endif
     addr += channel->max_msg_size;
   }
 

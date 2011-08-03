@@ -24,6 +24,14 @@
 #define DRIVER_AUTHOR "Pierre Louis Aublin <pierre-louis.aublin@inria.fr>"
 #define DRIVER_DESC   "Kernel module of the ZIMP communication mechanism"
 
+// define it if you want only 1 reader to wake up the writers
+// Provides the same results whether it is present or not.
+//#define ATOMIC_WAKE_UP
+
+// define CHANNEL_WRITE_IDX_ATOMIC if you want next_write_idx to be an atomic_t
+// which will overflow. The writers will compute the modulo without a lock.
+#define CHANNEL_WRITE_IDX_ATOMIC
+
 // even if all the machines do not necessarily have lines of 64B, we don't really care
 #define CACHE_LINE_SIZE 64
 
@@ -68,12 +76,12 @@ static unsigned int kzimp_poll(struct file *filp, poll_table *wait);
 // an open file is associated with a set of functions
 static struct file_operations kzimp_fops =
 {
-   .owner = THIS_MODULE,
-   .open = kzimp_open,
-   .release = kzimp_release,
-   .read = kzimp_read,
-   .write = kzimp_write,
-   .poll = kzimp_poll,
+    .owner = THIS_MODULE,
+    .open = kzimp_open,
+    .release = kzimp_release,
+    .read = kzimp_read,
+    .write = kzimp_write,
+    .poll = kzimp_poll,
 };
 
 #define KZIMP_HEADER_SIZE (sizeof(unsigned long)+sizeof(int)+sizeof(short))
@@ -82,71 +90,72 @@ static struct file_operations kzimp_fops =
 // it must be packed so that we can compute the checksum
 struct kzimp_message
 {
-   unsigned long bitmap; /* the bitmap, alone on  */
-   int len;              /* length of the message */
-   short checksum;       /* the checksum */
+  unsigned long bitmap; /* the bitmap, alone on  */
+  int len;              /* length of the message */
+  short checksum;       /* the checksum */
 
-   short __p1;           /* to align properly the char* */
+  short __p1;           /* to align properly the char* */
 
-   char *data;           /* the message content */
+  char *data;           /* the message content */
+#ifdef ATOMIC_WAKE_UP
+  atomic_t waking_up_writer;  /* is there someone waking up the writers? */
+#endif
 
-   // padding (to avoid false sharing)
-   char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*))];
+  // padding (to avoid false sharing)
+#ifdef ATOMIC_WAKE_UP
+  char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*) + sizeof(atomic_t))];
+#else
+  char __p2[PADDING_SIZE(KZIMP_HEADER_SIZE + sizeof(short) + sizeof(char*))];
+#endif
 }__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE)));
-
-#define KZIMP_COMM_CHAN_SIZE1 (sizeof(int)+sizeof(int)+sizeof(long)+sizeof(unsigned long)+sizeof(wait_queue_head_t)*2+sizeof(atomic_t)*2+sizeof(struct kzimp_message*)+sizeof(char*))
-#define KZIMP_COMM_CHAN_SIZE2 (sizeof(int)+sizeof(spinlock_t))
-#define KZIMP_COMM_CHAN_SIZE3 (sizeof(struct list_head)+sizeof(int)+sizeof(int)+sizeof(int)+sizeof(struct cdev))
 
 // kzimp communication channel
 struct kzimp_comm_chan
 {
   int channel_size;                 /* max number of messages in the channel */
   int compute_checksum;             /* do we compute the checksum? 0: no, 1: yes, 2: partial */
-  long timeout_in_ms;               /* writer's timeout in miliseconds */
   unsigned long multicast_mask;     /* the multicast mask, used for the bitmap */
-  wait_queue_head_t rq, wq;         /* the wait queues */
   struct kzimp_message* msgs;       /* the messages of the channel */
   char *messages_area;              /* pointer to the big allocated area of messages */
-
-  char __p1[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE1)];
+  long timeout_in_ms;               /* writer's timeout in miliseconds */
+  wait_queue_head_t rq, wq;         /* the wait queues */
 
   // these variables are used by the writers only.
+#ifdef CHANNEL_WRITE_IDX_ATOMIC
+  atomic_t next_write_idx;
+#else
   int next_write_idx;               /* position of the next written message */
-  spinlock_t bcl;                   /* the Big Channel Lock :) */ //TODO: profile/test with atomic
+#endif
+  spinlock_t bcl;                   /* the Big Channel Lock :) */
 
-  char __p2[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE2)];
-
-  struct list_head readers;         /* List of pointers to the readers' control structure */
-  int chan_id;                      /* id of this channel */
   int max_msg_size;                 /* max message size */
   int nb_readers;                   /* number of readers */
+  struct list_head readers;         /* List of pointers to the readers' control structure */
+  int chan_id;                      /* id of this channel */
   struct cdev cdev;                 /* char device structure */
-
-  char __p3[PADDING_SIZE(KZIMP_COMM_CHAN_SIZE3)];
-}__attribute__((__packed__, __aligned__(CACHE_LINE_SIZE))); // TODO: reorganize the structure properly. Do we need padding?
+}__attribute__((__aligned__(CACHE_LINE_SIZE)));
 
 // Each process that uses the channel to read has a control structure.
 struct kzimp_ctrl
 {
-   int next_read_idx;               /* index of the next read in the channel */
-   int bitmap_bit;                  /* position of the bit in the multicast mask modified by this reader */
-   pid_t pid;                       /* pid of this reader */
-   int online;                      /* is this reader still active or not? */
-   struct list_head next;           /* pointer to the next reader on this channel */
-   struct kzimp_comm_chan *channel; /* pointer to the channel */
+  int next_read_idx;               /* index of the next read in the channel */
+  int bitmap_bit;                  /* position of the bit in the multicast mask modified by this reader */
+  pid_t pid;                       /* pid of this reader */
+  int online;                      /* is this reader still active or not? */
+  struct list_head next;           /* pointer to the next reader on this channel */
+  struct kzimp_comm_chan *channel; /* pointer to the channel */
 }__attribute__((__aligned__(CACHE_LINE_SIZE)));
 
 // return 1 if the writer can writeits message, 0 otherwise
 static inline int writer_can_write(unsigned long bitmap)
 {
-   return (bitmap == 0);
+  return (bitmap == 0);
 }
 
 // return 1 if the reader has a message to read, 0 otherwise
 static inline int reader_can_read(unsigned long bitmap, int bit)
 {
-   return (bitmap & (1 << bit));
+  return (bitmap & (1 << bit));
 }
 
 

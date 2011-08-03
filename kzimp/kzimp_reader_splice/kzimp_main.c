@@ -310,9 +310,16 @@ static int finalize_read(struct kzimp_message *m, struct kzimp_ctrl *ctrl,
   if (likely(ctrl->online))
   {
     clear_bit(ctrl->bitmap_bit, &m->bitmap);
-    if (writer_can_write(m->bitmap))
+    if (writer_can_write(m->bitmap)
+#ifdef ATOMIC_WAKE_UP
+        && !atomic_cmpxchg(&m->waking_up_writer, 0, 1)
+#endif
+    )
     {
       wake_up_interruptible(&chan->wq);
+#ifdef ATOMIC_WAKE_UP
+      atomic_set(&m->waking_up_writer, 0);
+#endif
     }
 
     ctrl->next_read_idx = (ctrl->next_read_idx + 1) % chan->channel_size;
@@ -769,7 +776,9 @@ static int kzimp_init_channel(struct kzimp_comm_chan *channel, int chan_id,
   {
     channel->msgs[i].data = addr;
     channel->msgs[i].bitmap = 0;
+#ifdef ATOMIC_WAKE_UP
     atomic_set(&channel->msgs[i].waking_up_writer, 0);
+#endif
     addr += channel->max_msg_size;
   }
 
