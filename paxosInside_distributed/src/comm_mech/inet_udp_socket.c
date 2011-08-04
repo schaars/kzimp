@@ -15,6 +15,10 @@
 #include "../Message.h"
 #include "ipc_interface.h"
 
+#ifdef OPEN_LOOP
+#include "../Response.h"
+#endif
+
 // debug macro
 #define DEBUG
 #undef DEBUG
@@ -352,6 +356,15 @@ size_t IPC_receive(void *msg, size_t length)
 
      s += recvfrom(sk, (char*)msg + s, msg_len - s, 0, 0, 0);
   }
+
+#ifdef OPEN_LOOP
+  // I am client 0. If the message comes from learner 0, then set the value to 1
+  // otherwise set it to 0
+  if (node_id == nb_paxos_nodes) {
+     struct message_response* req = (struct message_response*) msg;
+     req->value = ((sk == client0_sock[0]) ? 1 : 0);
+  }
+#endif
 
   return s;
 }

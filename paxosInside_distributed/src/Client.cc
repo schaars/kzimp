@@ -165,7 +165,7 @@ bool Client::handle_response(Response* r)
 #endif
 
 #ifdef OPEN_LOOP
-  return (value == expected_value) || true;
+  return (value == 1);
 #else
   return (value == expected_value);
 #endif
