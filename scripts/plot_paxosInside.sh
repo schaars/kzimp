@@ -43,7 +43,7 @@ set output "${OUT_FILE}.eps"
 
 set xlabel "${XLABEL}"
 set ylabel "${YLABEL}"
-set title "PaxosInside"
+#set title "PaxosInside"
 
 set logscale x
 
@@ -68,17 +68,17 @@ echo -n "plot " >> $PLOT_FILE
 
 first=1
 for arg in $@; do
-   title=$1; shift
-   file=$1; shift
+   title="$1"; shift
+   file="$1"; shift
 
-   if [ -z $title ] || [ -z $file ]; then
+   if [ -z "$title" ] || [ -z "$file" ]; then
       break
    fi
 
    if [ $first -eq 0 ]; then
       echo -n ", " >> $PLOT_FILE
    fi
-   echo -n \"$file\" using $X:$Y:$S title \"$title\" with yerrorlines >> $PLOT_FILE
+   echo -n \""$file"\" using $X:$Y:$S title \""$title"\" with yerrorlines >> $PLOT_FILE
    first=0
 done
 

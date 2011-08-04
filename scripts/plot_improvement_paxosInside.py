@@ -114,10 +114,10 @@ def compute_improvement(main_summary, summaries):
 # ENTRY POINT
 if __name__ == "__main__":
    if len(sys.argv) >= 4:
-      main_summary = Summary(sys.argv[1], sys.argv[2]) 
+      main_summary = Summary(sys.argv[1], sys.argv[2])
       summaries = []
       for i in xrange(3, len(sys.argv), 2):
-         summaries.append(Summary(sys.argv[i], sys.argv[i+1])) 
+         summaries.append(Summary(sys.argv[i], sys.argv[i+1]))
       compute_improvement(main_summary, summaries)
    else:
       print("Usage: %s <title_main_summary> <file_main_summary> <title_summaryA> <file_summaryA> [ ... <title_summaryN> <file_summaryN>]"%(sys.argv[0])) 

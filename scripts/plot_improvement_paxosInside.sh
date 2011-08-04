@@ -29,7 +29,7 @@ PLOT_FILE=$(mktemp gnuplot.pXXX)
 # This script takes the summaries and create a new file, plot.data,
 # which contains:
 #  req_size    mean_improvement/A  stdev/A   mean_improvement/B   stdev/B
-$(dirname $0)/plot_improvement_paxosInside.py $@
+$(dirname $0)/plot_improvement_paxosInside.py "$@"
 
 if [ $LOG_SCALE -eq 1 ]; then
    YLABEL="${YLABEL} (log scale)"
@@ -41,7 +41,7 @@ set output "${OUT_FILE}.eps"
 
 set xlabel "${XLABEL}"
 set ylabel "${YLABEL}"
-set title "PaxosInside, kZIMP improvement"
+#set title "PaxosInside, kZIMP improvement"
 
 set logscale x
 
@@ -58,7 +58,7 @@ if [ $LOG_SCALE -eq 1 ]; then
    echo "set logscale y" >> $PLOT_FILE
    echo "set yrange [1:]" >> $PLOT_FILE
 else
-   echo "set yrange [0:]" >> $PLOT_FILE
+   echo "set yrange [:]" >> $PLOT_FILE
 fi
 
 echo -n "plot " >> $PLOT_FILE
@@ -69,9 +69,9 @@ first=1
 Y=2
 S=3
 for arg in $@; do
-   title=$1; shift; shift
+   title="$1"; shift; shift
 
-   if [ -z $title ]; then
+   if [ -z "$title" ]; then
       break
    fi
 
@@ -80,7 +80,7 @@ for arg in $@; do
    fi
 
    #echo -n \"plot.data\" using 1:$Y:$S title \"$title\" with yerrorlines >> $PLOT_FILE
-   echo -n \"plot.data\" using 1:$Y title \"$title\" with linespoint >> $PLOT_FILE
+   echo -n \"plot.data\" using 1:$Y title \""$title"\" with linespoint >> $PLOT_FILE
 
    first=0
    Y=$(($Y+2))
@@ -92,8 +92,9 @@ echo "" >> $PLOT_FILE
 # call gnuplot
 gnuplot $PLOT_FILE
 
-#rm $PLOT_FILE
-rm plot.data
+rm $PLOT_FILE
+
+mv plot.data ${OUT_FILE}.data
 
 # convert eps to pdf
 epstopdf ${OUT_FILE}.eps
