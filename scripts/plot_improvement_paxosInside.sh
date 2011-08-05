@@ -12,7 +12,7 @@
 if [ -z $LOG_SCALE ]; then
    LOG_SCALE=0
 fi
-XLABEL="Message size"
+XLABEL="Request size (log scale)"
 YLABEL="Improvement in %"
 
 if [ $# -ge 1 ]; then
@@ -58,7 +58,7 @@ if [ $LOG_SCALE -eq 1 ]; then
    echo "set logscale y" >> $PLOT_FILE
    echo "set yrange [1:]" >> $PLOT_FILE
 else
-   echo "set yrange [:]" >> $PLOT_FILE
+   echo "set yrange [0:]" >> $PLOT_FILE
 fi
 
 echo -n "plot " >> $PLOT_FILE

@@ -11,7 +11,7 @@
 if [ -z $LOG_SCALE ]; then
    LOG_SCALE=0
 fi
-XLABEL="Message size (log scale)"
+XLABEL="Request size (log scale)"
 YLABEL="Throughput in prop/sec"
 
 # columns in the summary files for:
