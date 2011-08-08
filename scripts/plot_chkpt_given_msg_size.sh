@@ -38,7 +38,7 @@ set output "${OUT_FILE}.eps"
 
 set xlabel "${XLABEL}"
 set ylabel "${YLABEL}"
-set title "$TITLE"
+#set title "$TITLE"
 
 #set key left top
 #set key at 3.35,5300
@@ -92,10 +92,10 @@ echo -n "plot " >> $PLOT_FILE
 
 first=1
 for arg in $@; do
-   title=$1; shift
+   title="$1"; shift
    file=$1; shift
 
-   if [ -z $title ] || [ -z $file ]; then
+   if [ -z "$title" ] || [ -z $file ]; then
       break
    fi
 
@@ -104,7 +104,7 @@ for arg in $@; do
    fi
    
    extract_data $file $MSG_SIZE
-   echo -n \"${file}.data\" using 1:2:3 title \"$title\" with yerrorlines >> $PLOT_FILE
+   echo -n \"${file}.data\" using 1:2:3 title \""$title"\" with yerrorlines >> $PLOT_FILE
    
    first=0
 done
@@ -173,10 +173,10 @@ PLOT_FILE=$1
 shift
 
 for arg in $@; do
-   title=$1; shift
+   title="$1"; shift
    file=$1; shift
 
-   if [ -z $title ] || [ -z $file ]; then
+   if [ -z "$title" ] || [ -z $file ]; then
       break
    fi
 

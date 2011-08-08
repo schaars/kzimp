@@ -38,7 +38,7 @@ set output "${OUT_FILE}.eps"
 
 set xlabel "${XLABEL}"
 set ylabel "${YLABEL}"
-set title "$TITLE"
+#set title "$TITLE"
 
 #set key left top
 #set key at 3.35,5300
@@ -89,10 +89,10 @@ function get_improvement {
 new_args=""
 
 for arg in $@; do
-   title=$1; shift
+   title="$1"; shift
    file=$1; shift
 
-   if [ -z $title ] || [ -z $file ]; then
+   if [ -z "$title" ] || [ -z $file ]; then
       break
    fi
 
@@ -101,7 +101,7 @@ for arg in $@; do
 done
 
 # compute improvement using $new_args
-$(dirname $0)/compute_improvement_chkpt.py ${LAT_OR_THR} ${new_args}
+$(dirname $0)/compute_improvement_chkpt.py ${LAT_OR_THR} "${new_args}"
 }
 
 function complete_plot {
@@ -117,10 +117,10 @@ first=1
 Y=2
 S=3
 for arg in $@; do
-   title=$1; shift
+   title="$1"; shift
    file=$1; shift
 
-   if [ -z $title ] || [ -z $file ]; then
+   if [ -z "$title" ] || [ -z $file ]; then
       break
    fi
 
@@ -128,8 +128,8 @@ for arg in $@; do
       echo -n ", " >> $PLOT_FILE
    fi
 
-   #echo -n \"plot.data\" using 1:$Y:$S title \"$title\" with yerrorlines >> $PLOT_FILE
-   echo -n \"plot.data\" using 1:$Y title \"$title\" with linespoint >> $PLOT_FILE
+   #echo -n \"plot.data\" using 1:$Y:$S title \""$title"\" with yerrorlines >> $PLOT_FILE
+   echo -n \"plot.data\" using 1:$Y title \""$title"\" with linespoint >> $PLOT_FILE
 
    first=0
    Y=$(($Y+2))
@@ -204,10 +204,10 @@ PLOT_FILE=$1
 shift
 
 for arg in $@; do
-   title=$1; shift
+   title="$1"; shift
    file=$1; shift
 
-   if [ -z $title ] || [ -z $file ]; then
+   if [ -z "$title" ] || [ -z $file ]; then
       break
    fi
 

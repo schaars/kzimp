@@ -38,7 +38,7 @@ set output "${OUT_FILE}.eps"
 
 set xlabel "${XLABEL}"
 set ylabel "${YLABEL}"
-set title "$TITLE"
+#set title "$TITLE"
 
 set logscale x
 set xtics("1B" 1,"64B" 64,"128B" 128,"512B" 512,"1kB" 1024,"4kB" 4096,"10kB" 10240,"100kB" 102400,"1MB" 1048576)
@@ -95,10 +95,10 @@ echo -n "plot " >> $PLOT_FILE
 
 first=1
 for arg in $@; do
-   title=$1; shift
+   title="$1"; shift
    file=$1; shift
 
-   if [ -z $title ] || [ -z $file ]; then
+   if [ -z "$title" ] || [ -z $file ]; then
       break
    fi
 
@@ -107,7 +107,7 @@ for arg in $@; do
    fi
    
    extract_data $file $NB_NODES
-   echo -n \"${file}.data\" using 1:2:3 title \"$title\" with yerrorlines >> $PLOT_FILE
+   echo -n \"${file}.data\" using 1:2:3 title \""$title"\" with yerrorlines >> $PLOT_FILE
    
    first=0
 done
@@ -161,10 +161,10 @@ PLOT_FILE=$1
 shift
 
 for arg in $@; do
-   title=$1; shift
+   title="$1"; shift
    file=$1; shift
 
-   if [ -z $title ] || [ -z $file ]; then
+   if [ -z "$title" ] || [ -z $file ]; then
       break
    fi
 
