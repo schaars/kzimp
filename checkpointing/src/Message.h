@@ -51,6 +51,10 @@ public:
   char* content(void) const;
 #endif
 
+#ifdef KZIMP_READ_SPLICE
+  char** content_addr(void);
+#endif
+
   // return the length of this message
   size_t length(void) const;
 
@@ -70,6 +74,10 @@ protected:
 
   char *msg;
 
+#ifdef KZIMP_READ_SPLICE
+  int kzimp_reader_splice_do_not_free;
+#endif
+
 #ifdef ULM
   int msg_pos_in_ring_buffer;
 #endif
@@ -83,8 +91,10 @@ private:
   //  directly in shared memory.
   // +nid is relevant only when using ULM. If set to -1, then this message will be multicast,
   //  otherwise it is sent to node nid.
+  // +doNotFree is relevant only when using kzimp reader splice. If set to 1, then msg will
+  //  not be freed since it points to a mmapped area.
   void init_message(size_t len, MessageTag tag, bool ulm_alloc = false,
-      int nid = -2);
+      int nid = -2, int doNotFree = 0);
 };
 
 // return a pointer to the header of this message
@@ -97,6 +107,13 @@ inline struct ipc_message* Message::content(void)
 inline char* Message::content(void) const
 {
   return msg;
+}
+#endif
+
+#ifdef KZIMP_READ_SPLICE
+inline char** Message::content_addr(void)
+{
+  return &msg;
 }
 #endif
 

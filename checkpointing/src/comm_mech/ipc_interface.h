@@ -60,12 +60,21 @@ void IPC_send_unicast(void *msg, size_t length, int nid);
 
 #endif
 
-#ifdef IPC_MSG_QUEUE
+#if defined(IPC_MSG_QUEUE)
 
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
 // blocking
 size_t IPC_receive(struct ipc_message *msg, size_t length);
+
+#elif defined(KZIMP_READ_SPLICE)
+
+// receive a message.
+// Return MESSAGE_MAX_SIZE if everything is ok, 0 otherwise.
+size_t IPC_receive(char **msg);
+
+// finalize the reception of a message
+void IPC_receive_finalize(void);
 
 #else
 

@@ -10,6 +10,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#ifdef KZIMP_READ_SPLICE
+#include <string.h>
+#endif
+
 #include "Checkpointer.h"
 #include "MessageTag.h"
 #include "Message.h"
@@ -138,7 +142,13 @@ void Checkpointer::run(void)
 
 void Checkpointer::recv(Message *m)
 {
-  size_t recv = IPC_receive(m->content(), m->length());
+  size_t recv;
+
+#ifdef KZIMP_READ_SPLICE
+  recv = IPC_receive(m->content_addr());
+#else
+  recv = IPC_receive(m->content(), m->length());
+#endif
 
   if (recv > 0 && m->length() >= sizeof(struct message_header))
   {
@@ -160,6 +170,10 @@ void Checkpointer::recv(Message *m)
 #endif
       break;
     }
+
+#ifdef KZIMP_READ_SPLICE
+    IPC_receive_finalize();
+#endif
   }
 }
 
@@ -208,6 +222,10 @@ void Checkpointer::handle(Checkpoint_response *resp)
 
   snapshot[sender].cn = sent_cn;
   snapshot[sender].value = value;
+
+#ifdef KZIMP_READ_SPLICE
+  memcpy(chkpt_buf, resp->content(), resp->length());
+#endif
 
   // wait for the checkpoint_reponses (1 per node but this one)
   awaited_responses &= ~(1 << sender);

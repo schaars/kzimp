@@ -18,7 +18,11 @@
 
 Message::Message(void)
 {
+#ifdef KZIMP_READ_SPLICE
+  init_message(Max_message_size, UNKNOWN, false, -2, 1);
+#else
   init_message(Max_message_size, UNKNOWN);
+#endif
 }
 
 Message::Message(MessageTag tag)
@@ -40,11 +44,22 @@ Message::Message(size_t len, MessageTag tag, int cid)
 
 Message::~Message(void)
 {
+#ifdef KZIMP_READ_SPLICE
+
+  if (!kzimp_reader_splice_do_not_free)
+  {
+    free(msg);
+  }
+
+#else
+
 #ifndef IPC_MSG_QUEUE
 #ifndef ULM
   free(msg);
 #endif
-#endif
+#endif /* IPC_MSG_QUEUE */
+
+#endif /* KZIMP_READ_SPLICE */
 }
 
 // initialize the message
@@ -52,7 +67,8 @@ Message::~Message(void)
 //  directly in shared memory.
 // +nid is relevant only when using ULM. If set to -1, then this message will be multicast,
 //  otherwise it is sent to node nid.
-void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int nid)
+void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int nid,
+    int doNotFree)
 {
 #if defined(IPC_MSG_QUEUE)
 
@@ -76,6 +92,19 @@ void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int nid)
     msg_pos_in_ring_buffer = -1;
   }
 
+#elif defined(KZIMP_READ_SPLICE)
+
+  kzimp_reader_splice_do_not_free = doNotFree;
+  if (!kzimp_reader_splice_do_not_free)
+  {
+    msg = (char*) malloc(len);
+    if (!msg)
+    {
+      perror("Message creation failed! ");
+      exit(errno);
+    }
+  }
+
 #else
 
   msg = (char*) malloc(len);
@@ -87,8 +116,15 @@ void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int nid)
 
 #endif
 
-  rep()->tag = tag;
-  rep()->len = len;
+#ifdef KZIMP_READ_SPLICE
+  if (!kzimp_reader_splice_do_not_free)
+  {
+#endif
+    rep()->tag = tag;
+    rep()->len = len;
+#ifdef KZIMP_READ_SPLICE
+  }
+#endif
 
 #ifdef MSG_DEBUG
   printf("Creating a new Message %i of size %lu\n", rep()->tag, rep()->len);

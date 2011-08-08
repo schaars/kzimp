@@ -12,6 +12,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#if defined(KZIMP_READ_SPLICE)
+#include <sys/mman.h>
+#include <sys/ioctl.h>
+#endif
+
 #ifdef ONE_CHANNEL_PER_NODE
 #include <time.h>
 #endif
@@ -24,6 +29,22 @@
 
 // Define MESSAGE_MAX_SIZE as the max size of a message in the channel
 // Define ONE_CHANNEL_PER_NODE if you want to run the version with 1 channel per learner i -> client 0
+// Define KZIMP_READ_SPLICE if you want to use the reader_splice version of kzimp (no copy when receiving)
+// Note that it does not work with ONE_CHANNEL_PER_LEARNER.
+// You also need to define CHANNEL_SIZE
+
+#if defined(KZIMP_READ_SPLICE) && !defined(CHANNEL_SIZE)
+#error "KZIMP_READ_SPLICE must come with CHANNEL_SIZE"
+#endif
+
+#if defined(KZIMP_READ_SPLICE) && defined(ONE_CHANNEL_PER_LEARNER)
+#error "KZIMP_READ_SPLICE with ONE_CHANNEL_PER_LEARNER not implemented"
+#endif
+
+#ifdef KZIMP_READ_SPLICE
+#define KZIMP_IOCTL_SPLICE_START_READ 0x7
+#define KZIMP_IOCTL_SPLICE_FINISH_READ 0x8
+#endif
 
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #define MIN(a, b) (((a)<(b))?(a):(b))
@@ -39,6 +60,11 @@ static int multicast_0_to_all; // node 0 -> all but 0
 static int *nodei_to_0; // node i -> node 0 for all i. We do not use nodei_to_0[0]
 #else
 static int nodes_to_0; // all nodes but 0 -> node 0
+#endif
+
+#ifdef KZIMP_READ_SPLICE
+static char *messages; // mmapped area
+static size_t msg_area_len; // size of the mmapped area
 #endif
 
 // open wrapper which handles the errors
@@ -156,7 +182,28 @@ void IPC_initialize(int _nb_nodes)
     perror("malloc of nodei_to_0 failed");
   }
 #endif
+
+#ifdef KZIMP_READ_SPLICE
+  msg_area_len = (size_t)MESSAGE_MAX_SIZE * (size_t)CHANNEL_SIZE;
+#endif
 }
+
+#ifdef KZIMP_READ_SPLICE
+static void mmap_messages(int fd)
+{
+  messages = (char*)mmap(NULL, msg_area_len, PROT_READ, MAP_SHARED, fd, 0);
+  if (messages == (void*) -1)
+  {
+    perror("mmap");
+    exit(-1);
+  }
+}
+
+static void munmap_messages(int fd)
+{
+  munmap(messages, msg_area_len);
+}
+#endif
 
 // Initialize resources for the node
 void IPC_initialize_node(int _node_id)
@@ -180,12 +227,20 @@ void IPC_initialize_node(int _node_id)
 #else
     snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 1);
     nodes_to_0 = Open(chaname, O_RDONLY);
+
+#ifdef KZIMP_READ_SPLICE
+    mmap_messages(nodes_to_0);
+#endif
 #endif
   }
   else
   {
     snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 0);
     multicast_0_to_all = Open(chaname, O_RDONLY);
+
+#ifdef KZIMP_READ_SPLICE
+    mmap_messages(multicast_0_to_all);
+#endif
 
 #ifdef ONE_CHANNEL_PER_NODE
     snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, node_id);
@@ -209,6 +264,17 @@ void IPC_clean(void)
 // Clean resources created for the (paxos) node.
 void IPC_clean_node(void)
 {
+#ifdef KZIMP_READ_SPLICE
+  if (node_id == 0)
+  {
+    munmap_messages(nodes_to_0);
+  }
+  else
+  {
+    munmap_messages(multicast_0_to_all);
+  }
+#endif
+
   close(multicast_0_to_all);
 
 #ifdef ONE_CHANNEL_PER_NODE
@@ -244,6 +310,44 @@ void IPC_send_unicast(void *msg, size_t length, int nid)
   Write(nodes_to_0, msg, length);
 #endif
 }
+
+#ifdef KZIMP_READ_SPLICE
+
+inline int get_fd(void)
+{
+  if (node_id == 0)
+  {
+    return nodes_to_0;
+  }
+  else
+  {
+    return multicast_0_to_all;
+  }
+}
+
+// receive a message.
+// Return MAX_MESSAGE_SIZE if everything is ok, 0 otherwise.
+size_t IPC_receive(char **msg)
+{
+  int idx = -1;
+
+  while (idx < 0)
+  {
+    idx = ioctl(get_fd(), KZIMP_IOCTL_SPLICE_START_READ);
+  }
+
+  *msg = messages + idx * MESSAGE_MAX_SIZE;
+
+  return MESSAGE_MAX_SIZE;
+}
+
+// finalize the reception of a message
+void IPC_receive_finalize(void)
+{
+  ioctl(get_fd(), KZIMP_IOCTL_SPLICE_FINISH_READ);
+}
+
+#else
 
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
@@ -298,3 +402,5 @@ size_t IPC_receive(void *msg, size_t length)
 
   return (size_t) recv_size;
 }
+
+#endif

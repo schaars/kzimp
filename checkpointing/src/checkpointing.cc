@@ -55,6 +55,11 @@ void read_config_file(char *config)
     r = fscanf(config_file, "%i", &associated_core[i]);
   }
 
+  if (r == EOF)
+  {
+    perror("fscanf error");
+  }
+
   fclose(config_file);
 
   FILE *results_file = fopen(LOG_FILE, "a");

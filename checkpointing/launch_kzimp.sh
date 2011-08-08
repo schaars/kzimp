@@ -11,7 +11,8 @@
 
 CONFIG_FILE=config
 
-KZIMP_DIR="../kzimp/kzimp_allMessagesArea"
+#KZIMP_DIR="../kzimp/kzimp_allMessagesArea"
+KZIMP_DIR="../kzimp/kzimp_reader_splice"
 
 # Do we compute the checksum?
 COMPUTE_CHKSUM=0
@@ -63,6 +64,9 @@ cd -
 echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE}" > KZIMP_PROPERTIES
 if [ $ONE_CHANNEL_PER_NODE -eq 1 ]; then
    echo "-DONE_CHANNEL_PER_NODE" >> KZIMP_PROPERTIES
+fi
+if [ $KZIMP_DIR = "../kzimp/kzimp_reader_splice" ]; then
+   echo "-DKZIMP_READ_SPLICE -DCHANNEL_SIZE=${MSG_CHANNEL}" >> KZIMP_PROPERTIES
 fi
 make kzimp_checkpointing
 

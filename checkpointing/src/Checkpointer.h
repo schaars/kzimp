@@ -46,6 +46,10 @@ private:
   uint64_t latency_new_start, latency_send_start, latency_stop;
   uint64_t sum_of_latencies_new, sum_of_latencies_send;
 
+#ifdef KZIMP_READ_SPLICE
+  char chkpt_buf[MESSAGE_MAX_SIZE];
+#endif
+
   void recv(Message *m);
 
   void handle(Checkpoint_request *req);
