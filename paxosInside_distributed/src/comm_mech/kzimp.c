@@ -278,6 +278,7 @@ static void munmap_messages(int fd)
   munmap(messages, msg_area_len);
 }
 #endif
+
 static void init_node(int _node_id)
 {
   char chaname[256];
@@ -579,7 +580,7 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid)
 }
 
 #ifdef KZIMP_READ_SPLICE
-int get_fd(void)
+inline int get_fd(void)
 {
   if (node_id == 0)
   {

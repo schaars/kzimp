@@ -17,7 +17,7 @@
 
 Message::Message(void)
 {
-#ifdef KZIMP_READ_SPLICE
+#ifndef KZIMP_READ_SPLICE
   init_message(Max_message_size, UNKNOWN);
 #else
   init_message(Max_message_size, UNKNOWN, false, 0, 1);
@@ -120,8 +120,15 @@ void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int cid,
 
 #endif
 
-  rep()->len = len;
-  rep()->tag = tag;
+#ifdef KZIMP_READ_SPLICE
+  if (!kzimp_reader_splice_do_not_free)
+  {
+#endif
+    rep()->len = len;
+    rep()->tag = tag;
+#ifdef KZIMP_READ_SPLICE
+  }
+#endif
 }
 
 Message::~Message(void)
@@ -140,9 +147,9 @@ Message::~Message(void)
   if (msg_pos_in_ring_buffer == -1)
   {
 #endif
-  free(msg);
+    free(msg);
 #if defined(ULM) || defined(KZIMP_SPLICE)
-}
+  }
 #endif
 #endif /* IPC_MSG_QUEUE */
 

@@ -36,7 +36,7 @@ int *associated_core; // associated_core[i] = core on which you launch node i, f
 //    core associated to that node, 1 line per node
 void read_config_file(char *config)
 {
-   int r;
+  int r;
 
   FILE *config_file = fopen(config, "r");
   if (!config_file)
@@ -66,6 +66,11 @@ void read_config_file(char *config)
   for (int i = 0; i < total_nb_nodes; i++)
   {
     r = fscanf(config_file, "%i", &associated_core[i]);
+  }
+
+  if (r == EOF)
+  {
+    perror("fscanf error");
   }
 
   fclose(config_file);

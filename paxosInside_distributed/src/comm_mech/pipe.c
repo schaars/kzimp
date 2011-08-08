@@ -292,7 +292,7 @@ void IPC_send_node_unicast(void *msg, size_t length)
   int r = write(leader_to_acceptor[1], msg, length);
   if (r < 0)
   {
-     perror("IPC_send_node_unicast");
+    perror("IPC_send_node_unicast");
   }
 }
 
@@ -304,6 +304,10 @@ void IPC_send_node_multicast(void *msg, size_t length)
   for (int i = 0; i < nb_learners; i++)
   {
     r = write(acceptor_to_learners[i][1], msg, length);
+    if (r < 0)
+    {
+      perror("IPC_send_unicast");
+    }
   }
 }
 
@@ -314,7 +318,7 @@ void IPC_send_client_to_node(void *msg, size_t length)
   int r = write(client_to_leader[1], msg, length);
   if (r < 0)
   {
-     perror("IPC_send_node_unicast");
+    perror("IPC_send_node_unicast");
   }
 }
 
@@ -325,7 +329,7 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid)
   int r = write(learner_to_clients[node_id - 2][1], msg, length);
   if (r < 0)
   {
-     perror("IPC_send_node_unicast");
+    perror("IPC_send_node_unicast");
   }
 }
 
@@ -380,7 +384,7 @@ int get_fd_for_recv(void)
   }
   else // learners
   {
-    return acceptor_to_learners[node_id-2][0];
+    return acceptor_to_learners[node_id - 2][0];
   }
 }
 
