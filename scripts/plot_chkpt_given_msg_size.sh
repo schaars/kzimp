@@ -29,7 +29,7 @@ TITLE=$4
 
 # do we use log scale or not?
 if [ $LOG_SCALE -eq 1 ]; then
-   Y_LABEL="${Y_LABEL} (log scale)"
+   YLABEL="${YLABEL} (log scale)"
 fi
 
 cat << EOF > $PLOT_FILE

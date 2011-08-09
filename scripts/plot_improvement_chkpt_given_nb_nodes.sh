@@ -104,7 +104,7 @@ for arg in $@; do
 done
 
 # compute improvement using $new_args
-$(dirname $0)/compute_improvement_chkpt.py ${LAT_OR_THR} "${new_args}"
+$(dirname $0)/compute_improvement_chkpt.py ${LAT_OR_THR} ${new_args}
 }
 
 function complete_plot {

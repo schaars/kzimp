@@ -81,7 +81,11 @@ def compute_improvement(main_summary, summaries):
       fd.write("%s\t"%(k))
 
       for s in summaries:
-         t = s.results[k]
+         try:
+            t = s.results[k]
+         except KeyError:
+            continue
+
          mean_s = t[0]
          stdev_s = t[1]
 
