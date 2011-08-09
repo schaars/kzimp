@@ -94,7 +94,7 @@ shift
 echo -n "plot " >> $PLOT_FILE
 
 first=1
-for arg in $@; do
+for arg in "$@"; do
    title="$1"; shift
    file=$1; shift
 
@@ -132,7 +132,7 @@ TITLE="Checkpointing, ${NB_NODES} nodes"
 complete_header $PLOT_FILE "$XLABEL" "$YLABEL" "$TITLE"
 
 # get results
-complete_plot $PLOT_FILE $@
+complete_plot $PLOT_FILE "$@"
 }
 
 
@@ -152,7 +152,7 @@ TITLE="Checkpointing, ${NB_NODES} nodes"
 complete_header $PLOT_FILE "$XLABEL" "$YLABEL" "$TITLE"
 
 # get results
-complete_plot $PLOT_FILE $@
+complete_plot $PLOT_FILE "$@"
 }
 
 
@@ -160,7 +160,7 @@ function cleanup_files {
 PLOT_FILE=$1
 shift
 
-for arg in $@; do
+for arg in "$@"; do
    title="$1"; shift
    file=$1; shift
 
@@ -186,9 +186,9 @@ fi
 PLOT_FILE=$(mktemp gnuplot.pXXX)
 
 if [ $LAT_OR_THR == "lat" ]; then
-   create_lat_data $PLOT_FILE $@
+   create_lat_data $PLOT_FILE "$@"
 elif [ $LAT_OR_THR == "thr" ]; then
-   create_thr_data $PLOT_FILE $@
+   create_thr_data $PLOT_FILE "$@"
 else
    echo "Unknown argument. Expecting lat or thr, got ${LAT_OR_THR}."
    rm $PLOT_FILE
@@ -198,7 +198,7 @@ fi
 # call gnuplot
 gnuplot $PLOT_FILE
 
-cleanup_files $PLOT_FILE $@
+cleanup_files $PLOT_FILE "$@"
 
 # convert eps to pdf
 epstopdf ${OUT_FILE}.eps
