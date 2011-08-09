@@ -237,7 +237,6 @@ void IPC_send_unicast(void *msg, size_t length, int nid)
   udp_send_one_node(msg, length, &addresses_node0[node_id]);
 }
 
-/*************************** INITIAL CODE ***********************************/
 int get_fd_for_receive(void)
 {
   if (node_id == 0)
@@ -299,6 +298,12 @@ size_t IPC_receive(void *msg, size_t length)
 
   // get the header
   header_size = recvfrom(fd, (char*) msg, UDP_SEND_MAX_SIZE, 0, 0, 0);
+
+  if (MESSAGE_MAX_SIZE <= UDP_SEND_MAX_SIZE)
+  {
+     return header_size;
+  }
+
   expected_seq_id = 0;
   seq_id = *((char*) msg + SEQ_ID_OFFSET);
 
