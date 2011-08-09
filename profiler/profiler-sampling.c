@@ -4,120 +4,54 @@
 
 #define CPU_IN_IP_EVENTS 1
 
-
-// Events to look for
-// 0 -> several stuff but memory access
-// 1 -> memory access, L3 cache stuff
-// 2 -> memory access, L1D and L2 cache stuff
-#define TYPE_OF_EVENTS 0
-
 int ncpus;
 int callgraph = 0;
 static event_t default_events[] = {
-#if TYPE_OF_EVENTS==0
-    /********** Set of counters for several stuff but memory accesses **********/
+  /*
   {
     .name = "CLK_UNHALTED",
     .type = PERF_TYPE_HARDWARE,
     .config = PERF_COUNT_HW_CPU_CYCLES,
-    .sampling_period = 1000000,
+    .sampling_period = 100000,
     .exclude_user = 0,
   },
   {
     .name = "INSTRUCTIONS",
     .type = PERF_TYPE_HARDWARE,
     .config = PERF_COUNT_HW_INSTRUCTIONS,
-    .sampling_period = 1000000,
+    .sampling_period = 100000,
     .exclude_user = 0,
   },
-//  {
-//  .name = "UNHALTED_CPU_CLK",
-//    .type = PERF_TYPE_RAW,
-//    .config = 0x000000003c,
-//    .sampling_period = 100000,
-//    .exclude_user = 0,
-//  },
   {
     .name = "CACHE_MISSES",
     .type = PERF_TYPE_HARDWARE,
     .config = PERF_COUNT_HW_CACHE_MISSES,
-    .sampling_period = 1000000,
+    .sampling_period = 10000,
     .exclude_user = 0,
   },
-//  {
-//    .name = "CONTEXT_SWITCHES",
-//    .type = PERF_TYPE_SOFTWARE,
-//    .config = PERF_COUNT_SW_CONTEXT_SWITCHES,
-//    .sampling_period = 1000000,
-//    .exclude_user = 0,
-//  },
-
-#elif TYPE_OF_EVENTS == 1
-  /********** Set of counters for memory accesses, L3 cache stuff **********/
+  */
   {
-  .name = "UNC_LLC_HITS.ANY",
-  .type = PERF_TYPE_RAW,
-  .config = 0x0000000308,
-  .sampling_period = 10000,
-  .exclude_user = 0,
+    .name = "L3_CACHE_MISS",
+    .type = PERF_TYPE_RAW,
+    .config = 0x40040f7e1,
+    .sampling_period = 10000,
+    .exclude_user = 0,
   },
   {
-  .name = "UNC_LLC_HITS.PROBE",
-  .type = PERF_TYPE_RAW,
-  .config = 0x0000000408,
-  .sampling_period = 10000,
-  .exclude_user = 0,
-  },
-  {
-  .name = "UNC_LLC_MISS.ANY",
-  .type = PERF_TYPE_RAW,
-  .config = 0x0000000309,
-  .sampling_period = 10000,
-  .exclude_user = 0,
-  },
-  {
-  .name = "UNC_LLC_MISS.PROBE",
-  .type = PERF_TYPE_RAW,
-  .config = 0x0000000409,
-  .sampling_period = 10000,
-  .exclude_user = 0,
+    .name = "L2_CACHE_MISS",
+    .type = PERF_TYPE_RAW,
+    .config = 0x0040037E,
+    .sampling_period = 10000,
+    .exclude_user = 0,
   },
 
-#elif TYPE_OF_EVENTS == 2
-  /********** Set of counters for memory accesses, L1D and L2 cache stuff **********/
-
-  // L1D_MISSES = MEM_INST_RETIRED.LOADS - MEM_LOAD_RETIRED.L1D_HIT
   {
-  .name = "MEM_INST_RETIRED.LOADS",
-  .type = PERF_TYPE_RAW,
-  .config = 0x000000010B,
-  .sampling_period = 100000,
-  .exclude_user = 0,
+    .name = "L1_CACHE_MISS",
+    .type = PERF_TYPE_RAW,
+    .config = 0x00400041,
+    .sampling_period = 10000,
+    .exclude_user = 0,
   },
-  {
-  .name = "MEM_LOAD_RETIRED.L1D_HIT",
-  .type = PERF_TYPE_RAW,
-  .config = 0x00000001CB,
-  .sampling_period = 100000,
-  .exclude_user = 0,
-  },
-
-  // L2_HITS = L2_RQSTS.REFERENCES - L2_RQSTS.MISS
-  {
-  .name = "L2_RQSTS.MISS",
-  .type = PERF_TYPE_RAW,
-  .config = 0x000000AA24,
-  .sampling_period = 100000,
-  .exclude_user = 0,
-  },
-  {
-  .name = "L2_RQSTS.REFERENCES",
-  .type = PERF_TYPE_RAW,
-  .config = 0x000000FF24,
-  .sampling_period = 100000,
-  .exclude_user = 0,
-  },
-#endif
 };
 
 
@@ -375,7 +309,9 @@ static void* thread_loop(void *pdata) {
       events_attr[i].mmap = !i;
       events_attr[i].comm = !i;
       events_attr[i].disabled = 1;
-      data->fd[i] = sys_perf_counter_open(&events_attr[i], -1, core, -1, 0);
+
+      //old code: data->fd[i] = sys_perf_counter_open(&events_attr[i], -1, core, -1, 0);
+      data->fd[i] = sys_perf_event_open(&events_attr[i], -1, core, -1, 0);
 
       if (data->fd[i] < 0) {
          if (errno == EPERM || errno == EACCES)

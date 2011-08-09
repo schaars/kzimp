@@ -123,4 +123,11 @@ __attribute__((unused)) static int hex2u64b(const char *ptr, uint64_t *long_val)
         return p - ptr;
 }
 
+static inline int sys_perf_event_open(struct perf_event_attr *attr, pid_t pid,
+    int cpu, int group_fd, unsigned long flags)
+{
+  attr->size = sizeof(*attr);
+  return syscall(__NR_perf_event_open, attr, pid, cpu, group_fd, flags);
+}
+
 #endif /* PROFILER_H_ */

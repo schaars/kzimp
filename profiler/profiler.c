@@ -234,7 +234,10 @@ static void* thread_loop(void *pdata) {
       events_attr[i].config = data->events[i].config;
       events_attr[i].exclude_kernel = data->events[i].exclude_kernel;
       events_attr[i].exclude_user = data->events[i].exclude_user;
-      data->fd[i] = sys_perf_counter_open(&events_attr[i], watch_tid?data->tid:-1, watch_tid?-1:data->core, -1, 0);
+
+      //old code: data->fd[i] = sys_perf_counter_open(&events_attr[i], watch_tid?data->tid:-1, watch_tid?-1:data->core, -1, 0);
+      data->fd[i] = sys_perf_event_open(&events_attr[i], watch_tid?data->tid:-1, watch_tid?-1:data->core, -1, 0);
+
       if (data->fd[i] < 0) {
          fprintf(stdout, "#[%d] sys_perf_counter_open failed: %s\n", watch_tid?data->tid:data->core, strerror(errno));
 	 return NULL;
