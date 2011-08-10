@@ -12,6 +12,9 @@
 CONFIG_FILE=config
 PROFDIR=../profiler
 
+# Set it to -DIPV6 if you want to enable IPV6
+IPV6=
+
 
 if [ $# -eq 5 ]; then
    NB_PAXOS_NODES=$1
@@ -42,7 +45,7 @@ rm -f /tmp/paxosInside_client_*_finished
 sudo sysctl -p ../inet_sysctl.conf
 
 # compile
-echo "-DOPEN_LOOP -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > INET_UDP_PROPERTIES
+echo "-DOPEN_LOOP -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} ${IPV6}" > INET_UDP_PROPERTIES
 make inet_udp_paxosInside
 
 

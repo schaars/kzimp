@@ -12,6 +12,9 @@
 CONFIG_FILE=config
 PROFDIR=../profiler
 
+# Set it to -DIPV6 if you want to enable IPV6
+IPV6=
+
 # wait for the end of TIME_WAIT connections
 function wait_for_time_wait {
 nbc=1
@@ -54,7 +57,7 @@ rm -f /tmp/paxosInside_client_*_finished
 sudo sysctl -p ../inet_sysctl.conf
 
 # compile
-echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DTCP_NAGLE" > INET_TCP_PROPERTIES
+echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DTCP_NAGLE ${IPV6}" > INET_TCP_PROPERTIES
 make inet_tcp_paxosInside
 
 

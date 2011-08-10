@@ -33,6 +33,12 @@
 #define PORT_CORE_0 4242
 #define PORT_CLIENT_0 6000
 
+#ifdef IPV6
+typedef struct sockaddr_in6 SOCKADDR;
+#else
+typedef struct sockaddr_in SOCKADDR;
+#endif
+
 static int node_id;
 static int nb_paxos_nodes;
 static int nb_clients;
@@ -42,8 +48,8 @@ static int total_nb_nodes;
 static int sock; // the socket
 static int *client0_sock; // sockets of client 0, one per learner
 
-static struct sockaddr_in *addresses; // for each node (clients + PaxosInside nodes), its address
-static struct sockaddr_in *client0_addr; // addresses of the client 0, one per learner
+static SOCKADDR *addresses; // for each node (clients + PaxosInside nodes), its address
+static SOCKADDR *client0_addr; // addresses of the client 0, one per learner
 
 // Initialize resources for both the node and the clients
 // First initialization function called
@@ -55,7 +61,7 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
   total_nb_nodes = nb_paxos_nodes + nb_clients;
 
   // create & fill addresses
-  addresses = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in)
+  addresses = (SOCKADDR*) malloc(sizeof(SOCKADDR)
       * total_nb_nodes);
   if (!addresses)
   {
@@ -65,9 +71,15 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
 
   for (int i = 0; i < total_nb_nodes; i++)
   {
+#ifdef IPV6
+    addresses[i].sin6_addr = in6addr_loopback;
+    addresses[i].sin6_family = AF_INET6;
+    addresses[i].sin6_port = htons(PORT_CORE_0 + i);
+#else
     addresses[i].sin_addr.s_addr = inet_addr("127.0.0.1");
     addresses[i].sin_family = AF_INET;
     addresses[i].sin_port = htons(PORT_CORE_0 + i);
+#endif
 
 #ifdef DEBUG
     printf("Node %i bound on port %i\n", i, PORT_CORE_0 + i);
@@ -75,7 +87,7 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
   }
 
   // create & fill client 0 addresses
-  client0_addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in)
+  client0_addr = (SOCKADDR*) malloc(sizeof(SOCKADDR)
       * nb_learners);
   if (!client0_addr)
   {
@@ -85,9 +97,15 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
 
   for (int i = 0; i < nb_learners; i++)
   {
+#ifdef IPV6
+    client0_addr[i].sin6_addr = in6addr_loopback;
+    client0_addr[i].sin6_family = AF_INET6;
+    client0_addr[i].sin6_port = htons(PORT_CLIENT_0 + i);
+#else
     client0_addr[i].sin_addr.s_addr = inet_addr("127.0.0.1");
     client0_addr[i].sin_family = AF_INET;
     client0_addr[i].sin_port = htons(PORT_CLIENT_0 + i);
+#endif
 
 #ifdef DEBUG
     printf("Learner %i sends on port %i\n", i, PORT_CLIENT_0 + i);
@@ -95,12 +113,16 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
   }
 }
 
-int create_socket(struct sockaddr_in *addr)
+int create_socket(SOCKADDR *addr)
 {
   int s;
 
   // create socket
+#ifdef IPV6
+  s = socket(AF_INET6, SOCK_DGRAM, 0);
+#else
   s = socket(AF_INET, SOCK_DGRAM, 0);
+#endif
   if (s == -1)
   {
     perror("[IPC_initialize_one_node] Error while creating the socket! ");
@@ -209,7 +231,7 @@ void IPC_clean_client(void)
 void udp_send_one_node(void *msg, size_t length, int dest)
 {
   size_t sent, to_send;
-  struct sockaddr_in *addr;
+  SOCKADDR *addr;
 
   if (dest == nb_paxos_nodes)
   {
