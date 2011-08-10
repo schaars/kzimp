@@ -100,7 +100,9 @@ for arg in "$@"; do
    fi
 
    extract_data $file $NB_NODES
-   new_args="${new_args} ${title} ${file}.data"
+
+   # replace spaces by underscore in the title
+   new_args="${new_args} "${title// /_}" ${file}.data"
 done
 
 # compute improvement using $new_args
