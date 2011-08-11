@@ -43,6 +43,7 @@ int **learner_to_clients;
 
 #ifdef VMSPLICE
 static int *eventfd_nodes; // one eventfd per node; VMSPLICE only
+static int *eventfd_learners; // one eventfd per learner, used by the acceptor; VMSPLICE only
 #endif
 
 void init_pipe(int *pipefd)
@@ -92,6 +93,21 @@ void IPC_initialize(int _nb_paxos_nodes, int _nb_clients)
   for (i=0; i<total_nb_nodes; i++) {
      eventfd_nodes[i] = eventfd(0, 0);
      if (eventfd_nodes[i] == -1) {
+        perror("eventfd");
+        exit(-1);
+     }
+  }
+
+  eventfd_learners = (typeof(eventfd_learners))malloc(sizeof(*eventfd_learners) * nb_learners);
+  if (!eventfd_learners)
+  {
+    perror("[IPC_Initialize] Allocation error for eventfd_learners! ");
+    exit(errno);
+  }
+
+  for (i=0; i<nb_learners; i++) {
+     eventfd_learners[i] = eventfd(0, 0);
+     if (eventfd_learners[i] == -1) {
         perror("eventfd");
         exit(-1);
      }
@@ -262,6 +278,11 @@ void IPC_clean(void)
   free(learner_to_clients);
 
 #ifdef VMSPLICE
+  for (i=0; i<nb_learners; i++) {
+     close(eventfd_learners[i]);
+  }
+  free(eventfd_learners);
+
   for (i=0; i< total_nb_nodes; i++) {
    close(eventfd_nodes[i]);
   }
@@ -334,150 +355,178 @@ void Write(int fd, void *msg, size_t length) {
   {
     perror("Write");
   }
+}
 
 #ifdef VMSPLICE
-#ifdef DEBUG
-  printf("Node %i is waiting on %i\n", node_id, eventfd_nodes[node_id]);
-#endif
-
+void _get_notified(int fd) {
+  int r;
   uint64_t vv;
-  r = read(eventfd_nodes[node_id], &vv, sizeof(vv));
-  if (r < 0)
-  {
-    perror("Write read");
-  }
 
 #ifdef DEBUG
-  printf("Node %i has waited on %i\n", node_id, eventfd_nodes[node_id]);
+     printf("Node %i is waiting on %i\n", node_id, fd);
 #endif
+
+     r = read(fd, &vv, sizeof(vv));
+     if (r < 0)
+     {
+        perror("Write read");
+     }
+
+#ifdef DEBUG
+     printf("Node %i has waited on %i\n", node_id, fd);
 #endif
 }
+
+void get_notified(int is_acceptor) {
+   if (is_acceptor) {
+      for (int i = 0; i < nb_learners; i++)
+      {
+         _get_notified(eventfd_learners[i]);
+      }
+   } else {
+      _get_notified(eventfd_nodes[node_id]);
+   }
+}
+#else
+#define get_notified(is_acceptor) do {} while (0)
+#endif
 
 // send the message msg of size length to the node 1
 // Indeed the only unicast is from 0 to 1
 void IPC_send_node_unicast(void *msg, size_t length)
 {
-  Write(leader_to_acceptor[1], msg, length);
+   Write(leader_to_acceptor[1], msg, length);
+   get_notified(0);
 }
 
 // send the message msg of size length to all the nodes
 void IPC_send_node_multicast(void *msg, size_t length)
 {
-  for (int i = 0; i < nb_learners; i++)
-  {
-    Write(acceptor_to_learners[i][1], msg, length);
-  }
+   for (int i = 0; i < nb_learners; i++)
+   {
+      Write(acceptor_to_learners[i][1], msg, length);
+   }
+   get_notified(1);
 }
 
 // send the message msg of size length to the node 0
 // called by a client
 void IPC_send_client_to_node(void *msg, size_t length)
 {
-  Write(client_to_leader[1], msg, length);
+   Write(client_to_leader[1], msg, length);
+   get_notified(0);
 }
 
 // send the message msg of size length to the client of id cid
 // called by the leader
 void IPC_send_node_to_client(void *msg, size_t length, int cid)
 {
-  Write(learner_to_clients[node_id - 2][1], msg, length);
+   Write(learner_to_clients[node_id - 2][1], msg, length);
+   get_notified(0);
 }
 
 // get a file descriptor on which there is something to receive
 // src_id will contain the id of the sender
 int get_fd_for_recv(int *src_id)
 {
-  if (node_id == 0) // leader
-  {
-    *src_id = nb_paxos_nodes+1;
-    return client_to_leader[0];
-  }
-  else if (node_id == 1) // acceptor
-  {
-    *src_id = 0;
-    return leader_to_acceptor[0];
-  }
-  else if (node_id == nb_paxos_nodes) // client 0
-  {
-    //select
-    fd_set file_descriptors;
-    struct timeval listen_time;
-    int maxsock;
+   if (node_id == 0) // leader
+   {
+      *src_id = nb_paxos_nodes+1;
+      return client_to_leader[0];
+   }
+   else if (node_id == 1) // acceptor
+   {
+      *src_id = 0;
+      return leader_to_acceptor[0];
+   }
+   else if (node_id == nb_paxos_nodes) // client 0
+   {
+      //select
+      fd_set file_descriptors;
+      struct timeval listen_time;
+      int maxsock;
 
-    while (1)
-    {
-      // select
-      FD_ZERO(&file_descriptors); //initialize file descriptor set
-
-      maxsock = 0;
-      for (int j = 0; j < nb_learners; j++)
+      while (1)
       {
-        FD_SET(learner_to_clients[j][0], &file_descriptors);
-        maxsock = MAX(maxsock, learner_to_clients[j][0]);
+         // select
+         FD_ZERO(&file_descriptors); //initialize file descriptor set
+
+         maxsock = 0;
+         for (int j = 0; j < nb_learners; j++)
+         {
+            FD_SET(learner_to_clients[j][0], &file_descriptors);
+            maxsock = MAX(maxsock, learner_to_clients[j][0]);
+         }
+
+         listen_time.tv_sec = 1;
+         listen_time.tv_usec = 0;
+
+         select(maxsock + 1, &file_descriptors, NULL, NULL, &listen_time);
+
+         for (int j = 0; j < nb_learners; j++)
+         {
+            if (FD_ISSET(learner_to_clients[j][0], &file_descriptors))
+            {
+               *src_id = 2 + j;
+               return learner_to_clients[j][0];
+            }
+         }
       }
-
-      listen_time.tv_sec = 1;
-      listen_time.tv_usec = 0;
-
-      select(maxsock + 1, &file_descriptors, NULL, NULL, &listen_time);
-
-      for (int j = 0; j < nb_learners; j++)
-      {
-        if (FD_ISSET(learner_to_clients[j][0], &file_descriptors))
-        {
-           *src_id = 2 + j;
-          return learner_to_clients[j][0];
-        }
-      }
-    }
-  }
-  else if (node_id > nb_paxos_nodes) // client 1
-  {
-    printf("Node %i is receiving something. Weird!\n", node_id);
-    return -1; // should not be there: client 1 never receives anything
-  }
-  else // learners
-  {
-     *src_id = 1;
-    return acceptor_to_learners[node_id - 2][0];
-  }
+   }
+   else if (node_id > nb_paxos_nodes) // client 1
+   {
+      printf("Node %i is receiving something. Weird!\n", node_id);
+      return -1; // should not be there: client 1 never receives anything
+   }
+   else // learners
+   {
+      *src_id = 1;
+      return acceptor_to_learners[node_id - 2][0];
+   }
 }
 
 // receive a message and place it in msg (which is a buffer of size length).
 // Return the number of read bytes.
 size_t IPC_receive(void *msg, size_t length)
 {
-  ssize_t s;
-  int fd;
-  int src_id;
+   ssize_t s;
+   int fd;
+   int src_id;
 
-  fd = get_fd_for_recv(&src_id);
+   fd = get_fd_for_recv(&src_id);
 
-  // receive the whole message
-  s = read(fd, (void*)msg, length);
-  if (s == -1) {
-     perror("IPC_receive");
-  } else if (s == 0) {
-     printf("EOF on node %i, fd %i\n", node_id, fd);
-     exit(-1);
-  }
+   // receive the whole message
+   s = read(fd, (void*)msg, length);
+   if (s == -1) {
+      perror("IPC_receive");
+   } else if (s == 0) {
+      printf("EOF on node %i, fd %i\n", node_id, fd);
+      exit(-1);
+   }
 
 #ifdef DEBUG
-  printf("Node %i is receiving a message with fd=%i\n", node_id, fd);
+   printf("Node %i is receiving a message with fd=%i\n", node_id, fd);
 #endif
 
 #ifdef VMSPLICE
 #ifdef DEBUG
-  printf("Node %i is writing on node %i: %i\n", node_id, src_id, eventfd_nodes[src_id]);
+   printf("Node %i is writing on node %i: %i\n", node_id, src_id, eventfd_nodes[src_id]);
 #endif
 
-  uint64_t vv = 0x1;
-  int r = write(eventfd_nodes[src_id], &vv, sizeof(vv));
-  if (r < 0)
-  {
-    perror("IPC_receive write");
-  }
+   uint64_t vv = 0x1;
+   int r;
+
+   if (node_id >= 2 && node_id < 2+nb_learners) {
+      r = write(eventfd_learners[node_id-2], &vv, sizeof(vv));
+   } else {
+      r = write(eventfd_nodes[src_id], &vv, sizeof(vv));
+   }
+
+   if (r < 0)
+   {
+      perror("IPC_receive write");
+   }
 #endif
 
-  return (size_t)s;
+   return (size_t)s;
 }
