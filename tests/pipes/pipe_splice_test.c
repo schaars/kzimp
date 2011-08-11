@@ -31,40 +31,41 @@
  */
 
 #define MSG_SIZE 8
+#define PAGE_SIZE 4096
 
 void send_a_message(int fd, int v, char *prefix)
 {
   int msg_size = MSG_SIZE;
-  char msg[msg_size];
+  //char write_msg[msg_size];
+  char *write_msg = malloc(msg_size);
   int sum;
-  int i;
+  int i, r;
 
   for (i = 0; i < msg_size; i++)
-    msg[i] = (char) ((float) (i + 10 * v) * 1.5);
+     write_msg[i] = (char) ((float) (i + 10 * v) * 1.5);
 
   sum = 0;
-  //printf("%s Sending message: [ ", prefix);
+  printf("%s Sending message: [ ", prefix);
   for (i = 0; i < msg_size; i++)
   {
-    //printf("%i ", msg[i]);
-    sum += msg[i];
+     printf("%i ", write_msg[i]);
+     sum += write_msg[i];
   }
-  //printf("] - %i\n", sum);
-
-  printf("%s Sending message: %i\n", prefix, sum);
+  printf("] - %i\n", sum);
 
   struct iovec iov;
 
-  // writing the size of the message
-  iov.iov_base = &msg_size;
-  iov.iov_len = sizeof(msg_size);
-  vmsplice(fd, &iov, 1, 0);
-  //write(fd, &msg_size, sizeof(msg_size));
-
   // writing the content
-  iov.iov_base = &msg;
+  iov.iov_base = write_msg;
   iov.iov_len = MSG_SIZE;
-  vmsplice(fd, &iov, 1, 0);
+  r = vmsplice(fd, &iov, 1, 0);
+  if (r == -1) {
+     perror(prefix);
+  }
+
+  write_msg[0] = 42;
+
+  free(write_msg);
 
   printf("\n");
   fflush(NULL);
@@ -72,84 +73,90 @@ void send_a_message(int fd, int v, char *prefix)
 
 void receive_a_message(int fd, char *prefix)
 {
-  int msg_size;
-  char msg[MSG_SIZE];
-  int sum;
-  int i;
+   int msg_size;
+   char msg[MSG_SIZE];
+   int sum;
+   int i, r;
 
-  read(fd, &msg_size, sizeof(int));
+   msg_size = MSG_SIZE;
 
-  printf("%s has a message of size %i\n", prefix, msg_size);
+   r = read(fd, msg, msg_size);
+   if (r == -1) {
+      perror(prefix);
+      goto out;
+   } else if (r == 0) {
+      printf("%s End of file\n", prefix);
+      goto out; 
+   }
 
-  read(fd, msg, msg_size);
+   sum = 0;
+   printf("%s Message is: [ ", prefix);
+   for (i = 0; i < MSG_SIZE; i++)
+   {
+      printf("%i ", msg[i]);
+      sum += msg[i];
+   }
+   printf("] - %i\n", sum);
 
-  sum = 0;
-  //printf("%s Message is: [ ", prefix);
-  for (i = 0; i < MSG_SIZE; i++)
-  {
-    //printf("%i ", msg[i]);
-    sum += msg[i];
-  }
-  //printf("] - %i\n", sum);
-
-  printf("%s Message is: %i\n", prefix, sum);
-
-  printf("\n");
-  fflush(NULL);
+out:
+   printf("\n");
+   fflush(NULL);
 }
 
 int main(void)
 {
-  int i;
-  int pipe_fd1[2]; // father writes -> recv son
-  int pipe_fd2[2]; // son writes    -> recv father
+   int i;
+   int pipe_fd1[2]; // father writes -> recv son
+   int pipe_fd2[2]; // son writes    -> recv father
 
-  if (pipe(pipe_fd1) == -1 || pipe(pipe_fd2) == -1)
-  {
-    perror("pipe");
-    exit(-1);
-  }
+   if (pipe(pipe_fd1) == -1 || pipe(pipe_fd2) == -1)
+   {
+      perror("pipe");
+      exit(-1);
+   }
 
-  fflush(NULL);
-  sync();
+   fflush(NULL);
+   sync();
 
-  // fork
-  if (!fork())
-  {
-    // I am the son, receive messages
+   // fork
+   if (!fork())
+   {
+      // I am the son, receive messages
 
-    // close the unnecessary fd
-    close(pipe_fd1[1]);
-    close(pipe_fd2[0]);
+      // close the unnecessary fd
+      close(pipe_fd1[1]);
+      close(pipe_fd2[0]);
 
-    for (i = 0; i < 1; i++)
-    {
-      receive_a_message(pipe_fd1[0], "0");
-      send_a_message(pipe_fd2[1], i * 2, "0");
-    }
+      sleep(2);
 
-    sleep(5);
+      for (i = 0; i < 5; i++)
+      {
+         receive_a_message(pipe_fd1[0], "0");
+         //send_a_message(pipe_fd2[1], i * 2, "0");
+      }
 
-    // close the channel
-    close(pipe_fd1[0]);
-    close(pipe_fd2[1]);
-  }
-  else
-  {
-    // close the unnecessary fd
-    close(pipe_fd1[0]);
-    close(pipe_fd2[1]);
+      // close the channel
+      close(pipe_fd1[0]);
+      close(pipe_fd2[1]);
+   }
+   else
+   {
+      // close the unnecessary fd
+      close(pipe_fd1[0]);
+      close(pipe_fd2[1]);
 
-    for (i = 0; i < 1; i++)
-    {
-      send_a_message(pipe_fd1[1], i * 2 + 1, "1");
-      receive_a_message(pipe_fd2[0], "1");
-    }
+      for (i = 0; i < 5; i++)
+      {
+         send_a_message(pipe_fd1[1], i * 2 + 1, "1");
+         //receive_a_message(pipe_fd2[0], "1");
+      }
 
-    // close the channel
-    close(pipe_fd1[1]);
-    close(pipe_fd2[0]);
-  }
+      sleep(5);
 
-  return 0;
+      // close the channel
+      close(pipe_fd1[1]);
+      close(pipe_fd2[0]);
+   }
+
+   return 0;
 }

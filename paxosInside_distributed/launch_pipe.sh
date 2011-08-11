@@ -12,6 +12,8 @@
 CONFIG_FILE=config
 PROFDIR=../profiler
 
+# Set it to -DVMSPLICE if you want to use vmsplice() instead of write
+VMSPLICE=
 
 if [ $# -eq 5 ]; then
    NB_PAXOS_NODES=$1
@@ -39,7 +41,7 @@ rm -f /tmp/paxosInside_client_*_finished
 ./create_config.sh $NB_PAXOS_NODES 2 $NB_ITER $LEADER_ACCEPTOR > $CONFIG_FILE
 
 # compile
-echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > PIPE_PROPERTIES
+echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} ${VMSPLICE}" > PIPE_PROPERTIES
 make pipe_paxosInside
 
 
