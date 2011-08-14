@@ -9,6 +9,7 @@
 #   $5: number of messages in the channel
 #   $6: if given, then activate profiling
 
+COMM_MECH="bfish_mprotect"
 
 CONFIG_FILE=config
 PROFDIR=../profiler
@@ -39,6 +40,17 @@ else
    exit 0
 fi
 
+if [ "$PROFILER" = "likwid" ] && [ -z $LIKWID_GROUP ]; then
+   echo "You must give a LIKWID_GROUP when using liwkid."
+   exit 0
+else
+   sudo modprobe msr
+   sudo chmod o+rw /dev/cpu/*/msr
+   export PATH=$PATH:/home/bft/multicore_replication_microbench/likwid/installed/bin
+   export LD_PRELOAD=${LD_PRELOAD}:/home/bft/multicore_replication_microbench/likwid/installed/lib
+   PROFILE_OUT="paxos_bfish_likwid_${LIKWID_GROUP}.txt"
+fi
+
 ./stop_all.sh
 ./remove_shared_segment.pl
 rm -f /tmp/paxosInside_client_*_finished
@@ -55,8 +67,8 @@ fi
 
 NB_MAX_CHANNELS=8
 
-echo "-DNB_MESSAGES=${MSG_CHANNEL} -DMESSAGE_MAX_SIZE=${REAL_MSG_SIZE} -DMESSAGE_BYTES=${REAL_MSG_SIZE}" > BFISH_MPROTECT_PROPERTIES
-make bfish_mprotect_paxosInside
+echo "-DNB_MESSAGES=${MSG_CHANNEL} -DMESSAGE_MAX_SIZE=${REAL_MSG_SIZE} -DMESSAGE_BYTES=${REAL_MSG_SIZE}" > ${COMM_MECH}_PROPERTIES
+make ${COMM_MECH}_paxosInside
 REAL_MSG_SIZE=$(./bin/bfishmprotect_get_struct_ump_message_size)
 
 #compile and load module
@@ -73,7 +85,7 @@ cd -
 
 #####################################
 ############# Profiler  #############
-if [ ! -z $PROFILER ]; then
+if [ "$PROFILER" = "profile" ]; then
 cd $PROFDIR
 make
 cd -
@@ -82,12 +94,16 @@ fi
 
 
 # launch
-./bin/bfish_mprotect_paxosInside $CONFIG_FILE &
+if [ "$PROFILER" = "likwid" ]; then
+likwid-perfctr -C 0-6 -g ${LIKWID_GROUP} ./bin/${COMM_MECH}_paxosInside $CONFIG_FILE | tee ${PROFILE_OUT} &
+else
+./bin/${COMM_MECH}_paxosInside $CONFIG_FILE &
+fi
 
 
 #####################################
 ############# Profiler  #############
-if [ ! -z $PROFILER ]; then
+if [ "$PROFILER" = "profile" ]; then
 sleep 5
 sudo $PROFDIR/profiler-sampling &
 fi
@@ -99,7 +115,7 @@ nbc=0
 n=0
 while [ $nbc -ne 1 ]; do
   #if [ $n -eq 100 ]; then
-  #    echo -e "\nbfish_mprotect_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize\n\tTAKES TOO MUCH TIME" >> results.txt
+  #    echo -e "\n${COMM_MECH}_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize\n\tTAKES TOO MUCH TIME" >> results.txt
   #    break
   #fi
 
@@ -120,25 +136,32 @@ done
 
 #####################################
 ############# Profiler  #############
-if [ ! -z $PROFILER ]; then
+if [ "$PROFILER" = "profile" ]; then
 sudo pkill profiler
 sudo chown bft:bft /tmp/perf.data.*
 
-OUTPUT_DIR=bfish_mprotect_profiling_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize
+OUTPUT_DIR=${COMM_MECH}_profiling_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize
 mkdir $OUTPUT_DIR
 
 for e in 0 1 2; do
-   $PROFDIR/parser-sampling /tmp/perf.data.* -c 0 -c 1 -c 2 -c 3 -c 4 -c 5 -c 6 --base-event ${e} --app bfish_mprotect_ > $OUTPUT_DIR/perf_everyone_event_${e}.log
+   $PROFDIR/parser-sampling /tmp/perf.data.* -c 0 -c 1 -c 2 -c 3 -c 4 -c 5 -c 6 --base-event ${e} --app ${COMM_MECH}_ > $OUTPUT_DIR/perf_everyone_event_${e}.log
 done
 
 rm /tmp/perf.data.* -f
 fi
-#####################################
 
+if [ "$PROFILER" = "likwid" ]; then
+   killall ${COMM_MECH}_paxosInside
+
+   OUTPUT_DIR=${COMM_MECH}_likwid_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize
+   mkdir -p $OUTPUT_DIR
+   mv $PROFILE_OUT $OUTPUT_DIR/
+fi
+#####################################
 
 # save results
 ./stop_all.sh
 ./remove_shared_segment.pl
 sleep 1
 cd $KBFISH_MEM_DIR; ./kbfishmem.sh unload; cd -
-mv results.txt bfish_mprotect_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
+mv results.txt ${COMM_MECH}_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
