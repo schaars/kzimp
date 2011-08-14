@@ -1,0 +1,8 @@
+This directory includes the following code examples:
+
+* dofp.c: simple example how to use the marker API
+* lib_example: outdated example how to use likwid perfmon as a library
+* msrClient: small app to test msr-daemon likwid-msrD
+* perftest: More recent example how to use likwid as a library
+* stream.c: John D. McCalpin's  stream benchmark to test OpenMP pinning
+* likwid-mpirun: Experimental wrapper skript for MPI or hybrid MPI with likwid-pin
