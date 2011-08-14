@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <strings.h>
 
 #include "MessageTag.h"
 #include "Message.h"
@@ -124,6 +125,8 @@ void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int cid,
   if (!kzimp_reader_splice_do_not_free)
   {
 #endif
+    // needed because of Linux first-touch policy
+    bzero(msg, len);
     rep()->len = len;
     rep()->tag = tag;
 #ifdef KZIMP_READ_SPLICE
