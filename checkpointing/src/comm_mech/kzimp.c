@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#if defined(KZIMP_READ_SPLICE)
+#if defined(KZIMP_SPLICE) || defined(KZIMP_READ_SPLICE)
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #endif
@@ -29,16 +29,24 @@
 
 // Define MESSAGE_MAX_SIZE as the max size of a message in the channel
 // Define ONE_CHANNEL_PER_NODE if you want to run the version with 1 channel per learner i -> client 0
+// Define KZIMP_SPLICE if you want to use the splice version of kzimp (no copy when sending)
+// If KZIMP_SPLICE is defined, you also have to define CHANNEL_SIZE
 // Define KZIMP_READ_SPLICE if you want to use the reader_splice version of kzimp (no copy when receiving)
 // Note that it does not work with ONE_CHANNEL_PER_LEARNER.
 // You also need to define CHANNEL_SIZE
 
-#if defined(KZIMP_READ_SPLICE) && !defined(CHANNEL_SIZE)
-#error "KZIMP_READ_SPLICE must come with CHANNEL_SIZE"
+
+#if (defined(KZIMP_SPLICE) || defined(KZIMP_READ_SPLICE)) && !defined(CHANNEL_SIZE)
+#error "KZIMP_(READ_)SPLICE must come with CHANNEL_SIZE"
 #endif
 
 #if defined(KZIMP_READ_SPLICE) && defined(ONE_CHANNEL_PER_LEARNER)
 #error "KZIMP_READ_SPLICE with ONE_CHANNEL_PER_LEARNER not implemented"
+#endif
+
+#ifdef KZIMP_SPLICE
+#define PAGE_SIZE 4096
+#define KZIMP_IOCTL_SPLICE_WRITE 0x1
 #endif
 
 #ifdef KZIMP_READ_SPLICE
@@ -62,9 +70,21 @@ static int *nodei_to_0; // node i -> node 0 for all i. We do not use nodei_to_0[
 static int nodes_to_0; // all nodes but 0 -> node 0
 #endif
 
+#ifdef KZIMP_SPLICE
+static char *big_messages[CHANNEL_SIZE]; // array of messages
+static int next_msg_idx;
+#endif
+
 #ifdef KZIMP_READ_SPLICE
 static char *messages; // mmapped area
 static size_t msg_area_len; // size of the mmapped area
+#endif
+
+#ifdef KZIMP_SPLICE
+char* get_next_message(void)
+{
+  return big_messages[next_msg_idx];
+}
 #endif
 
 // open wrapper which handles the errors
@@ -85,7 +105,25 @@ int Open(const char* pathname, int flags)
 // write wrapper which handles the errors
 ssize_t Write(int fd, const void *buf, size_t count)
 {
-  int r = write(fd, buf, count);
+  int r;
+
+#ifndef KZIMP_SPLICE
+  r = write(fd, buf, count);
+#else
+  unsigned long kzimp_addr_struct[3];
+
+  //  -arg[0]: user-space address of the message
+  //  -arg[1]: offset in the big memory area
+  //  -arg[2]: length
+  kzimp_addr_struct[0] = (unsigned long) big_messages[next_msg_idx];
+  kzimp_addr_struct[1] = next_msg_idx;
+  kzimp_addr_struct[2] = count;
+
+  r = ioctl(fd, KZIMP_IOCTL_SPLICE_WRITE, kzimp_addr_struct);
+
+  next_msg_idx = (next_msg_idx+1)%CHANNEL_SIZE;
+#endif
+
   if (r == -1)
   {
     switch (errno)
@@ -188,6 +226,34 @@ void IPC_initialize(int _nb_nodes)
 #endif
 }
 
+#ifdef KZIMP_SPLICE
+static void mmap_big_messages(int fd)
+{
+  int i;
+  for (i = 0; i < CHANNEL_SIZE; i++)
+  {
+    big_messages[i] = (char*)mmap(NULL, MESSAGE_MAX_SIZE, PROT_WRITE | PROT_READ, MAP_SHARED,
+        fd, PAGE_SIZE * i);
+    if (big_messages[i] == (void *) -1)
+    {
+      perror("mmap failed");
+      exit(-1);
+    }
+  }
+
+  next_msg_idx = 0;
+}
+
+static void munmap_big_messages(int fd)
+{
+  int i;
+  for (i = 0; i < CHANNEL_SIZE; i++)
+  {
+    munmap(big_messages[i], MESSAGE_MAX_SIZE);
+  }
+}
+#endif
+
 #ifdef KZIMP_READ_SPLICE
 static void mmap_messages(int fd)
 {
@@ -216,6 +282,10 @@ void IPC_initialize_node(int _node_id)
   {
     snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 0);
     multicast_0_to_all = Open(chaname, O_WRONLY);
+
+#ifdef KZIMP_SPLICE
+    mmap_big_messages(multicast_0_to_all);
+#endif
 
 #ifdef ONE_CHANNEL_PER_NODE
     int i;
@@ -248,6 +318,11 @@ void IPC_initialize_node(int _node_id)
 #else
     snprintf(chaname, 256, "%s%i", KZIMP_CHAR_DEV_FILE, 1);
     nodes_to_0 = Open(chaname, O_WRONLY);
+
+#ifdef KZIMP_SPLICE
+    mmap_big_messages(nodes_to_0);
+#endif
+
 #endif
   }
 }
@@ -272,6 +347,17 @@ void IPC_clean_node(void)
   else
   {
     munmap_messages(multicast_0_to_all);
+  }
+#endif
+
+#ifdef KZIMP_SPLICE
+  if (node_id == 0)
+  {
+    munmap_big_messages(multicast_0_to_all);
+  }
+  else
+  {
+    munmap_big_messages(nodes_to_0);
   }
 #endif
 

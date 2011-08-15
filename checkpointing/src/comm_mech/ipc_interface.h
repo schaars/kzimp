@@ -85,4 +85,8 @@ size_t IPC_receive(void *msg, size_t length);
 
 #endif
 
+#ifdef KZIMP_SPLICE
+char* get_next_message(void);
+#endif
+
 #endif /* IPC_INTERFACE_H */

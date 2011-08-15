@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <stdint.h>
+#include <strings.h>
 
 #include "Message.h"
 #include "comm_mech/ipc_interface.h"
@@ -54,8 +55,13 @@ Message::~Message(void)
 #else
 
 #ifndef IPC_MSG_QUEUE
-#ifndef ULM
-  free(msg);
+#if defined(ULM) || defined(KZIMP_SPLICE)
+  if (msg_pos_in_ring_buffer == -1)
+  {
+#endif
+    free(msg);
+#if defined(ULM) || defined(KZIMP_SPLICE)
+  }
 #endif
 #endif /* IPC_MSG_QUEUE */
 
@@ -92,6 +98,25 @@ void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int nid,
     msg_pos_in_ring_buffer = -1;
   }
 
+#elif defined(KZIMP_SPLICE)
+
+  if (ulm_alloc)
+  {
+    msg = get_next_message();
+    msg_pos_in_ring_buffer = 0; // only used when freeing the message, to know that it has been allocated or not
+  }
+  else
+  {
+    msg = (char*) malloc(len);
+    if (!msg)
+    {
+      perror("Message creation failed! ");
+      exit(errno);
+    }
+
+    msg_pos_in_ring_buffer = -1; // only used when freeing the message, to know that it has been allocated or not
+  }
+
 #elif defined(KZIMP_READ_SPLICE)
 
   kzimp_reader_splice_do_not_free = doNotFree;
@@ -120,6 +145,8 @@ void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int nid,
   if (!kzimp_reader_splice_do_not_free)
   {
 #endif
+    // needed because of Linux first-touch policy
+    bzero(msg, len);
     rep()->tag = tag;
     rep()->len = len;
 #ifdef KZIMP_READ_SPLICE
