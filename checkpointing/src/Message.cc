@@ -33,7 +33,11 @@ Message::Message(MessageTag tag)
 
 Message::Message(size_t len, MessageTag tag)
 {
+#ifdef KZIMP_SPLICE
+  init_message(len, tag, true);
+#else
   init_message(len, tag);
+#endif
 }
 
 #ifdef ULM

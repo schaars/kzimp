@@ -25,7 +25,7 @@
 
 // debug macro
 #define DEBUG
-#undef DEBUG
+//#undef DEBUG
 
 // Define MESSAGE_MAX_SIZE as the max size of a message in the channel
 // Define ONE_CHANNEL_PER_NODE if you want to run the version with 1 channel per learner i -> client 0
@@ -107,21 +107,26 @@ ssize_t Write(int fd, const void *buf, size_t count)
 {
   int r;
 
-#ifndef KZIMP_SPLICE
-  r = write(fd, buf, count);
-#else
-  unsigned long kzimp_addr_struct[3];
+#ifdef KZIMP_SPLICE
+  if (node_id == 0) {
+     r = write(fd, buf, count);
+  } else {
+     unsigned long kzimp_addr_struct[3];
 
-  //  -arg[0]: user-space address of the message
-  //  -arg[1]: offset in the big memory area
-  //  -arg[2]: length
-  kzimp_addr_struct[0] = (unsigned long) big_messages[next_msg_idx];
-  kzimp_addr_struct[1] = next_msg_idx;
-  kzimp_addr_struct[2] = count;
+     //  -arg[0]: user-space address of the message
+     //  -arg[1]: offset in the big memory area
+     //  -arg[2]: length
+     kzimp_addr_struct[0] = (unsigned long) big_messages[next_msg_idx];
+     kzimp_addr_struct[1] = next_msg_idx;
+     kzimp_addr_struct[2] = count;
 
-  r = ioctl(fd, KZIMP_IOCTL_SPLICE_WRITE, kzimp_addr_struct);
+     r = ioctl(fd, KZIMP_IOCTL_SPLICE_WRITE, kzimp_addr_struct);
+  }
 
   next_msg_idx = (next_msg_idx+1)%CHANNEL_SIZE;
+
+#else
+  r = write(fd, buf, count);
 #endif
 
   if (r == -1)
@@ -223,6 +228,10 @@ void IPC_initialize(int _nb_nodes)
 
 #ifdef KZIMP_READ_SPLICE
   msg_area_len = (size_t)MESSAGE_MAX_SIZE * (size_t)CHANNEL_SIZE;
+#endif
+
+#ifdef KZIMP_SPLICE
+  next_msg_idx = 0;
 #endif
 }
 
