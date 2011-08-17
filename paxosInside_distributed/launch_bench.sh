@@ -19,7 +19,7 @@ else
 fi
 
 i=1
-while [ $i -le 10 ]; do
+while [ true ]; do
  ./launch_xp_all.sh
 
  DIR=$BENCH/run$i
