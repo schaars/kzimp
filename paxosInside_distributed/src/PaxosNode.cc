@@ -106,7 +106,7 @@ void PaxosNode::handle_request(Request *request)
   uint64_t in = next_instance_number();
   uint64_t pn = PROPOSAL_NUMBER;
 
-  Accept_req ar(cid, pn, in, value);
+  ar.init_accept_req(cid, pn, in, value);
 
 #ifdef ULM
   IPC_send_node_unicast(ar.content(), ar.length(), ar.get_msg_pos());
@@ -136,7 +136,7 @@ void PaxosNode::handle_accept_req(Accept_req *ar)
   last_proposal.proposal_number = pn;
   last_proposal.value = value;
 
-  Learn learn(cid, pn, in, value);
+  learn.init_learn(cid, pn, in, value);
 
 #ifdef ULM
   IPC_send_node_multicast(learn.content(), learn.length(), learn.get_msg_pos());
@@ -167,7 +167,7 @@ void PaxosNode::handle_learn(Learn *learn)
   Response r(value, cid);
   IPC_send_node_to_client(r.content(), r.length(), cid, r.get_msg_pos());
 #else
-  Response r(value);
+  r.init_response(value);
   IPC_send_node_to_client(r.content(), r.length(), cid);
 #endif
 }

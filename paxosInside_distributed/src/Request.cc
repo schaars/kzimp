@@ -23,6 +23,11 @@ Request::Request(int cid, uint64_t value) :
   rep()->value = value;
 }
 
+void Request::init_request(int cid, uint64_t value) {
+  rep()->cid = cid;
+  rep()->value = value;
+}
+
 Request::~Request(void)
 {
 }

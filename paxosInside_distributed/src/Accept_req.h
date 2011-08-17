@@ -31,6 +31,8 @@ public:
   Accept_req(int cid, uint64_t pn, uint64_t in, uint64_t v);
   ~Accept_req(void);
 
+  void init_accept_req(int cid, uint64_t pn, uint64_t in, uint64_t v);
+
   // client id
   int cid(void) const;
 

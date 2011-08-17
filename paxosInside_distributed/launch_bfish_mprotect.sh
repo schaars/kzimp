@@ -40,15 +40,17 @@ else
    exit 0
 fi
 
-if [ "$PROFILER" = "likwid" ] && [ -z $LIKWID_GROUP ]; then
-   echo "You must give a LIKWID_GROUP when using liwkid."
-   exit 0
-else
-   sudo modprobe msr
-   sudo chmod o+rw /dev/cpu/*/msr
-   export PATH=$PATH:/home/bft/multicore_replication_microbench/likwid/installed/bin
-   export LD_PRELOAD=${LD_PRELOAD}:/home/bft/multicore_replication_microbench/likwid/installed/lib
-   PROFILE_OUT="paxos_bfish_likwid_${LIKWID_GROUP}.txt"
+if [ "$PROFILER" = "likwid" ]; then
+   if [ -z $LIKWID_GROUP ]; then
+      echo "You must give a LIKWID_GROUP when using liwkid."
+      exit 0
+   else
+      sudo modprobe msr
+      sudo chmod o+rw /dev/cpu/*/msr
+      export PATH=$PATH:/home/bft/multicore_replication_microbench/likwid/installed/bin
+      export LD_PRELOAD=${LD_PRELOAD}:/home/bft/multicore_replication_microbench/likwid/installed/lib
+      PROFILE_OUT="paxos_bfish_likwid_${LIKWID_GROUP}.txt"
+   fi
 fi
 
 ./stop_all.sh

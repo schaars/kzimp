@@ -9,10 +9,12 @@
 
 #include <stdint.h>
 
+#include "Accept_req.h"
+#include "Learn.h"
+#include "Response.h"
+
 class Message;
 class Request;
-class Accept_req;
-class Learn;
 
 struct proposal
 {
@@ -43,6 +45,10 @@ private:
   int nid;
   uint64_t last_instance_number;
   struct proposal last_proposal;
+
+  Accept_req ar;
+  Learn learn;
+  Response r;
 };
 
 inline int PaxosNode::node_id(void) const
