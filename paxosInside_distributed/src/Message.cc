@@ -18,36 +18,49 @@
 
 Message::Message(void)
 {
+  msg = 0;
+
 #ifndef KZIMP_READ_SPLICE
-  init_message(Max_message_size, UNKNOWN);
+  __init_message(Max_message_size, UNKNOWN);
 #else
-  init_message(Max_message_size, UNKNOWN, false, 0, 1);
+  __init_message(Max_message_size, UNKNOWN, false, 0, 1);
 #endif
 }
 
 Message::Message(MessageTag tag)
 {
-  init_message(Max_message_size, tag);
+  msg = 0;
+
+  __init_message(Max_message_size, tag);
 }
 
 #ifdef ULM
 Message::Message(size_t len, MessageTag tag, int cid)
 {
-  init_message(Max_message_size, tag, true, cid);
+  msg = 0;
+
+  __init_message(Max_message_size, tag, true, cid);
 }
 #endif
 
 Message::Message(size_t len, MessageTag tag)
 {
-#if defined(ULM) || defined(KZIMP_SPLICE)
-  init_message(len, tag, true);
-#else
+  msg = 0;
+
   init_message(len, tag);
+}
+
+void Message::init_message(size_t len, enum MessageTag tag)
+{
+#if defined(ULM) || defined(KZIMP_SPLICE)
+  __init_message(len, tag, true);
+#else
+  __init_message(len, tag);
 #endif
 }
 
-void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int cid,
-    int doNotFree)
+void Message::__init_message(size_t len, MessageTag tag, bool ulm_alloc,
+    int cid, int doNotFree)
 {
 #if defined(IPC_MSG_QUEUE)
 
@@ -112,6 +125,10 @@ void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int cid,
 
 #else
 
+  if (msg) {
+    free(msg);
+  }
+
   msg = (char*) malloc(len);
   if (!msg)
   {
@@ -125,12 +142,12 @@ void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int cid,
   if (!kzimp_reader_splice_do_not_free)
   {
 #endif
-    // needed because of Linux first-touch policy
-    bzero(msg, len);
-    rep()->len = len;
-    rep()->tag = tag;
+  // needed because of Linux first-touch policy
+  bzero(msg, len);
+  rep()->len = len;
+  rep()->tag = tag;
 #ifdef KZIMP_READ_SPLICE
-  }
+}
 #endif
 }
 
@@ -150,9 +167,9 @@ Message::~Message(void)
   if (msg_pos_in_ring_buffer == -1)
   {
 #endif
-    free(msg);
+  free(msg);
 #if defined(ULM) || defined(KZIMP_SPLICE)
-  }
+}
 #endif
 #endif /* IPC_MSG_QUEUE */
 

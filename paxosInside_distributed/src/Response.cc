@@ -23,6 +23,8 @@ Response::Response(uint64_t value) :
 }
 
 void Response::init_response(uint64_t value) {
+  init_message(sizeof(struct message_response), RESPONSE);
+
   rep()->value = value;
 }
 
