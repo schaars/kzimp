@@ -7,21 +7,21 @@
 int ncpus;
 int callgraph = 0;
 static event_t default_events[] = {
-  /*
   {
     .name = "CLK_UNHALTED",
     .type = PERF_TYPE_HARDWARE,
     .config = PERF_COUNT_HW_CPU_CYCLES,
-    .sampling_period = 100000,
+    .sampling_period = 1000000,
     .exclude_user = 0,
   },
   {
     .name = "INSTRUCTIONS",
     .type = PERF_TYPE_HARDWARE,
     .config = PERF_COUNT_HW_INSTRUCTIONS,
-    .sampling_period = 100000,
+    .sampling_period = 1000000,
     .exclude_user = 0,
   },
+  /*
   {
     .name = "CACHE_MISSES",
     .type = PERF_TYPE_HARDWARE,
@@ -29,7 +29,6 @@ static event_t default_events[] = {
     .sampling_period = 10000,
     .exclude_user = 0,
   },
-  */
   {
     .name = "L3_CACHE_MISS",
     .type = PERF_TYPE_RAW,
@@ -52,6 +51,7 @@ static event_t default_events[] = {
     .sampling_period = 10000,
     .exclude_user = 0,
   },
+  */
 };
 
 
