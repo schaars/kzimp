@@ -25,6 +25,15 @@ Learn::Learn(int cid, uint64_t pn, uint64_t in, uint64_t v) :
   rep()->value = v;
 }
 
+void Learn::init_learn(int cid, uint64_t pn, uint64_t in, uint64_t v) {
+  init_message(sizeof(struct message_learn), LEARN);
+
+  rep()->cid = cid;
+  rep()->proposal_number = pn;
+  rep()->instance_number = in;
+  rep()->value = v;
+}
+
 Learn::~Learn(void)
 {
 }

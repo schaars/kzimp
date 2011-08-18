@@ -27,6 +27,8 @@ public:
   Response(void);
   Response(uint64_t value);
 
+  void init_response(uint64_t value);
+
 #ifdef ULM
   Response(uint64_t value, int cid);
 #endif

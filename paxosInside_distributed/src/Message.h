@@ -67,8 +67,7 @@ public:
   size_t length(void) const;
 
   // initialize the message
-  void init_message(size_t len, MessageTag tag, bool ulm_alloc = false,
-      int cid = 0, int doNotFree = 0);
+  void init_message(size_t len, MessageTag tag);
 
 protected:
 
@@ -89,6 +88,10 @@ protected:
 private:
   // cast content to a struct message_header*
   struct message_header *rep(void) const;
+
+  // initialize the message
+  void __init_message(size_t len, MessageTag tag, bool ulm_alloc = false,
+      int cid = 0, int doNotFree = 0);
 };
 
 // return a pointer to the header of this message
