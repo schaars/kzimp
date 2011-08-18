@@ -11,6 +11,8 @@
 
 CONFIG_FILE=config
 
+# Set it to -DVMSPLICE if you want to use vmsplice() instead of write
+VMSPLICE=
 
 if [ $# -eq 4 ]; then
    NB_NODES=$1
@@ -30,7 +32,7 @@ rm -f /tmp/checkpointing_node_0_finished
 ./create_config.sh $NB_NODES $NB_ITER > $CONFIG_FILE
 
 # compile
-echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE}" > PIPE_PROPERTIES
+echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE} ${VMSPLICE}" > PIPE_PROPERTIES
 make pipe_checkpointing
 
 # launch

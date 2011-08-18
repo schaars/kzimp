@@ -166,29 +166,41 @@ void IPC_clean_node(void)
   }
 }
 
+
+// wrapper to write or vmsplice
+void Write(int fd, void *msg, size_t length) {
+   int r;
+
+#ifdef VMSPLICE
+  struct iovec iov;
+  iov.iov_base = msg;
+  iov.iov_len = length;
+  r = vmsplice(fd, &iov, 1, 0);
+#else
+  r = write(fd, msg, length);
+#endif
+
+  if (r < 0)
+  {
+    perror("Write");
+  }
+}
+
 // send the message msg of size length to all the nodes
 void IPC_send_multicast(void *msg, size_t length)
 {
-  int i, r;
+  int i;
 
   for (i = 1; i < nb_nodes; i++)
   {
-    r = write(node0_to_all[i][1], msg, length);
-    if (r < 0)
-    {
-      perror("IPC_send_unicast");
-    }
+    Write(node0_to_all[i][1], msg, length);
   }
 }
 
 // send the message msg of size length to the node 0
 void IPC_send_unicast(void *msg, size_t length, int nid)
 {
-  int r = write(nodei_to_0[node_id][1], msg, length);
-  if (r < 0)
-  {
-    perror("IPC_send_unicast");
-  }
+  Write(nodei_to_0[node_id][1], msg, length);
 }
 
 // receive a message and place it in msg (which is a buffer of size length).

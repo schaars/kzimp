@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#ifdef KZIMP_READ_SPLICE
+#if defined(KZIMP_READ_SPLICE) || defined(VMSPLICE)
 #include <string.h>
 #endif
 
@@ -63,6 +63,11 @@ Checkpointer::Checkpointer(int _node_id, int _nb_nodes, uint64_t _nb_iter)
   }
 
   init_clock_mhz();
+
+#ifdef VMSPLICE
+  cr = 0;
+  resp = 0;
+#endif
 
 #ifdef MSG_DEBUG
   printf("Checkpointer.new(%i, %i, %lu, <%lu, %lu>, %lx)\n",
@@ -197,6 +202,12 @@ void Checkpointer::handle(Checkpoint_request *req)
 #ifdef ULM
   Checkpoint_response resp(node_id(), chkpt.cn, chkpt.value, caller);
   IPC_send_unicast(resp.content(), resp.length(), caller, resp.get_msg_pos());
+#elif defined(VMSPLICE)
+  if (resp) {
+     delete resp;
+  }
+  resp = new Checkpoint_response(node_id(), chkpt.cn, chkpt.value);
+  IPC_send_unicast(resp->content(), resp->length(), caller);
 #else
   Checkpoint_response resp(node_id(), chkpt.cn, chkpt.value);
   IPC_send_unicast(resp.content(), resp.length(), caller);
@@ -223,7 +234,7 @@ void Checkpointer::handle(Checkpoint_response *resp)
   snapshot[sender].cn = sent_cn;
   snapshot[sender].value = value;
 
-#ifdef KZIMP_READ_SPLICE
+#if defined(KZIMP_READ_SPLICE) || defined(VMSPLICE)
   memcpy(chkpt_buf, resp->content(), resp->length());
 #endif
 
@@ -257,11 +268,21 @@ void Checkpointer::take_snapshot(void)
   snapshot_in_progress = true;
   awaited_responses = awaited_responses_mask;
 
+#ifdef VMSPLICE
+  if (cr) {
+     delete cr;
+  }
+  cr = new Checkpoint_request(node_id(), chkpt.cn);
+  IPC_send_multicast(cr->content(), cr->length());
+
+#else
+
   Checkpoint_request cr(node_id(), chkpt.cn);
 
 #ifdef ULM
   IPC_send_multicast(cr.content(), cr.length(), cr.get_msg_pos());
 #else
   IPC_send_multicast(cr.content(), cr.length());
+#endif
 #endif
 }

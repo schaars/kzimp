@@ -50,6 +50,12 @@ private:
   char chkpt_buf[MESSAGE_MAX_SIZE];
 #endif
 
+#ifdef VMSPLICE
+  char chkpt_buf[MESSAGE_MAX_SIZE];
+  Checkpoint_request *cr;
+  Checkpoint_response *resp;
+#endif
+
   void recv(Message *m);
 
   void handle(Checkpoint_request *req);
