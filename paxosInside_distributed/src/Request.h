@@ -29,8 +29,6 @@ public:
   Request(int cid, uint64_t value);
   ~Request(void);
 
-  void init_request(int cid, uint64_t value);
-
   // client id
   int cid(void) const;
 

@@ -18,49 +18,36 @@
 
 Message::Message(void)
 {
-  msg = 0;
-
 #ifndef KZIMP_READ_SPLICE
-  __init_message(Max_message_size, UNKNOWN);
+  init_message(Max_message_size, UNKNOWN);
 #else
-  __init_message(Max_message_size, UNKNOWN, false, 0, 1);
+  init_message(Max_message_size, UNKNOWN, false, 0, 1);
 #endif
 }
 
 Message::Message(MessageTag tag)
 {
-  msg = 0;
-
-  __init_message(Max_message_size, tag);
+  init_message(Max_message_size, tag);
 }
 
 #ifdef ULM
 Message::Message(size_t len, MessageTag tag, int cid)
 {
-  msg = 0;
-
-  __init_message(Max_message_size, tag, true, cid);
+  init_message(Max_message_size, tag, true, cid);
 }
 #endif
 
 Message::Message(size_t len, MessageTag tag)
 {
-  msg = 0;
-
-  init_message(len, tag);
-}
-
-void Message::init_message(size_t len, enum MessageTag tag)
-{
 #if defined(ULM) || defined(KZIMP_SPLICE)
-  __init_message(len, tag, true);
+  init_message(len, tag, true);
 #else
-  __init_message(len, tag);
+  init_message(len, tag);
 #endif
 }
 
-void Message::__init_message(size_t len, MessageTag tag, bool ulm_alloc,
-    int cid, int doNotFree)
+void Message::init_message(size_t len, MessageTag tag, bool ulm_alloc, int cid,
+    int doNotFree)
 {
 #if defined(IPC_MSG_QUEUE)
 
@@ -125,10 +112,6 @@ void Message::__init_message(size_t len, MessageTag tag, bool ulm_alloc,
 
 #else
 
-  if (msg) {
-    free(msg);
-  }
-
   msg = (char*) malloc(len);
   if (!msg)
   {
@@ -147,7 +130,7 @@ void Message::__init_message(size_t len, MessageTag tag, bool ulm_alloc,
   rep()->len = len;
   rep()->tag = tag;
 #ifdef KZIMP_READ_SPLICE
-}
+  }
 #endif
 }
 
@@ -169,7 +152,7 @@ Message::~Message(void)
 #endif
   free(msg);
 #if defined(ULM) || defined(KZIMP_SPLICE)
-}
+  }
 #endif
 #endif /* IPC_MSG_QUEUE */
 

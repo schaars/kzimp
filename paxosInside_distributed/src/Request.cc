@@ -23,13 +23,6 @@ Request::Request(int cid, uint64_t value) :
   rep()->value = value;
 }
 
-void Request::init_request(int cid, uint64_t value)
-{
-  init_message(sizeof(struct message_request), REQUEST);
-  rep()->cid = cid;
-  rep()->value = value;
-}
-
 Request::~Request(void)
 {
 }

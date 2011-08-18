@@ -31,8 +31,6 @@ public:
   Learn(int cid, uint64_t pn, uint64_t in, uint64_t v);
   ~Learn(void);
 
-  void init_learn(int cid, uint64_t pn, uint64_t in, uint64_t v);
-
   // client id
   int cid(void) const;
 

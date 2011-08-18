@@ -134,8 +134,6 @@ void Client::recv(void)
 // send requests
 void Client::send(void)
 {
-  Request r(client_id(), next_value());
-
   // in order to ensure that the paxos nodes and the receiver client are launched
   sleep(3);
 
@@ -143,6 +141,7 @@ void Client::send(void)
 
   while (1)
   {
+    Request r(client_id(), next_value());
 
 #ifdef MSG_DEBUG
     printf("Client %i is sending a request (%i, %lu)\n", client_id(), r.cid(),
@@ -154,8 +153,6 @@ void Client::send(void)
 #else
     IPC_send_client_to_node(r.content(), r.length());
 #endif
-
-    r.init_request(client_id(), next_value());
   }
 }
 
