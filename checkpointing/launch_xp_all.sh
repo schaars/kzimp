@@ -10,10 +10,17 @@ for chkpt_size in ${CHKPT_SIZE_ARRAY[@]}; do
    for nb_nodes in ${NB_NODES_ARRAY[@]}; do
       for msg_size in ${MSG_SIZE_ARRAY[@]}; do
 
+         ./launch_ulm.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 50
+         ./launch_barrelfish_mp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 1000
          ./launch_kzimp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 500
-         ./launch_unix.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
-         ./launch_ipc_msg_queue.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
          ./launch_bfish_mprotect.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 500
+         ./launch_kbfish.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 1000
+         ./launch_inet_tcp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
+         ./launch_inet_udp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
+         ./launch_unix.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
+         ./launch_pipe.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
+         ./launch_ipc_msg_queue.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
+         ./launch_posix_msg_queue.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 10
 
       done
    done
@@ -30,10 +37,17 @@ for chkpt_size in ${CHKPT_SIZE_ARRAY[@]}; do
    for nb_nodes in ${NB_NODES_ARRAY[@]}; do
       for msg_size in ${MSG_SIZE_ARRAY[@]}; do
 
+         ./launch_ulm.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 50
+         ./launch_barrelfish_mp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 1000
          ./launch_kzimp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 500
-         ./launch_unix.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
-         ./launch_ipc_msg_queue.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
          ./launch_bfish_mprotect.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 500
+         ./launch_kbfish.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 1000
+         ./launch_inet_tcp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
+         ./launch_inet_udp.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
+         ./launch_unix.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
+         ./launch_pipe.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
+         ./launch_ipc_msg_queue.sh $nb_nodes $NB_ITER $msg_size $chkpt_size
+         ./launch_posix_msg_queue.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 10
 
       done
    done
