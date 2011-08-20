@@ -48,7 +48,7 @@ if [ "$PROFILER" = "likwid" ]; then
       sudo modprobe msr
       sudo chmod o+rw /dev/cpu/*/msr
       export PATH=$PATH:/home/bft/multicore_replication_microbench/likwid/installed/bin
-      export LD_PRELOAD=${LD_PRELOAD}:/home/bft/multicore_replication_microbench/likwid/installed/lib
+      export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/home/bft/multicore_replication_microbench/likwid/installed/lib
       PROFILE_OUT="paxos_bfish_likwid_${LIKWID_GROUP}.txt"
    fi
 fi

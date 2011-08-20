@@ -41,6 +41,7 @@ rm -f /tmp/multicore_replication_paxosInside*
 
 # set new parameters
 sudo sysctl -p ../inet_sysctl.conf
+sudo ./root_set_value.sh 10 /proc/sys/net/unix/max_dgram_qlen
 
 # compile
 echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > UNIX_PROPERTIES

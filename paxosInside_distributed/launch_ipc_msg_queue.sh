@@ -32,6 +32,20 @@ else
    exit 0
 fi
 
+
+if [ "$PROFILER" = "likwid" ]; then
+   if [ -z $LIKWID_GROUP ]; then
+      echo "You must give a LIKWID_GROUP when using liwkid."
+      exit 0
+   else
+      sudo modprobe msr
+      sudo chmod o+rw /dev/cpu/*/msr
+      export PATH=$PATH:/home/bft/multicore_replication_microbench/likwid/installed/bin
+      export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/home/bft/multicore_replication_microbench/likwid/installed/lib
+      PROFILE_OUT="paxos_ipc_mq_likwid_${LIKWID_GROUP}.txt"
+   fi
+fi
+
 ./stop_all.sh
 rm -f /tmp/paxosInside_client_*_finished
 ./remove_shared_segment.pl
@@ -53,7 +67,7 @@ make ipc_msg_queue_paxosInside
 
 #####################################
 ############# Profiler  #############
-if [ ! -z $PROFILER ]; then
+if [ "$PROFILER" = "profile" ]; then
 cd $PROFDIR
 make
 cd -
@@ -62,12 +76,20 @@ fi
 
 
 # launch
+#echo ./bin/ipc_msg_queue_paxosInside $CONFIG_FILE &
+#read
+
+# launch
+if [ "$PROFILER" = "likwid" ]; then
+likwid-perfctr -C 0-6 -g ${LIKWID_GROUP} ./bin/ipc_msg_queue_paxosInside $CONFIG_FILE | tee ${PROFILE_OUT} &
+else
 ./bin/ipc_msg_queue_paxosInside $CONFIG_FILE &
+fi
 
 
 #####################################
 ############# Profiler  #############
-if [ ! -z $PROFILER ]; then
+if [ "$PROFILER" = "profile" ]; then
 sleep 5
 sudo $PROFDIR/profiler-sampling &
 fi
@@ -92,7 +114,7 @@ done
 
 #####################################
 ############# Profiler  #############
-if [ ! -z $PROFILER ]; then
+if [ "$PROFILER" = "profile" ]; then
 sudo pkill profiler
 sudo chown bft:bft /tmp/perf.data.*
 
@@ -104,6 +126,14 @@ for e in 0 1 2; do
 done
 
 rm /tmp/perf.data.* -f
+fi
+
+if [ "$PROFILER" = "likwid" ]; then
+   killall ipc_msg_queue_paxosInside
+
+   OUTPUT_DIR=ipc_msg_queue_likwid_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize
+   mkdir -p $OUTPUT_DIR
+   mv $PROFILE_OUT $OUTPUT_DIR/
 fi
 #####################################
 
