@@ -22,7 +22,15 @@
 #define DEBUG
 #undef DEBUG
 
+// You can define TCP_NAGLE if you want to activate TCP_NODELAY
+
 #define MAX(a, b) (((a)>(b))?(a):(b))
+
+#ifdef IPV6
+typedef struct sockaddr_in6 SOCKADDR;
+#else
+typedef struct sockaddr_in SOCKADDR;
+#endif
 
 /********** All the variables needed by UDP sockets **********/
 
@@ -51,14 +59,18 @@ void IPC_initialize(int _nb_nodes)
 int create_socket(int port, int backlog)
 {
   int s;
-  struct sockaddr_in bootstrap_sin;
+  SOCKADDR bootstrap_sin;
 
 #ifdef TCP_NAGLE
   int flag;
 #endif
 
   // create bootstrap socket
+#ifdef IPV6
+  s = socket(AF_INET6, SOCK_STREAM, 0);
+#else
   s = socket(AF_INET, SOCK_STREAM, 0);
+#endif
   if (s == -1)
   {
     perror("[create_server_socket] Error while creating the socket! ");
@@ -79,9 +91,15 @@ int create_socket(int port, int backlog)
   if (port != 0)
   {
     // bind
+#ifdef IPV6
+    bootstrap_sin.sin6_addr = in6addr_any;
+    bootstrap_sin.sin6_family = AF_INET6;
+    bootstrap_sin.sin6_port = htons(port);
+#else
     bootstrap_sin.sin_addr.s_addr = htonl(INADDR_ANY);
     bootstrap_sin.sin_family = AF_INET;
     bootstrap_sin.sin_port = htons(port);
+#endif
 
     if (bind(s, (struct sockaddr*) &bootstrap_sin, sizeof(bootstrap_sin)) == -1)
     {
@@ -103,11 +121,17 @@ int create_socket(int port, int backlog)
 // connect socket s to port port on localhost
 void connect_socket(int s, int port)
 {
-  struct sockaddr_in addr;
+  SOCKADDR addr;
 
+#ifdef IPV6
+  addr.sin6_addr = in6addr_loopback;
+  addr.sin6_family = AF_INET6;
+  addr.sin6_port = htons(port);
+#else
   addr.sin_addr.s_addr = inet_addr("127.0.0.1");
   addr.sin_family = AF_INET;
   addr.sin_port = htons(port);
+#endif
 
   while (1)
   {
@@ -133,7 +157,7 @@ void connect_socket(int s, int port)
 int get_connection(int s)
 {
   int ns;
-  struct sockaddr_in csin;
+  SOCKADDR csin;
   int sinsize = sizeof(csin);
 
   while (1)
@@ -160,8 +184,13 @@ int get_connection(int s)
 
 #ifdef DEBUG
     // print some information about the accepted connection
+#ifdef IPV6
+    printf("[node %i] A connection has been accepted from port %i\n", node_id,
+        ntohs(csin.sin6_port));
+#else
     printf("[node %i] A connection has been accepted from %s:%i\n", node_id,
         inet_ntoa(csin.sin_addr), ntohs(csin.sin_port));
+#endif
 #endif
 
     break;

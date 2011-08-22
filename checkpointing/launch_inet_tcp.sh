@@ -10,6 +10,9 @@
 
 CONFIG_FILE=config
 
+# Set it to -DIPV6 if you want to enable IPV6
+IPV6=
+
 # wait for the end of TIME_WAIT connections
 function wait_for_time_wait {
 nbc=1
@@ -44,7 +47,7 @@ rm -f /tmp/checkpointing_node_0_finished
 sudo sysctl -p ../inet_sysctl.conf
 
 # compile
-echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE}" > INET_TCP_PROPERTIES
+echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE} -DTCP_NAGLE ${IPV6}" > INET_TCP_PROPERTIES
 make inet_tcp_checkpointing
 
 # launch

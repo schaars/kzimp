@@ -10,6 +10,8 @@
 
 CONFIG_FILE=config
 
+# Set it to -DIPV6 if you want to enable IPV6
+IPV6=
 
 if [ $# -eq 4 ]; then
    NB_NODES=$1
@@ -32,7 +34,7 @@ rm -f /tmp/checkpointing_node_0_finished
 sudo sysctl -p ../inet_sysctl.conf
 
 # compile
-echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE}" > INET_UDP_PROPERTIES
+echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE} ${IPV6}" > INET_UDP_PROPERTIES
 make inet_udp_checkpointing
 
 # launch

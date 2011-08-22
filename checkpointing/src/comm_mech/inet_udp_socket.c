@@ -33,6 +33,12 @@
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #define MIN(a, b) (((a)<(b))?(a):(b))
 
+#ifdef IPV6
+typedef struct sockaddr_in6 SOCKADDR;
+#else
+typedef struct sockaddr_in SOCKADDR;
+#endif
+
 /********** All the variables needed by UDP sockets **********/
 
 #define PORT_CORE_0 4242 // ports on which the nodes bind.  They recv on PORT_CORE_0+node_id
@@ -41,8 +47,8 @@ static int node_id;
 static int nb_nodes;
 
 static int *sock;
-static struct sockaddr_in *addresses; // for each node, its address
-static struct sockaddr_in *addresses_node0; // addresses used by the nodes>0 to send to node 0
+static SOCKADDR *addresses; // for each node, its address
+static SOCKADDR *addresses_node0; // addresses used by the nodes>0 to send to node 0
 
 #if 0
 // last sent message
@@ -57,7 +63,7 @@ void IPC_initialize(int _nb_nodes)
   nb_nodes = _nb_nodes;
 
   // create & fill addresses
-  addresses = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in)
+  addresses = (SOCKADDR*) malloc(sizeof(SOCKADDR)
       * nb_nodes);
   if (!addresses)
   {
@@ -67,9 +73,15 @@ void IPC_initialize(int _nb_nodes)
 
   for (int i = 0; i < nb_nodes; i++)
   {
+#ifdef IPV6
+    addresses[i].sin6_addr = in6addr_loopback;
+    addresses[i].sin6_family = AF_INET6;
+    addresses[i].sin6_port = htons(PORT_CORE_0 + i);
+#else
     addresses[i].sin_addr.s_addr = inet_addr("127.0.0.1");
     addresses[i].sin_family = AF_INET;
     addresses[i].sin_port = htons(PORT_CORE_0 + i);
+#endif
 
 #ifdef DEBUG
     printf("Node %i bound on port %i\n", i, PORT_CORE_0 + i);
@@ -77,7 +89,7 @@ void IPC_initialize(int _nb_nodes)
   }
 
   // create & fill addresses
-  addresses_node0 = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in)
+  addresses_node0 = (SOCKADDR*) malloc(sizeof(SOCKADDR)
       * nb_nodes);
   if (!addresses_node0)
   {
@@ -87,9 +99,15 @@ void IPC_initialize(int _nb_nodes)
 
   for (int i = 0; i < nb_nodes; i++)
   {
+#ifdef IPV6
+    addresses_node0[i].sin6_addr = in6addr_loopback;
+    addresses_node0[i].sin6_family = AF_INET6;
+    addresses_node0[i].sin6_port = htons(PORT_RECV_0 + i);
+#else
     addresses_node0[i].sin_addr.s_addr = inet_addr("127.0.0.1");
     addresses_node0[i].sin_family = AF_INET;
     addresses_node0[i].sin_port = htons(PORT_RECV_0 + i);
+#endif
 
 #ifdef DEBUG
     printf("Node %i bound on port %i\n", i, PORT_RECV_0 + i);
@@ -97,12 +115,16 @@ void IPC_initialize(int _nb_nodes)
   }
 }
 
-int create_socket(struct sockaddr_in *addr)
+int create_socket(SOCKADDR *addr)
 {
   int s;
 
   // create socket
+#ifdef IPV6
+  s = socket(AF_INET6, SOCK_DGRAM, 0);
+#else
   s = socket(AF_INET, SOCK_DGRAM, 0);
+#endif
   if (s == -1)
   {
     perror("[IPC_initialize_one_node] Error while creating the socket! ");
@@ -195,7 +217,7 @@ void IPC_clean_node(void)
   free(sock);
 }
 
-void udp_send_one_node(void *msg, size_t length, struct sockaddr_in *addr)
+void udp_send_one_node(void *msg, size_t length, SOCKADDR *addr)
 {
   size_t sent, to_send;
   char seq_id = 0;
