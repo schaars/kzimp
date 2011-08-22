@@ -216,7 +216,8 @@ for arg in "$@"; do
    rm ${file}.data
 done
 
-rm plot.data
+#rm plot.data
+mv plot.data ${OUT_FILE}.data
 
 rm $PLOT_FILE
 }
