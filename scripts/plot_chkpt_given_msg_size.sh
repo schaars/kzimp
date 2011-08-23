@@ -38,8 +38,14 @@ set output "${OUT_FILE}.eps"
 
 set xlabel "${XLABEL}"
 set ylabel "${YLABEL}"
-#set title "$TITLE"
 
+EOF
+
+if [ $ADD_TITLE -eq 1 ]; then
+echo "set title \"$TITLE\"" >> $PLOT_FILE
+fi
+
+cat << EOF >> $PLOT_FILE
 #set key left top
 #set key at 3.35,5300
 

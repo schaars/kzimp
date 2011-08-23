@@ -2,6 +2,12 @@
 
 THROUGHPUT=1
 IMPROVEMENT=1
+
+ALL_BUT_TCP_UDP=0
+TCP_UDP=1
+
+_ADD_TITLE=1
+
 NB_NODES_ARRAY=( 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 )
 MSG_SIZE_ARRAY=( 128 512 1024 4096 10240 102400 1048576 )
 
@@ -11,8 +17,8 @@ KZIMP_HDR_CSUM=../kzimp/hdr_csum/summary_mean_stdev.txt
 BARRELFISH_MP=../bfish/summary_mean_stdev.txt
 IPC_MQ=../ipc_mq/summary_mean_stdev.txt
 POSIX_MQ=../posix_mq/summary_mean_stdev.txt
-TCP=../tcp/summary_mean_stdev.txt
-UDP=../udp/summary_mean_stdev.txt
+TCP=../ipv4/tcp/summary_mean_stdev.txt
+UDP=../ipv4/udp/summary_mean_stdev.txt
 UNIX=../unix/summary_mean_stdev.txt
 PIPES=../pipes/summary_mean_stdev.txt
 PIPES_VMSPLICE=../pipes_vmsplice/summary_mean_stdev.txt
@@ -32,20 +38,27 @@ if [ $THROUGHPUT -eq 1 ]; then
       echo -n " $n"
 
       # all but TCP and UDP
-      LOG_SCALE=1 ${PLOT_THR_NB_NODES} chkpt_kzimp_no_csum_lat_${n}nodes_log lat $n \
-         "DECoM no checksum" $KZIMP_NO_CSUM \
-         "Barrelfish MP" $BARRELFISH_MP \
-         Pipes $PIPES \
-         "Pipes + vmsplice()" $PIPES_VMSPLICE \
-         "IPC MQ" $IPC_MQ \
-         "POSIX MQ" $POSIX_MQ \
-         "Unix domain" $UNIX
+      if [ $ALL_BUT_TCP_UDP -eq 1 ]; then
+         LOG_SCALE=1 ADD_TITLE=${_ADD_TITLE} ${PLOT_THR_NB_NODES} \
+            chkpt_kzimp_no_csum_lat_${n}nodes_log lat $n \
+            "DECoM no checksum" $KZIMP_NO_CSUM \
+            "Barrelfish MP" $BARRELFISH_MP \
+            Pipes $PIPES \
+            "Pipes + vmsplice()" $PIPES_VMSPLICE \
+            "IPC MQ" $IPC_MQ \
+            "POSIX MQ" $POSIX_MQ \
+            "Unix domain" $UNIX
+      fi
 
       # TCP and UDP
-      LOG_SCALE=1 ${PLOT_THR_NB_NODES} chkpt_kzimp_hdr_csum_lat_${n}nodes_log lat $n \
-         "DECoM hdr checksum" $KZIMP_HDR_CSUM \
-         TCP $TCP \
-         UDP $UDP
+      if [ $TCP_UDP -eq 1 ]; then
+         LOG_SCALE=1 ADD_TITLE=${_ADD_TITLE} ${PLOT_THR_NB_NODES} \
+            chkpt_kzimp_hdr_csum_lat_${n}nodes_log lat $n \
+            "DECoM hdr checksum" $KZIMP_HDR_CSUM \
+            TCP $TCP \
+            UDP $UDP
+      fi
+
    done
    echo ""
 
@@ -54,20 +67,26 @@ if [ $THROUGHPUT -eq 1 ]; then
       echo -n " $s"
 
       # all but TCP and UDP
-      ${PLOT_THR_MSG_SIZE} chkpt_kzimp_no_csum_lat_${s}B lat $s \
-         "DECoM no checksum" $KZIMP_NO_CSUM \
-         "Barrelfish MP" $BARRELFISH_MP \
-         Pipes $PIPES \
-         "Pipes + vmsplice()" $PIPES_VMSPLICE \
-         "IPC MQ" $IPC_MQ \
-         "POSIX MQ" $POSIX_MQ \
-         "Unix domain" $UNIX
+      if [ $ALL_BUT_TCP_UDP -eq 1 ]; then
+         ADD_TITLE=${_ADD_TITLE} ${PLOT_THR_MSG_SIZE} \
+            chkpt_kzimp_no_csum_lat_${s}B lat $s \
+            "DECoM no checksum" $KZIMP_NO_CSUM \
+            "Barrelfish MP" $BARRELFISH_MP \
+            Pipes $PIPES \
+            "Pipes + vmsplice()" $PIPES_VMSPLICE \
+            "IPC MQ" $IPC_MQ \
+            "POSIX MQ" $POSIX_MQ \
+            "Unix domain" $UNIX
+      fi
 
       # TCP and UDP
-      ${PLOT_THR_MSG_SIZE} chkpt_kzimp_hdr_csum_lat_${s}B lat $s \
+      if [ $TCP_UDP -eq 1 ]; then
+      ADD_TITLE=${_ADD_TITLE} ${PLOT_THR_MSG_SIZE} \
+         chkpt_kzimp_hdr_csum_lat_${s}B lat $s \
          "DECoM hdr checksum" $KZIMP_HDR_CSUM \
          TCP $TCP \
          UDP $UDP
+   fi
    done
    echo ""
 
@@ -81,20 +100,26 @@ if [ $IMPROVEMENT -eq 1 ]; then
       echo -n " $n"
 
       # all but TCP and UDP
-      ${PLOT_IMP_NB_NODES} chkpt_kzimp_no_csum_imp_lat_${n}nodes lat $n \
-         "DECoM no checksum" $KZIMP_NO_CSUM \
-         "Barrelfish MP" $BARRELFISH_MP \
-         Pipes $PIPES \
-         "Pipes + vmsplice()" $PIPES_VMSPLICE \
-         "IPC MQ" $IPC_MQ \
-         "POSIX MQ" $POSIX_MQ \
-         "Unix domain" $UNIX
+      if [ $ALL_BUT_TCP_UDP -eq 1 ]; then
+         ADD_TITLE=${_ADD_TITLE} ${PLOT_IMP_NB_NODES} \
+            chkpt_kzimp_no_csum_imp_lat_${n}nodes lat $n \
+            "DECoM no checksum" $KZIMP_NO_CSUM \
+            "Barrelfish MP" $BARRELFISH_MP \
+            Pipes $PIPES \
+            "Pipes + vmsplice()" $PIPES_VMSPLICE \
+            "IPC MQ" $IPC_MQ \
+            "POSIX MQ" $POSIX_MQ \
+            "Unix domain" $UNIX
+      fi
 
       # TCP and UDP
-      ${PLOT_IMP_NB_NODES} chkpt_kzimp_hdr_csum_imp_lat_${n}nodes lat $n \
+      if [ $TCP_UDP -eq 1 ]; then
+      ADD_TITLE=${_ADD_TITLE} ${PLOT_IMP_NB_NODES} \
+         chkpt_kzimp_hdr_csum_imp_lat_${n}nodes lat $n \
          "DECoM hdr checksum" $KZIMP_HDR_CSUM \
          TCP $TCP \
          UDP $UDP
+   fi
    done
    echo ""
 
@@ -103,20 +128,26 @@ if [ $IMPROVEMENT -eq 1 ]; then
       echo -n " $s"
 
       # all but TCP and UDP
-      ${PLOT_IMP_MSG_SIZE} chkpt_kzimp_no_csum_imp_lat_${s}B lat $s \
-         "DECoM no checksum" $KZIMP_NO_CSUM \
-         "Barrelfish MP" $BARRELFISH_MP \
-         Pipes $PIPES \
-         "Pipes + vmsplice()" $PIPES_VMSPLICE \
-         "IPC MQ" $IPC_MQ \
-         "POSIX MQ" $POSIX_MQ \
-         "Unix domain" $UNIX
+      if [ $ALL_BUT_TCP_UDP -eq 1 ]; then
+         ADD_TITLE=${_ADD_TITLE} ${PLOT_IMP_MSG_SIZE} \
+            chkpt_kzimp_no_csum_imp_lat_${s}B lat $s \
+            "DECoM no checksum" $KZIMP_NO_CSUM \
+            "Barrelfish MP" $BARRELFISH_MP \
+            Pipes $PIPES \
+            "Pipes + vmsplice()" $PIPES_VMSPLICE \
+            "IPC MQ" $IPC_MQ \
+            "POSIX MQ" $POSIX_MQ \
+            "Unix domain" $UNIX
+      fi
 
       # TCP and UDP
-      ${PLOT_IMP_MSG_SIZE} chkpt_kzimp_hdr_csum_imp_lat_${s}B lat $s \
+      if [ $TCP_UDP -eq 1 ]; then
+      ADD_TITLE=${_ADD_TITLE} ${PLOT_IMP_MSG_SIZE} \
+         chkpt_kzimp_hdr_csum_imp_lat_${s}B lat $s \
          "DECoM hdr checksum" $KZIMP_HDR_CSUM \
          TCP $TCP \
          UDP $UDP
+   fi
    done
    echo ""
 

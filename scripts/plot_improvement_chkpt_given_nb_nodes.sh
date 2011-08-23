@@ -38,8 +38,13 @@ set output "${OUT_FILE}.eps"
 
 set xlabel "${XLABEL}"
 set ylabel "${YLABEL}"
-#set title "$TITLE"
+EOF
 
+if [ $ADD_TITLE -eq 1 ]; then
+echo "set title \"$TITLE\"" >> $PLOT_FILE
+fi
+
+cat << EOF >> $PLOT_FILE
 set logscale x
 set xtics("1B" 1,"64B" 64,"128B" 128,"512B" 512,"1kB" 1024,"4kB" 4096,"10kB" 10240,"100kB" 102400,"1MB" 1048576)
 
