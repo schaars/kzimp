@@ -72,6 +72,7 @@ sudo ./stop_all.sh
 sudo umount /dev/mqueue
 sudo rmdir /dev/mqueue
 sudo rm -f /tmp/multicore_replication_checkpointing*
+sudo rm -f /tmp/checkpointing_node_0_finished
 
 sudo chown bft:bft results.txt
 mv results.txt posix_msg_queue_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B.txt

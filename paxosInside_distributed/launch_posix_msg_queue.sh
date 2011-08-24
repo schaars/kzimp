@@ -155,6 +155,7 @@ sudo ./stop_all.sh
 sudo rm /dev/mqueue/posix_message_queue_paxosInside*
 sudo umount /dev/mqueue
 sudo rmdir /dev/mqueue
+sudo rm -f /tmp/paxosInside_client_*_finished
 
 sudo chown bft:bft results.txt
 mv results.txt posix_mq_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_${MSG_CHANNEL}channelSize.txt
