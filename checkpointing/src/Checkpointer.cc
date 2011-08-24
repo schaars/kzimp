@@ -234,7 +234,7 @@ void Checkpointer::handle(Checkpoint_response *resp)
   snapshot[sender].cn = sent_cn;
   snapshot[sender].value = value;
 
-#if defined(KZIMP_READ_SPLICE) || defined(VMSPLICE)
+#if defined(KZIMP_READ_SPLICE)
   memcpy(chkpt_buf, resp->content(), resp->length());
 #endif
 
