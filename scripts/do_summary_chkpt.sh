@@ -18,16 +18,13 @@ echo -e "#nb_nodes\tmsg_size\tchkpt_size\tnb_iter\tchannel_size\tlimit_thr\tthro
 
 for file in ${RESULTS_DIR}/*.txt; do
    # extract the values from the filename
-   grep channelSize <<< $file &> /dev/null
-   if [ $? -eq 0 ]; then
+   if [[ "$file" =~ "channelSize" ]]; then
       str=$(sed 's/^\(.\+\)_\([[:digit:]]\+\)nodes_\([[:digit:]]\+\)iter_chkpt\([[:digit:]]\+\)_msg\([[:digit:]]\+\)B_\([[:digit:]]\+\)channelSize.txt/\1\t\2\t\3\t\4\t\5\t\6/' <<< $file)
 
       chan_size=$(awk '{print $6}' <<< $str)
       limit_thr=0
    else
-      grep snapPerSec <<< $file &> /dev/null
-
-      if [ $? -eq 0 ]; then
+      if [[ "$file" =~ "snapPerSec" ]]; then
          str=$(sed 's/^\(.\+\)_\([[:digit:]]\+\)nodes_\([[:digit:]]\+\)iter_chkpt\([[:digit:]]\+\)_msg\([[:digit:]]\+\)B_thr\([[:digit:]]\+\)snapPerSec.txt/\1\t\2\t\3\t\4\t\5\t\6/' <<< $file)
 
          limit_thr=$(awk '{print $6}' <<< $str)

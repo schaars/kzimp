@@ -18,8 +18,7 @@ echo -e "#nb_paxos_nodes\tnb_clients\treq_size\tnb_iter\tleader_acceptor\tchanne
 
 for file in ${RESULTS_DIR}/*.txt; do
    # extract the values from the filename
-   grep channelSize <<< $file &> /dev/null
-   if [ $? -eq 0 ]; then
+   if [[ "$file" =~ "channelSize" ]]; then
       str=$(sed 's/^\(.\+\)_\([[:digit:]]\+\)nodes_\([[:digit:]]\+\)clients_\([[:digit:]]\+\)iter_\([[:digit:]]\+\)B_\(.\+\)_\([[:digit:]]\+\)channelSize.txt/\1\t\2\t\3\t\4\t\5\t\6\t\7/' <<< $file)
 
       chan_size=$(awk '{print $7}' <<< $str)
