@@ -222,7 +222,7 @@ for arg in "$@"; do
 done
 
 #rm plot.data
-mv plot.data ${OUT_FILE}.data
+mv plot.data ${OUT_FILE}_imp.data
 
 rm $PLOT_FILE
 }

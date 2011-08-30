@@ -93,7 +93,7 @@ gnuplot $PLOT_FILE
 
 rm $PLOT_FILE
 
-mv plot.data ${OUT_FILE}.data
+mv plot.data ${OUT_FILE}_normalize.data
 
 # convert eps to pdf
 epstopdf ${OUT_FILE}.eps
