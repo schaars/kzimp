@@ -94,7 +94,7 @@ gnuplot $PLOT_FILE
 
 rm $PLOT_FILE
 
-mv plot.data ${OUT_FILE}_imp.data
+mv plot.data ${OUT_FILE}.data
 
 # convert eps to pdf
 epstopdf ${OUT_FILE}.eps

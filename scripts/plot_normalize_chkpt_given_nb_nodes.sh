@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Plot a figure with gnuplot from checkpointing mean/stdev summaries,
-# for a given number of nodes, about the improvement
+# for a given number of nodes, about the normalize throughput/latency
 #
 # Args:
 #  $1: out file
@@ -111,15 +111,12 @@ for arg in "$@"; do
 done
 
 # compute improvement using $new_args
-$(dirname $0)/compute_improvement_chkpt.py ${LAT_OR_THR} ${new_args}
+$(dirname $0)/compute_normalize_chkpt.py ${LAT_OR_THR} ${new_args}
 }
 
 function complete_plot {
 PLOT_FILE=$1
 shift
-
-# we do not have to plot the first summary, which is the reference
-shift; shift
 
 echo -n "plot " >> $PLOT_FILE
 
