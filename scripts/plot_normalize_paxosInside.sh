@@ -1,7 +1,8 @@
 #!/bin/bash
 #
 # Plot a figure with gnuplot from paxosInside mean/stdev summaries,
-# Normalize the throughput of the mechanisms compared to the first communication mechanism given in argument
+# Normalize the throughput of the mechanisms compared to the first communication
+# mechanism given in argument
 #
 # Args:
 #  $1: out file
@@ -55,7 +56,6 @@ set xrange [64:]
 EOF
 
 if [ $LOG_SCALE -eq 1 ]; then
-   echo "Log scale can not be used for the normalized throughput! You will get a strange figure"
    echo "set logscale y" >> $PLOT_FILE
    echo "set yrange [1:]" >> $PLOT_FILE
 else
