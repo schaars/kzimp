@@ -13,12 +13,12 @@
 CONFIG_FILE=config
 PROFDIR=../profiler
 
-#KZIMP_DIR="../kzimp/kzimp_allMessagesArea"
+KZIMP_DIR="../kzimp/kzimp_allMessagesArea"
 #KZIMP_DIR="../kzimp/kzimp_splice"
-KZIMP_DIR="../kzimp/kzimp_reader_splice"
+#KZIMP_DIR="../kzimp/kzimp_reader_splice"
 
 # Do we compute the checksum?
-COMPUTE_CHKSUM=2
+COMPUTE_CHKSUM=0
 
 # Writer's timeout
 KZIMP_TIMEOUT=60000
