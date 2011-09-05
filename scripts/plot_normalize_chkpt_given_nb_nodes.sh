@@ -157,7 +157,7 @@ shift
 
 # what are the labels?
 XLABEL="Checkpoint size (log scale)"
-YLABEL="Snapshot completion time improvement in %"
+YLABEL="Normalized snapshot completion time"
 TITLE="Checkpointing, ${NB_NODES} nodes"
 
 complete_header $PLOT_FILE "$XLABEL" "$YLABEL" "$TITLE"
@@ -179,7 +179,7 @@ shift
 
 # what are the labels?
 XLABEL="Checkpoint size (log scale)"
-YLABEL="Throughput improvement in %"
+YLABEL="Normalized throughput"
 TITLE="Checkpointing, ${NB_NODES} nodes"
 
 complete_header $PLOT_FILE "$XLABEL" "$YLABEL" "$TITLE"

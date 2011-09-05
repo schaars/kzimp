@@ -45,7 +45,7 @@ echo "set title \"$TITLE\"" >> $PLOT_FILE
 fi
 
 cat << EOF >> $PLOT_FILE
-#set key left top
+#set key right bottom
 #set key at 3.35,5300
 
 set xrange [2:24]
@@ -56,9 +56,7 @@ if [ $LOG_SCALE -eq 1 ]; then
    echo "set logscale y" >> $PLOT_FILE
    echo "set yrange [1:]" >> $PLOT_FILE
 else
-   # The improvement may be < 0
-   #echo "set yrange [0:]" >> $PLOT_FILE
-   echo "set yrange [:]" >> $PLOT_FILE
+   echo "set yrange [0:]" >> $PLOT_FILE
 fi
 }
 
@@ -169,7 +167,7 @@ shift
 
 # what are the labels?
 XLABEL="Number of nodes"
-YLABEL="Snapshot completion time improvement in %"
+YLABEL="Normalized snapshot completion time"
 TITLE="Checkpointing, checkpoints of $(get_msg_size $MSG_SIZE)"
 
 complete_header $PLOT_FILE "$XLABEL" "$YLABEL" "$TITLE"
@@ -191,7 +189,7 @@ shift
 
 # what are the labels?
 XLABEL="Number of nodes"
-YLABEL="Throughput improvement in %"
+YLABEL="Normalized throughput"
 TITLE="Checkpointing, checkpoints of $(get_msg_size $MSG_SIZE)"
 
 complete_header $PLOT_FILE "$XLABEL" "$YLABEL" "$TITLE"
