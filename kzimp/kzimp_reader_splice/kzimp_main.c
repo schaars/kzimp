@@ -29,6 +29,7 @@ static struct proc_dir_entry *proc_file;
 // array of communication channels
 static struct kzimp_comm_chan *kzimp_channels;
 
+#ifdef USE_CHECKSUM_CODE
 // Compute the 16 bit one's complement sum of all the 16-bit words in data of size size.
 // Use prev as the initial value of the sum.
 // The same method is used by TCP and UDP to compute the checksum
@@ -93,6 +94,7 @@ short oneC_sum(short prev, void *data, size_t size)
 
   return sum;
 }
+#endif
 
 // return the bit to modify in the multicast mask for this reader
 // given the communication channel chan or -1 if an error has occured
@@ -259,6 +261,7 @@ static ssize_t kzimp_wait_for_reading_if_needed(struct file *filp,
   return 0;
 }
 
+#ifdef USE_CHECKSUM_CODE
 /*
  * Verify the checksum.
  * Return 1 if valid, 0 otherwise.
@@ -294,6 +297,7 @@ static int kzimp_verify_checksum(struct kzimp_message *m, size_t count,
     return 0;
   }
 }
+#endif
 
 /*
  * finalize the write: unset the bit in the bitmap, wake up the writers, update next_write_idx
@@ -369,10 +373,12 @@ static ssize_t kzimp_read
   // check length
   count = (m->len < count ? m->len : count);
 
+#ifdef USE_CHECKSUM_CODE
   if (!kzimp_verify_checksum(m, count, chan))
   {
     retval = -EIO;
   }
+#endif
 
   if (unlikely(copy_to_user(buf, m->data, count)))
   {
@@ -494,6 +500,7 @@ static void kzimp_finalize_write(struct kzimp_comm_chan *chan,
 {
   m->len = count;
 
+#ifdef USE_CHECKSUM_CODE
   // compute checksum if required
   m->checksum = 0;
   if (chan->compute_checksum)
@@ -505,6 +512,7 @@ static void kzimp_finalize_write(struct kzimp_comm_chan *chan,
       m->checksum = oneC_sum(m->checksum, buf, count);
     }
   }
+#endif
 
   m->bitmap = chan->multicast_mask;
 
@@ -602,7 +610,6 @@ static unsigned int kzimp_poll(struct file *filp, poll_table *wait)
  */
 static int kzimp_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-  unsigned long size;
   struct kzimp_comm_chan *chan; /* channel information */
   struct kzimp_ctrl *ctrl;
 
@@ -618,7 +625,7 @@ static int kzimp_mmap(struct file *filp, struct vm_area_struct *vma)
   // Check the requested size: if greater than the messages area size then return -EINVAL.
   if (vma->vm_end - vma->vm_start > chan->channel_size_in_bytes)
   {
-    printk(KERN_DEBUG "Requested size too big: %lu > %lu\n", vma->vm_end - vma->vm_start, size);
+    printk(KERN_DEBUG "Requested size too big: %lu > %lu\n", vma->vm_end - vma->vm_start, chan->channel_size_in_bytes);
     return -EINVAL;
   }
 
@@ -709,11 +716,13 @@ static long kzimp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
       break;
     }
 
+#ifdef USE_CHECKSUM_CODE
     retval = kzimp_verify_checksum(m, m->len, chan);
     if (!retval)
     {
       break;
     }
+#endif
 
     retval = ctrl->next_read_idx;
     break;
@@ -818,6 +827,10 @@ static int kzimp_read_proc_file(char *page, char **start, off_t off, int count,
         kzimp_channels[i].nb_readers, kzimp_channels[i].timeout_in_ms,
         kzimp_channels[i].compute_checksum);
   }
+
+#ifndef USE_CHECKSUM_CODE
+  len += sprintf(page + len, "!!! THE CODE THAT USES THE CHECKSUM IS NOT EXECUTED !!!\n");
+#endif
 
   return len;
 }

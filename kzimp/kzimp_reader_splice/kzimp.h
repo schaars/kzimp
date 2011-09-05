@@ -29,6 +29,9 @@
 //#define ATOMIC_WAKE_UP
 
 
+// define USE_CHECKSUM_CODE if you want to execute (parts of) the checksum code
+//#define USE_CHECKSUM_CODE
+
 // even if all the machines do not necessarily have lines of 64B, we don't really care
 #define CACHE_LINE_SIZE 64
 
@@ -60,6 +63,7 @@ static long default_timeout_in_ms = 5000;
 module_param(default_timeout_in_ms, long, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(default_timeout_in_ms, " The default timeout (in miliseconds) of the new channels.");
 
+// we always set this parameter, not to cause any problem to the module loader.
 static int default_compute_checksum = 1;
 module_param(default_compute_checksum, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(default_compute_checksum, " By default, for the new channels, do we compute the checksum on messages. If 0 then no; if 1 then yes; if 2 then on header only");
@@ -109,9 +113,12 @@ struct kzimp_message
 {
   unsigned long bitmap;       /* the bitmap, alone on  */
   int len;                    /* length of the message */
+
+#ifdef USE_CHECKSUM_CODE
   short checksum;             /* the checksum */
 
   short __p1;                 /* to align properly the char* */
+#endif
 
   char *data;                 /* the message content */
 #ifdef ATOMIC_WAKE_UP
