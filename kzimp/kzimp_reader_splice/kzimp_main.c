@@ -456,9 +456,6 @@ static ssize_t kzimp_wait_for_writing_if_needed(struct file *filp,
 
   spin_unlock(&chan->bcl);
 
-  // there is only 1 writer at a time, which will sleep until
-  // the bitmap is empty or the timeout expires.
-  // It keeps the writer lock while waiting.
   to_expired = 1;
   while (!writer_can_write(m->bitmap) && to_expired)
   {
