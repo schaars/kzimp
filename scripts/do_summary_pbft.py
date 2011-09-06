@@ -73,17 +73,19 @@ class Summary:
 
 
    def dump(self, outfile):
-      fd = open(outfile, 'w')
 
-      fd.write("#msg_size\tnb_clients\tmean_thr\tstdev_thr\tmean_lat\tstdev_lat\n")
 
       for msg_size in sorted(self.results):
+         fd = open(outfile + str(msg_size) + "B.txt", 'w')
+         fd.write("#msg_size=%iB\n"%(msg_size))
+         fd.write("#nb_clients\tmean_thr\tstdev_thr\tmean_lat\tstdev_lat\n")
+         
          sub1 = self.results[msg_size]
          for nb_clients in sorted(sub1):
             T = sub1[nb_clients]
-            fd.write("%i\t%i\t%.5f\t%.5f\t%.5f\t%.5f\n"%(msg_size, nb_clients, T[0], T[1], T[2], T[3]))
+            fd.write("%i\t%.5f\t%.5f\t%.5f\t%.5f\n"%(nb_clients, T[0], T[1], T[2], T[3]))
 
-      fd.close()
+         fd.close()
    # ]-- end dump/2
 ################################################################################
 
