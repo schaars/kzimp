@@ -14,7 +14,7 @@ if [ -z $LOG_SCALE ]; then
    LOG_SCALE=0
 fi
 XLABEL="Request size (log scale)"
-YLABEL="Normalized throughput"
+YLABEL="Normalized throughput in prop/sec"
 
 if [ $# -ge 1 ]; then
    OUT_FILE=$1
@@ -59,7 +59,8 @@ if [ $LOG_SCALE -eq 1 ]; then
    echo "set logscale y" >> $PLOT_FILE
    echo "set yrange [1:]" >> $PLOT_FILE
 else
-   echo "set yrange [0:1.5]" >> $PLOT_FILE
+   #echo "set yrange [0:1.5]" >> $PLOT_FILE
+   echo "set yrange [0:]" >> $PLOT_FILE
 fi
 
 echo -n "plot " >> $PLOT_FILE

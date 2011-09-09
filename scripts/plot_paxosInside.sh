@@ -78,7 +78,8 @@ for arg in $@; do
    if [ $first -eq 0 ]; then
       echo -n ", " >> $PLOT_FILE
    fi
-   echo -n \""$file"\" using $X:$Y:$S title \""$title"\" with yerrorlines >> $PLOT_FILE
+   #echo -n \""$file"\" using $X:$Y:$S title \""$title"\" with yerrorlines >> $PLOT_FILE
+   echo -n \""$file"\" using $X:$Y title \""$title"\" with linespoints >> $PLOT_FILE
    first=0
 done
 

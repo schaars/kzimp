@@ -46,7 +46,7 @@ echo "set title \"$TITLE\"" >> $PLOT_FILE
 fi
 
 cat << EOF >> $PLOT_FILE
-#set key left top
+set key left top
 #set key at 3.35,5300
 
 set xrange [2:24]
@@ -110,7 +110,8 @@ for arg in "$@"; do
    fi
    
    extract_data $file $MSG_SIZE
-   echo -n \"${file}.data\" using 1:2:3 title \""$title"\" with yerrorlines >> $PLOT_FILE
+   #echo -n \"${file}.data\" using 1:2:3 title \""$title"\" with yerrorlines >> $PLOT_FILE
+   echo -n \"${file}.data\" using 1:2 title \""$title"\" with linespoints >> $PLOT_FILE
    
    first=0
 done

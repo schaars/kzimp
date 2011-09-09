@@ -45,7 +45,7 @@ echo "set title \"$TITLE\"" >> $PLOT_FILE
 fi
 
 cat << EOF >> $PLOT_FILE
-#set key right bottom
+set key left top
 #set key at 3.35,5300
 
 set xrange [2:24]
@@ -56,7 +56,7 @@ if [ $LOG_SCALE -eq 1 ]; then
    echo "set logscale y" >> $PLOT_FILE
    echo "set yrange [1:]" >> $PLOT_FILE
 else
-   echo "set yrange [0:]" >> $PLOT_FILE
+   echo "set yrange [0:5]" >> $PLOT_FILE
 fi
 }
 
