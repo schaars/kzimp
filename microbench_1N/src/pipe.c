@@ -13,6 +13,10 @@
 #include <fcntl.h>
 #include <sys/uio.h>
 
+#ifdef VMSPLICE
+#include <sys/eventfd.h>
+#endif
+
 #include "ipc_interface.h"
 #include "time.h"
 
@@ -22,6 +26,7 @@
 
 // Define FAULTY_RECEIVER if you want the receiver to call recv() infinitely 
 #define FAULTY_RECEIVER
+#undef FAULTY_RECEIVER
 
 // --[ HACK ]--
 #define F_SETPIPE_SZ 1031
@@ -43,7 +48,7 @@ static int **pipes;
 static int consumer_reading_pipe; // fd used by the consumer for reading messages coming from the producer
 
 #ifdef VMSPLICE
-static char *vmsplice_msg; // buffer used to send a message with vmsplice
+static int *efd_rcv; // one eventfd per receiver; VMSPLICE only
 #endif
 
 // Initialize resources for both the producer and the consumers
@@ -93,11 +98,21 @@ void IPC_initialize(int _nb_receivers, int _request_size)
   }
 
 #ifdef VMSPLICE
-  vmsplice_msg = (char*) malloc(sizeof(char) * request_size);
-  if (!vmsplice_msg)
+  efd_rcv = (typeof(efd_rcv)) malloc(sizeof(*efd_rcv) * nb_receivers);
+  if (!efd_rcv)
   {
-    perror("[IPC_Initialize_producer] Allocation error! ");
+    perror("[IPC_Initialize] Allocation error for eventfd! ");
     exit(errno);
+  }
+
+  for (i = 0; i < nb_receivers; i++)
+  {
+    efd_rcv[i] = eventfd(0, 0);
+    if (efd_rcv[i] == -1)
+    {
+      perror("eventfd");
+      exit(-1);
+    }
   }
 #endif
 }
@@ -161,7 +176,11 @@ void IPC_clean(void)
   free(pipes);
 
 #ifdef VMSPLICE
-  free(vmsplice_msg);
+  for (i = 0; i < nb_receivers; i++)
+  {
+    close(efd_rcv[i]);
+  }
+  free(efd_rcv);
 #endif
 }
 
@@ -193,6 +212,44 @@ uint64_t get_cycles_recv()
   return nb_cycles_recv - nb_cycles_first_recv;
 }
 
+#ifdef VMSPLICE
+void get_notified(int fd)
+{
+  int r;
+  uint64_t vv;
+
+#ifdef DEBUG
+  printf("Node %i is waiting on %i\n", node_id, fd);
+#endif
+
+  r = read(fd, &vv, sizeof(vv));
+  if (r < 0)
+  {
+    perror("Write read");
+  }
+
+#ifdef DEBUG
+  printf("Node %i has waited on %i\n", node_id, fd);
+#endif
+}
+
+void notify_sender(int fd)
+{
+#ifdef DEBUG
+  printf("Node %i is writing on %i\n", node_id, fd);
+#endif
+
+  uint64_t vv = 0x1;
+  int r;
+
+  r = write(fd, &vv, sizeof(vv));
+  if (r < 0)
+  {
+    perror("IPC_receive write");
+  }
+}
+#endif
+
 // Send a message to all the cores
 // The message id will be msg_id
 void IPC_sendToAll(int msg_size, char msg_id)
@@ -206,23 +263,12 @@ void IPC_sendToAll(int msg_size, char msg_id)
     msg_size = MIN_MSG_SIZE;
   }
 
-#ifdef VMSPLICE
-  if (msg_size > request_size)
-  {
-    msg_size = request_size;
-  }
-#endif
-
-#ifndef VMSPLICE
   msg = (char*) malloc(GET_MALLOC_SIZE(sizeof(char) * msg_size));
   if (!msg)
   {
     perror("IPC_sendToAll allocation error! ");
     exit(errno);
   }
-#else
-  msg = vmsplice_msg;
-#endif
 
   // malloc is lazy: the pages may not be really allocated yet.
   // We force the allocation and the fetch of the pages with bzero
@@ -239,7 +285,6 @@ void IPC_sendToAll(int msg_size, char msg_id)
   for (i = 0; i < nb_receivers; i++)
   {
     // writing the content
-
 #ifdef VMSPLICE
     struct iovec iov;
 
@@ -255,12 +300,16 @@ void IPC_sendToAll(int msg_size, char msg_id)
     rdtsc(cycle_stop);
 
     nb_cycles_send += cycle_stop - cycle_start;
-
   }
 
-#ifndef VMSPLICE
-  free(msg);
+#ifdef VMSPLICE
+  for (i = 0; i < nb_receivers; i++)
+  {
+    get_notified(efd_rcv[i]);
+  }
 #endif
+
+  free(msg);
 }
 
 // Get a message for this core
@@ -288,6 +337,10 @@ int IPC_receive(int msg_size, char *msg_id)
     while (1)
     {
       read(consumer_reading_pipe, msg, MIN_MSG_SIZE);
+
+#ifdef VMSPLICE
+      notify_sender(efd_rcv[core_id - 1]);
+#endif
     }
   }
 #endif
@@ -316,6 +369,10 @@ int IPC_receive(int msg_size, char *msg_id)
 
     nb_cycles_recv += cycle_stop - cycle_start;
   }
+
+#ifdef VMSPLICE
+  notify_sender(efd_rcv[core_id - 1]);
+#endif
 
   if (nb_cycles_first_recv == 0)
   {
