@@ -37,7 +37,8 @@ else
    sudo ./root_set_value.sh $MSG_SIZE /proc/sys/fs/mqueue/msgsize_max
 fi
 
-sudo ./bin/posix_msg_queue_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
+# launch XP
+timelimit -p -s 9 -t $((${DURATION_XP}+30)) sudo sh -c "./bin/posix_msg_queue_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP"
 
 ./stop_all.sh
 

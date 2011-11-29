@@ -27,9 +27,10 @@ fi
 ./stop_all.sh
 
 echo "-DVMSPLICE" > PIPE_PROPERTIES
-maken pipe_vmsplice_microbench
+make pipe_vmsplice_microbench
 
-./bin/pipe_vmsplice_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
+# launch XP
+timelimit -p -s 9 -t $((${DURATION_XP}+30)) ./bin/pipe_vmsplice_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
 
 ./stop_all.sh
 

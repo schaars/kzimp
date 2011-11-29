@@ -63,7 +63,8 @@ if [ -z $NO_COMPILE ]; then
    make ipc_msg_queue_microbench
 fi
 
-./bin/ipc_msg_queue_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
+# launch XP
+timelimit -p -s 9 -t $((${DURATION_XP}+30)) ./bin/ipc_msg_queue_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
 
 ./stop_all.sh
 

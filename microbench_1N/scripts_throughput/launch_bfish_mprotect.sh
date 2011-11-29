@@ -55,7 +55,6 @@ fi
 cd -
 
 # launch XP
-#./get_memory_usage.sh  $MEMORY_DIR &
 timelimit -p -s 9 -t $((${DURATION_XP}+30)) ./bin/bfish_mprotect_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
 
 ./stop_all.sh

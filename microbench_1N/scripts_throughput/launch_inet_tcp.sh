@@ -50,7 +50,7 @@ while [ $nbc != 0 ]; do
 done
 
 # launch XP
-./bin/inet_tcp_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
+timelimit -p -s 9 -t $((${DURATION_XP}+30)) ./bin/inet_tcp_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
 
 ./stop_all.sh
 

@@ -33,7 +33,8 @@ sudo sysctl -p ../inet_sysctl.conf
 # modify the max number of datagrams
 sudo ./root_set_value.sh $NB_DATAGRAMS /proc/sys/net/unix/max_dgram_qlen
 
-./bin/unix_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
+# launch XP
+timelimit -p -s 9 -t $((${DURATION_XP}+30)) ./bin/unix_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
 
 ./stop_all.sh
 
