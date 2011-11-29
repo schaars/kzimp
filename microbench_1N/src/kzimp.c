@@ -25,6 +25,9 @@
 #define DEBUG
 #undef DEBUG
 
+// Define FAULTY_RECEIVER if you want the receiver to call recv() infinitely 
+#define FAULTY_RECEIVER
+
 /********** All the variables needed by kzimp **********/
 
 // port used by the producer
@@ -80,7 +83,16 @@ void IPC_initialize_consumer(int _core_id)
 {
   core_id = _core_id;
 
-  fd = open(KZIMP_CHAR_DEV_FILE, O_RDONLY);
+  int flags = O_RDONLY;
+
+#ifdef FAULTY_RECEIVER
+  if (core_id == 1)
+  {
+    flags |= O_NONBLOCK;
+  }
+#endif
+
+  fd = open(KZIMP_CHAR_DEV_FILE, flags);
   if (fd < 0)
   {
     printf("<<< Error while opening channel\n");
@@ -215,6 +227,16 @@ int IPC_receive(int msg_size, char *msg_id)
     perror("IPC_receive allocation error! ");
     exit(errno);
   }
+
+#ifdef FAULTY_RECEIVER
+  if (core_id == 1)
+  {
+    while (1)
+    {
+      read(fd, msg, msg_size);
+    }
+  }
+#endif
 
 #ifdef DEBUG
   printf("Waiting for a new message\n");

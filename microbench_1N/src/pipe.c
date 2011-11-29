@@ -20,10 +20,11 @@
 #define DEBUG
 #undef DEBUG
 
+// Define FAULTY_RECEIVER if you want the receiver to call recv() infinitely 
+#define FAULTY_RECEIVER
 
 // --[ HACK ]--
 #define F_SETPIPE_SZ 1031
-
 
 /********** All the variables needed by pipes **********/
 
@@ -132,6 +133,19 @@ void IPC_initialize_consumer(int _core_id)
     // the consumers never write to the pipe
     close(pipes[i][1]);
   }
+
+#ifdef FAULTY_RECEIVER
+  if (core_id == 1)
+  {
+    int ret = fcntl(consumer_reading_pipe, F_SETFL, O_NONBLOCK);
+    if (ret == -1)
+    {
+      perror(
+          "[IPC_Initialize_consumer] error when setting the pipe to non-blocking mode! ");
+      exit(errno);
+    }
+  }
+#endif
 }
 
 // Clean ressources created for both the producer and the consumer.
@@ -184,7 +198,7 @@ uint64_t get_cycles_recv()
 void IPC_sendToAll(int msg_size, char msg_id)
 {
   uint64_t cycle_start, cycle_stop;
-  int i, r;
+  int i;
   char *msg;
 
   if (msg_size < MIN_MSG_SIZE)
@@ -236,7 +250,7 @@ void IPC_sendToAll(int msg_size, char msg_id)
     vmsplice(pipes[i][1], &iov, 1, 0);
 #else
     rdtsc(cycle_start);
-    r = write(pipes[i][1], msg, msg_size);
+    write(pipes[i][1], msg, msg_size);
 #endif
     rdtsc(cycle_stop);
 
@@ -267,6 +281,16 @@ int IPC_receive(int msg_size, char *msg_id)
     perror("IPC_receive allocation error! ");
     exit(errno);
   }
+
+#ifdef FAULTY_RECEIVER
+  if (core_id == 1)
+  {
+    while (1)
+    {
+      read(consumer_reading_pipe, msg, MIN_MSG_SIZE);
+    }
+  }
+#endif
 
 #ifdef DEBUG
   printf("Waiting for a new message\n");

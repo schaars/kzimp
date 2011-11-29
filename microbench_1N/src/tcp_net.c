@@ -79,3 +79,31 @@ void sendMsg(int s, void *msg, int size, uint64_t *nb_cycles)
     bytesleft -= n;
   }
 }
+
+int recvMsg_nonBlock(int s, void *buf, size_t len)
+{
+  int len_tmp = 0;
+  int n;
+
+  do
+  {
+    n = recv(s, &(((char *) buf)[len_tmp]), len - len_tmp, 0);
+
+    if (n == -1)
+    {
+      if (errno == EWOULDBLOCK || errno == EAGAIN)
+      {
+        break;
+      }
+      else
+      {
+        perror("tcp_net:recv():");
+        exit(-1);
+      }
+    }
+
+    len_tmp = len_tmp + n;
+  } while (len_tmp < len);
+
+  return len_tmp;
+}

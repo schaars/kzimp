@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 
 #include "ipc_interface.h"
 #include "time.h"
@@ -18,6 +19,9 @@
 // debug macro
 #define DEBUG
 #undef DEBUG
+
+// Define FAULTY_RECEIVER if you want the receiver to call recv() infinitely
+#define FAULTY_RECEIVER
 
 /********** All the variables needed by UDP sockets **********/
 
@@ -143,8 +147,8 @@ void IPC_initialize_producer(int _core_id)
   multicast_addr.sin_port = htons(PRODUCER_PORT);
 
 #else
-  addresses = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in)
-      * nb_receivers);
+  addresses = (struct sockaddr_in*) malloc(
+      sizeof(struct sockaddr_in) * nb_receivers);
   if (!addresses)
   {
     perror("IPC_initialize_producer malloc error ");
@@ -216,6 +220,19 @@ void IPC_initialize_consumer(int _core_id)
 
   // bind socket
   bind(sock, (struct sockaddr *) &addresses[0], sizeof(addresses[0]));
+#endif
+
+#ifdef FAULTY_RECEIVER
+  if (core_id == 1)
+  {
+    int ret = fcntl(sock, F_SETFL, O_NONBLOCK);
+    if (ret == -1)
+    {
+      perror(
+          "[IPC_Initialize_consumer] error when setting the socket to non-blocking mode! ");
+      exit(errno);
+    }
+  }
 #endif
 }
 
@@ -348,6 +365,16 @@ int IPC_receive(int msg_size, char *msg_id)
     perror("IPC_receive allocation error! ");
     exit(errno);
   }
+
+#ifdef FAULTY_RECEIVER
+  if (core_id == 1)
+  {
+    while (1)
+    {
+      recvfrom(sock, msg, msg_size, 0, 0, 0);
+    }
+  }
+#endif
 
 #ifdef DEBUG
   printf("Waiting for a new message\n");

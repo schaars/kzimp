@@ -241,7 +241,7 @@ static ssize_t kzimp_wait_for_reading_if_needed(struct file *filp,
     // file is open in no-blocking mode
     if (filp->f_flags & O_NONBLOCK)
     {
-      printk(KERN_WARNING "kzimp: process %i in read returns because of non-blocking ops\n", current->pid);
+      //printk(KERN_WARNING "kzimp: process %i in read returns because of non-blocking ops\n", current->pid);
       return -EAGAIN;
     }
 

@@ -20,6 +20,9 @@
 #define DEBUG
 #undef DEBUG
 
+// Define FAULTY_RECEIVER if you want the receiver to call recv() infinitely
+#define FAULTY_RECEIVER
+
 /********** All the variables needed by IPC message queues **********/
 
 #define CACHE_LINE_SIZE 64
@@ -231,6 +234,16 @@ int IPC_receive(int msg_size, char *msg_id)
     exit(errno);
   }
 
+#ifdef FAULTY_RECEIVER
+  if (core_id == 1)
+  {
+    while (1)
+    {
+      msgrcv(consumer_queue, ipc_msg, sizeof(ipc_msg->mtext), 0, IPC_NOWAIT);
+    }
+  }
+#endif
+
 #ifdef DEBUG
   printf("Waiting for a new message\n");
 #endif
@@ -239,8 +252,7 @@ int IPC_receive(int msg_size, char *msg_id)
 #ifdef ONE_QUEUE
   int recv_size = msgrcv(consumer_queue, ipc_msg, sizeof(ipc_msg->mtext), core_id, 0);
 #else
-  int recv_size =
-      msgrcv(consumer_queue, ipc_msg, sizeof(ipc_msg->mtext), 0, 0);
+  int recv_size = msgrcv(consumer_queue, ipc_msg, sizeof(ipc_msg->mtext), 0, 0);
 #endif
   rdtsc(cycle_stop);
 

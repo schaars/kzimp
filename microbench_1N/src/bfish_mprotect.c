@@ -19,12 +19,14 @@
 #define DEBUG
 #undef DEBUG
 
+// Define FAULTY_RECEIVER if you want the receiver to call recv() infinitely 
+#define FAULTY_RECEIVER
+
 /********** All the variables needed by Barrelfish message-passing **********/
 
 // Define NB_MESSAGES as the size of the channels
 // Define MESSAGE_BYTES as the max size of the messages in bytes
 // Define WAIT_TYPE as USLEEP or BUSY
-
 
 #define MIN_MSG_SIZE (sizeof(char))
 
@@ -211,6 +213,14 @@ int IPC_receive(int msg_size, char *msg_id)
     perror("IPC_receive allocation error! ");
     exit(errno);
   }
+
+#ifdef FAULTY_RECEIVER
+  if (core_id == 1) {
+     while (1) {
+        recv_msg_nonblocking(&consumer_connection, msg, msg_size);
+     }
+  }
+#endif
 
 #ifdef DEBUG
   printf("Waiting for a new message\n");

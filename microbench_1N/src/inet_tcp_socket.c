@@ -12,6 +12,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 
 #include "ipc_interface.h"
 #include "tcp_net.h"
@@ -20,6 +21,9 @@
 // debug macro
 #define DEBUG
 #undef DEBUG
+
+// Define FAULTY_RECEIVER if you want the receiver to call recv() infinitely
+#define FAULTY_RECEIVER
 
 /********** All the variables needed by TCP sockets **********/
 
@@ -216,6 +220,19 @@ void IPC_initialize_consumer(int _core_id)
       break;
     }
   }
+
+#ifdef FAULTY_RECEIVER
+  if (core_id == 1)
+  {
+    int ret = fcntl(sockets[0], F_SETFL, O_NONBLOCK);
+    if (ret == -1)
+    {
+      perror(
+          "[IPC_Initialize_consumer] error when setting the socket to non-blocking mode! ");
+      exit(errno);
+    }
+  }
+#endif
 }
 
 // Clean ressources created for both the producer and the consumer.
@@ -314,6 +331,16 @@ int IPC_receive(int msg_size, char *msg_id)
     perror("IPC_receive allocation error! ");
     exit(errno);
   }
+
+#ifdef FAULTY_RECEIVER
+  if (core_id == 1)
+  {
+    while (1)
+    {
+      recvMsg_nonBlock(sockets[0], (void*) msg, MIN_MSG_SIZE);
+    }
+  }
+#endif
 
 #ifdef DEBUG
   printf("Waiting for a new message\n");
