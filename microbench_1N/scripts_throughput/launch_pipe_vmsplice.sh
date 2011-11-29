@@ -17,7 +17,7 @@ else
 fi
 
 
-OUTPUT_DIR="microbench_pipe_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B"
+OUTPUT_DIR="microbench_pipe_vmsplice_${NB_CONSUMERS}consumers_${DURATION_XP}sec_${MSG_SIZE}B"
 
 if [ -d $OUTPUT_DIR ]; then
    echo Pipes ${NB_CONSUMERS} consumers, ${DURATION_XP} sec, ${MSG_SIZE}B already done
@@ -26,10 +26,10 @@ fi
 
 ./stop_all.sh
 
->PIPE_PROPERTIES
-make pipe_microbench
+echo "-DVMSPLICE" > PIPE_PROPERTIES
+maken pipe_vmsplice_microbench
 
-./bin/pipe_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
+./bin/pipe_vmsplice_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP
 
 ./stop_all.sh
 
