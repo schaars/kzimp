@@ -24,6 +24,7 @@
 
 // Define FAULTY_RECEIVER if you want the receiver to call recv() infinitely
 #define FAULTY_RECEIVER
+#undef FAULTY_RECEIVER
 
 /********** All the variables needed by POSIX message queues **********/
 
