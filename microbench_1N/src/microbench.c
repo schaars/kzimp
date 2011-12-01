@@ -260,13 +260,6 @@ int main(int argc, char **argv)
     IPC_initialize_producer(core_id);
     double throughput = do_producer();
 
-    // wait for children to terminate
-    wait_for_receivers();
-
-    // release mechanism resources
-    IPC_clean_producer();
-    IPC_clean();
-
     char filename[256];
 
     sprintf(filename, "%s_producer%s", STATISTICS_FILE_PREFIX,
@@ -299,12 +292,18 @@ int main(int argc, char **argv)
 #endif
 
     fclose(F);
+
+    // wait for children to terminate
+    wait_for_receivers();
+
+    // release mechanism resources
+    IPC_clean_producer();
+    IPC_clean();
   }
   else
   {
     IPC_initialize_consumer(core_id);
     double throughput = do_consumer();
-    IPC_clean_consumer();
 
     char filename[256];
 
@@ -337,6 +336,8 @@ int main(int argc, char **argv)
 #endif
 
     fclose(F);
+
+    IPC_clean_consumer();
   }
 
   return 0;

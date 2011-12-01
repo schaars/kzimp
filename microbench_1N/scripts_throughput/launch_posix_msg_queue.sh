@@ -38,7 +38,7 @@ else
 fi
 
 # launch XP
-timelimit -p -s 9 -t $((${DURATION_XP}+30)) sudo sh -c "./bin/posix_msg_queue_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP"
+sudo sh -c "timelimit -p -s 9 -t $((${DURATION_XP}+30)) ./bin/posix_msg_queue_microbench -r $NB_CONSUMERS -s $MSG_SIZE -t $DURATION_XP"
 
 ./stop_all.sh
 

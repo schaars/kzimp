@@ -60,6 +60,7 @@ sudo ./root_set_value.sh 100000000 /proc/sys/kernel/msgmnb
 # make with the new parameters
 if [ -z $NO_COMPILE ]; then
    echo "$ONE_QUEUE -DMESSAGE_MAX_SIZE=$MESSAGE_MAX_SIZE" > IPC_MSG_QUEUE_PROPERTIES
+   sleep 1
    make ipc_msg_queue_microbench
 fi
 
