@@ -43,19 +43,25 @@ void do_client(void) {
       }
 
       printf("<<< Has sent %u so far\n", (unsigned int)total_size);
+
+      exit(-1);
    }
 }
 
 
 void do_server(void) {
+   char msg[MSG_LEN];
+
    // bind socket
    bind(sock, (struct sockaddr *) &address, sizeof(address));
    printf("Server is ready...\n");
 
-   // do nothing
-   // simulate the crash of the receiver by pressing ctrl+c
    while (1) {
-      sleep(1);
+      recvfrom(sock, (char*) msg, MSG_LEN, 0, 0, 0);
+
+      // do nothing
+      // simulate the crash of the receiver by pressing ctrl+c
+      //sleep(1);
    }
 }
 

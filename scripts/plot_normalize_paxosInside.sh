@@ -14,7 +14,7 @@ if [ -z $LOG_SCALE ]; then
    LOG_SCALE=0
 fi
 XLABEL="Request size (log scale)"
-YLABEL="Normalized throughput in prop/sec"
+YLABEL="Normalized throughput"
 
 if [ $# -ge 1 ]; then
    OUT_FILE=$1
