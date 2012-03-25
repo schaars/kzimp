@@ -35,7 +35,7 @@ void IPC_initialize(int _nb_nodes)
 
   int rc;
 
-  rc = MPI_Init(&argc,&argv);
+  rc = MPI_Init(NULL, NULL);
   if (rc != MPI_SUCCESS) {
      printf ("Error starting MPI program. Terminating.\n");
      MPI_Abort(MPI_COMM_WORLD, rc);
@@ -84,12 +84,9 @@ size_t IPC_receive(void *msg, size_t length)
   if (node_id == 0)
   {
      //recv a message from all nodes but me
-     //TODO: I receive 1 message in this function. Use a global variable for round-robin receive.
      MPI_Status status;
-     for (int j=0; j<nb_nodes; j++) {
-       MPI_Recv(msg, MESSAGE_MAX_SIZE, MPI_CHAR, i, 0, MPI_COMM_WORLD, &status);
-       recv_size = MESSAGE_MAX_SIZE;
-     }
+     MPI_Recv(msg, MESSAGE_MAX_SIZE, MPI_CHAR, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
+     recv_size = MESSAGE_MAX_SIZE;
   }
   else
   {
@@ -100,4 +97,3 @@ size_t IPC_receive(void *msg, size_t length)
   return (size_t) recv_size;
 }
 
-#endif

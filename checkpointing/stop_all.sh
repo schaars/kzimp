@@ -11,3 +11,7 @@ pkill -f unix_checkpointing
 pkill -f pipe_checkpointing
 pkill -f ipc_msg_queue_checkpointing
 pkill -f posix_msg_queue_checkpointing
+
+#sudo needed for knem
+sudo pkill -f openmpi_checkpointing
+sudo pkill -f mpirun

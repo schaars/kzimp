@@ -61,7 +61,7 @@ posix_msg_queue_checkpointing: $(DEPS) src/comm_mech/posix_msg_queue.c
 	$(C) $(CFLAGS) $(shell cat POSIX_MSG_QUEUE_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
 	
 openmpi_checkpointing: $(OPENMPI_DEPS) src/comm_mech/openmpi.c
-	$(shell if [ ! -e OPENMPI_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64" > OPENMPI_PROPERTIES; fi)
+	$(shell if [ ! -e OPENMPI_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64" > OPENMPI_PROPERTIES; sleep 1; fi)
 	$(OPENMPIC) $(CFLAGS) $(shell cat OPENMPI_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
 	
 clean:
