@@ -21,6 +21,10 @@
 #include "comm_mech/ipc_interface.h"
 #include "Checkpointer.h"
 
+#ifdef USE_MPI
+#include "mpi.h"
+#endif
+
 int nb_nodes = 3; // this counts the number of nodes
 uint64_t nb_iter = 10; // number of snapshots to be taken before exiting
 int *associated_core; // associated_core[i] = core on which you launch node i, for all the nodes
@@ -115,6 +119,18 @@ int main(int argc, char **argv)
   fflush(NULL);
   sync();
 
+#ifdef USE_MPI
+  // get rank from MPI
+  int numprocs, core_id;
+  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+  MPI_Comm_rank(MPI_COMM_WORLD, &core_id);
+
+  if (numprocs != nb_nodes) {
+    printf("MPI launched with a wrong number of procs: %d instead of %d\n", numprocs, nb_nodes);
+    IPC_clean_node();
+    exit(-1);
+  }
+#else
   // create them (with fork)
   int core_id = 0;
   for (int i = 1; i < nb_nodes; i++)
@@ -125,6 +141,7 @@ int main(int argc, char **argv)
       break; // i'm a child, so I exit the loop
     }
   }
+#endif
 
   // set affinity to 1 core
   cpu_set_t mask;

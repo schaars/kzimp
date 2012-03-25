@@ -1,6 +1,6 @@
 /* This file is part of multicore_replication_microbench.
  *
- * Communication mechanism: kzimp
+ * Communication mechanism: openmpi
  */
 
 #include <stdio.h>
@@ -19,10 +19,13 @@
 #define DEBUG
 //#undef DEBUG
 
+// Define MESSAGE_MAX_SIZE as the max size of a message in the channel
+// Define MESSAGE_MAX_SIZE_CHKPT_REQ as the max size of a checkpoint message
+
 #define MAX(a, b) (((a)>(b))?(a):(b))
 #define MIN(a, b) (((a)<(b))?(a):(b))
 
-/********** All the variables needed by ULM **********/
+/********** All the variables needed by openmpi **********/
 static int node_id;
 static int nb_nodes;
 
@@ -33,9 +36,7 @@ void IPC_initialize(int _nb_nodes)
 {
   nb_nodes = _nb_nodes;
 
-  int rc;
-
-  rc = MPI_Init(NULL, NULL);
+  int rc = MPI_Init(NULL, NULL);
   if (rc != MPI_SUCCESS) {
      printf ("Error starting MPI program. Terminating.\n");
      MPI_Abort(MPI_COMM_WORLD, rc);

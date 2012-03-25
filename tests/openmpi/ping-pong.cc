@@ -36,10 +36,10 @@ int main(int argc, char **argv) {
     ranges1[0][1] = numprocs-1;
     ranges1[0][2] = 1;
     MPI_Group_range_incl(orig_group, 1, ranges1, &new_group);
-    
+
     MPI_Comm_create(MPI_COMM_WORLD, new_group, &new_comm); 
-    MPI_Group_rank (new_group, &new_rank); 
-    printf("rank= %d newrank= %d\n",rank,new_rank); 
+    MPI_Group_rank (new_group, &new_rank);
+    printf("rank= %d newrank= %d\n",rank,new_rank);
 
 
     /********************** DO WORK ********************/
