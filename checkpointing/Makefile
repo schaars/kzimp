@@ -11,7 +11,7 @@ all: barrelfish_mp_checkpointing 	ulm_checkpointing 		kzimp_checkpointing 				\
 C:=g++
 OPENMPIC:=mpic++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
-DEPS:=src/time.h src/checkpointing.cc src/Checkpointer.cc src/Message.cc src/Checkpoint_request.cc src/Checkpoint_response.cc
+DEPS:=src/checkpointing.cc src/Checkpointer.cc src/Message.cc src/Checkpoint_request.cc src/Checkpoint_response.cc
 	
 barrelfish_mp_checkpointing: $(DEPS) src/comm_mech/urpc.h src/comm_mech/urpc_transport.c src/comm_mech/barrelfish_mp.c
 	$(shell if [ ! -e BARRELFISH_MP_PROPERTIES ]; then echo "-DNB_MESSAGES=10 -DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64 -DURPC_MSG_WORDS=16 -DURPC_MSG_WORDS_CHKPT=16" > BARRELFISH_MP_PROPERTIES; fi)

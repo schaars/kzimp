@@ -62,8 +62,6 @@ void IPC_initialize(int _nb_nodes, int _nb_clients)
 
 static void init_node(int _node_id)
 {
-  char chaname[256];
-
   node_id = _node_id;
 
   /* create communicator between the learner and the acceptors */
@@ -82,6 +80,8 @@ static void init_node(int _node_id)
 
     MPI_Comm_create(MPI_COMM_WORLD, new_group, &learner_bcast_comm);
 
+    int rank, new_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
     MPI_Group_rank(new_group, &new_rank);
     printf("Node %d; rank= %d newrank= %d\n", node_id, rank, new_rank);
   }
@@ -155,7 +155,7 @@ void IPC_send_node_to_client(void *msg, size_t length, int cid)
 // Return the number of read bytes.
 size_t IPC_receive(void *msg, size_t length)
 {
-  if (node_id > 1 && node_id_id < nb_paxos_nodes)
+  if (node_id > 1 && node_id < nb_paxos_nodes)
   {
     MPI_Bcast(msg, length, MPI_CHAR, 1, learner_bcast_comm);
   }

@@ -55,8 +55,8 @@ rm -f /tmp/paxosInside_client_*_finished
 ./create_config.sh $NB_PAXOS_NODES 2 $NB_ITER $LEADER_ACCEPTOR > $CONFIG_FILE
 
 # compile
-echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > OPENMPI_PROPERTIES
-make openmpi_checkpointing
+echo "-DUSE_MPI -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > OPENMPI_PROPERTIES
+make openmpi_paxosInside
 
 
 #####################################
@@ -75,6 +75,7 @@ if [ "$PROFILER" = "likwid" ]; then
  exit 0
 fi
 
+NB_NODES=$(($NB_PAXOS_NODES+2))
 if [ $KNEM_THRESH -eq 0 ]; then
   mpirun --mca btl_sm_use_knem 0 --mca btl sm,self -np ${NB_NODES} ./bin/openmpi_paxosInside $CONFIG_FILE &
 else

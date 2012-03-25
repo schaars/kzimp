@@ -58,7 +58,7 @@ kbfish_paxosInside: $(DEPS) src/comm_mech/kbfish.c
 	$(shell if [ ! -e KBFISH_PROPERTIES ]; then echo "-DMESSAGE_MAX_SIZE=128" > KBFISH_PROPERTIES; fi)
 	$(C) $(CFLAGS) $(shell cat KBFISH_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 
-openmpi_checkpointing: $(DEPS) src/comm_mech/openmpi.c
+openmpi_paxosInside: $(DEPS) src/comm_mech/openmpi.c
 	$(shell if [ ! -e OPENMPI_PROPERTIES ]; then echo "-DUSE_MPI -DMESSAGE_MAX_SIZE=128" > OPENMPI_PROPERTIES; sleep 1; fi)
 	$(OPENMPIC) $(CFLAGS) $(shell cat OPENMPI_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
 	

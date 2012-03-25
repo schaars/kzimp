@@ -24,13 +24,13 @@ else
 fi
 
 ./stop_all.sh
-rm -f /tmp/checkpointing_node_0_finished
+sudo rm -f /tmp/checkpointing_node_0_finished
 
 # create config file
 ./create_config.sh $NB_NODES $NB_ITER > $CONFIG_FILE
 
 # compile
-echo "-DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE}" > OPENMPI_PROPERTIES
+echo "-DUSE_MPI -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE}" > OPENMPI_PROPERTIES
 make openmpi_checkpointing
 
 # launch

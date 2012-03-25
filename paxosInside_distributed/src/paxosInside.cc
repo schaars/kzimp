@@ -141,8 +141,8 @@ int main(int argc, char **argv)
   MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
   MPI_Comm_rank(MPI_COMM_WORLD, &core_id);
 
-  if (numprocs != nb_nodes) {
-    printf("MPI launched with a wrong number of procs: %d instead of %d\n", numprocs, nb_nodes);
+  if (numprocs != nb_nodes+nb_clients) {
+    printf("MPI launched with a wrong number of procs: %d instead of %d+%d\n", numprocs, nb_nodes, nb_clients);
     IPC_clean_node();
     exit(-1);
   }
@@ -179,7 +179,7 @@ int main(int argc, char **argv)
     PaxosNode *paxosNode = new PaxosNode(core_id);
 
     // main loop
-    paxosNode->recv();
+    //paxosNode->recv();
 
     delete paxosNode;
 
@@ -191,6 +191,7 @@ int main(int argc, char **argv)
 
     Client *c = new Client(core_id, nb_iter);
 
+    /*
     if (core_id == nb_nodes)
     {
       // this is the receiver
@@ -201,6 +202,7 @@ int main(int argc, char **argv)
       // this is the sender
       c->send();
     }
+    */
 
     //c->run();
 
