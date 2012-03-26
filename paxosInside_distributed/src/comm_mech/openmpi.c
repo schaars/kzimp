@@ -65,26 +65,23 @@ static void init_node(int _node_id)
   node_id = _node_id;
 
   /* create communicator between the learner and the acceptors */
-  if (node_id >= 1 && node_id < nb_paxos_nodes)
-  {
-    // Extract the original group handle
-    MPI_Group orig_group, new_group;
-    MPI_Comm_group(MPI_COMM_WORLD, &orig_group);
+  // Extract the original group handle
+  MPI_Group orig_group, new_group;
+  MPI_Comm_group(MPI_COMM_WORLD, &orig_group);
 
-    // add the processes to the new group
-    int ranges1[1][3];
-    ranges1[0][0] = 1;
-    ranges1[0][1] = nb_paxos_nodes - 1;
-    ranges1[0][2] = 1;
-    MPI_Group_range_incl(orig_group, 1, ranges1, &new_group);
+  // add the processes to the new group
+  int ranges1[1][3];
+  ranges1[0][0] = 1;
+  ranges1[0][1] = nb_paxos_nodes - 1;
+  ranges1[0][2] = 1;
+  MPI_Group_range_incl(orig_group, 1, ranges1, &new_group);
 
-    MPI_Comm_create(MPI_COMM_WORLD, new_group, &learner_bcast_comm);
+  MPI_Comm_create(MPI_COMM_WORLD, new_group, &learner_bcast_comm);
 
-    int rank, new_rank;
-    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-    MPI_Group_rank(new_group, &new_rank);
-    printf("Node %d; rank= %d newrank= %d\n", node_id, rank, new_rank);
-  }
+  int rank, new_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+  MPI_Group_rank(new_group, &new_rank);
+  printf("Node %d; rank= %d newrank= %d\n", node_id, rank, new_rank);
 
   MPI_Barrier(MPI_COMM_WORLD);
 }
@@ -134,7 +131,7 @@ void IPC_send_node_unicast(void *msg, size_t length)
 // send the message msg of size length to all the nodes
 void IPC_send_node_multicast(void *msg, size_t length)
 {
-  MPI_Bcast(msg, length, MPI_CHAR, 1, learner_bcast_comm);
+  MPI_Bcast(msg, length, MPI_CHAR, 0, learner_bcast_comm);
 }
 
 // send the message msg of size length to the node 0
@@ -157,7 +154,7 @@ size_t IPC_receive(void *msg, size_t length)
 {
   if (node_id > 1 && node_id < nb_paxos_nodes)
   {
-    MPI_Bcast(msg, length, MPI_CHAR, 1, learner_bcast_comm);
+    MPI_Bcast(msg, length, MPI_CHAR, 0, learner_bcast_comm);
   }
   else
   {

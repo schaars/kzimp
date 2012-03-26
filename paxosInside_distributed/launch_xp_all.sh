@@ -34,6 +34,8 @@ for msg_size in ${MSG_SIZE_ARRAY[@]}; do
   ./launch_pipe.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size $PROFILING
   ./launch_ipc_msg_queue.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size $PROFILING
   ./launch_posix_msg_queue.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 10 $PROFILING
+  ./launch_openmpi.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 0 $PROFILING
+  ./launch_openmpi.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 72 $PROFILING
 
   # likwid example:
   #LIKWID_GROUP=CACHE ./launch_bfish_mprotect.sh $NB_PAXOS_NODES $NB_ITER $leader_acceptor $msg_size 1000 $PROFILING

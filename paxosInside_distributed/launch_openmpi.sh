@@ -147,7 +147,7 @@ fi
 # save results
 ./stop_all.sh
 if [ $KNEM_THRESH -eq 0 ]; then
-  OUTFILE="openmpi_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_.txt"
+  OUTFILE="openmpi_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}.txt"
 else
   sudo modprobe -r knem
   OUTFILE="openmpi_${NB_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_knem.txt"
