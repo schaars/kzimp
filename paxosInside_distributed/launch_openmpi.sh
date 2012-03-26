@@ -49,7 +49,7 @@ fi
 
 
 ./stop_all.sh
-rm -f /tmp/paxosInside_client_*_finished
+sudo rm -f /tmp/paxosInside_client_*_finished
 
 # create config file
 ./create_config.sh $NB_PAXOS_NODES 2 $NB_ITER $LEADER_ACCEPTOR > $CONFIG_FILE
@@ -150,8 +150,9 @@ if [ $KNEM_THRESH -eq 0 ]; then
   OUTFILE="openmpi_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}.txt"
 else
   sudo modprobe -r knem
-  OUTFILE="openmpi_${NB_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_knem.txt"
+  OUTFILE="openmpi_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_knem.txt"
 fi
 
 
+sudo chown bft:bft results.txt
 mv results.txt $OUTFILE
