@@ -10,7 +10,7 @@ all: barrelfish_mp_paxosInside 		ulm_paxosInside 				kzimp_paxosInside \
 C:=g++
 OPENMPIC:=mpic++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
-DEPS:=src/time.h src/paxosInside.cc src/Message.cc src/Request.cc src/Accept_req.cc src/Learn.cc src/Response.cc src/PaxosNode.cc src/Client.cc
+DEPS:=src/paxosInside.cc src/Message.cc src/Request.cc src/Accept_req.cc src/Learn.cc src/Response.cc src/PaxosNode.cc src/Client.cc
 
 
 inet_tcp_paxosInside: $(DEPS) src/comm_mech/tcp_net.c src/comm_mech/inet_tcp_socket.c
