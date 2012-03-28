@@ -5,11 +5,12 @@ toplevel:
 all: barrelfish_mp_checkpointing 	ulm_checkpointing 		kzimp_checkpointing 				\
 	 bfish_mprotect_checkpointing 	unix_checkpointing 		inet_tcp_checkpointing 			\
 	 inet_udp_checkpointing 		   pipe_checkpointing		ipc_msg_queue_checkpointing	\
-	 posix_msg_queue_checkpointing   openmpi_checkpointing
+	 posix_msg_queue_checkpointing   openmpi_checkpointing	mpich2_checkpointing
 	 #kbfish_checkpointing
 
 C:=g++
 OPENMPIC:=mpic++
+MPICH2C:=/home/bft/mpich2-install/bin/mpic++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
 DEPS:=src/checkpointing.cc src/Checkpointer.cc src/Message.cc src/Checkpoint_request.cc src/Checkpoint_response.cc
 	
@@ -59,8 +60,12 @@ posix_msg_queue_checkpointing: $(DEPS) src/comm_mech/posix_msg_queue.c
 	$(C) $(CFLAGS) $(shell cat POSIX_MSG_QUEUE_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
 	
 openmpi_checkpointing: $(DEPS) src/comm_mech/openmpi.c
-	$(shell if [ ! -e OPENMPI_PROPERTIES ]; then echo "-DUSE_MPI -DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64" > OPENMPI_PROPERTIES; sleep 1; fi)
-	$(OPENMPIC) $(CFLAGS) $(shell cat OPENMPI_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
+	$(shell if [ ! -e MPI_PROPERTIES ]; then echo "-DUSE_MPI -DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64" > MPI_PROPERTIES; sleep 1; fi)
+	$(OPENMPIC) $(CFLAGS) $(shell cat MPI_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
+
+mpich2_checkpointing: $(DEPS) src/comm_mech/openmpi.c
+	$(shell if [ ! -e MPI_PROPERTIES ]; then echo "-DUSE_MPI -DMESSAGE_MAX_SIZE=64 -DMESSAGE_MAX_SIZE_CHKPT_REQ=64" > MPI_PROPERTIES; sleep 1; fi)
+	$(MPICH2C) $(CFLAGS) $(shell cat MPI_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
 	
 clean:
 	-rm *.o
@@ -76,7 +81,7 @@ clean:
 	-rm PIPE_PROPERTIES
 	-rm IPC_MSG_QUEUE_PROPERTIES
 	-rm POSIX_MSG_QUEUE_PROPERTIES
-	-rm OPENMPI_PROPERTIES
+	-rm MPI_PROPERTIES
 
 clobber:
 	-rm *.o
@@ -93,3 +98,4 @@ clobber:
 	-rm bin/ipc_msg_queue_checkpointing
 	-rm bin/posix_msg_queue_checkpointing
 	-rm bin/openmpi_checkpointing
+	-rm bin/mpich2_checkpointing

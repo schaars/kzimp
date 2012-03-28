@@ -24,6 +24,7 @@ for chkpt_size in ${CHKPT_SIZE_ARRAY[@]}; do
 #         ./launch_posix_msg_queue.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 10
          ./launch_openmpi.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 0
          ./launch_openmpi.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 72
+         ./launch_mpich2.sh $nb_nodes $NB_ITER $msg_size $chkpt_size 0
 
       done
    done

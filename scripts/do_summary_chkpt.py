@@ -46,9 +46,11 @@ class Summary:
       regex1 = r"""^(.+)_(\d+)nodes_(\d+)iter_chkpt(\d+)_msg(\d+)B_(\d+)channelSize.txt"""
       regex2 = r"""^(.+)_(\d+)nodes_(\d+)iter_chkpt(\d+)_msg(\d+)B_(\d+)snapPerSec.txt"""
       regex3 = r"""^(.+)_(\d+)nodes_(\d+)iter_chkpt(\d+)_msg(\d+)B.txt"""
+      regex4 = r"""^(.+)_(\d+)nodes_(\d+)iter_chkpt(\d+)_msg(\d+)B_knem.txt"""
       regex1_obj = re.compile(regex1)
       regex2_obj = re.compile(regex2)
       regex3_obj = re.compile(regex3)
+      regex4_obj = re.compile(regex4)
 
       # for every file in the folder
       file_list = [x for x in os.listdir(self.indir) if x.endswith('.txt')]
@@ -62,8 +64,12 @@ class Summary:
                match_obj = regex2_obj.search(f)
                limit_thr=int(match_obj.group(6))
             else:
-               match_obj = regex3_obj.search(f)
-               limit_thr=0
+               if "knem" in f:
+                  match_obj = regex4_obj.search(f)
+                  limit_thr=0
+               else:
+                  match_obj = regex3_obj.search(f)
+                  limit_thr=0
             chan_size=0
 
          # parse

@@ -14,4 +14,6 @@ pkill -f kbfish_paxosInside
 
 #sudo needed for knem
 sudo pkill -f openmpi_paxosInside
+sudo pkill -f mpich2_paxosInside
 sudo pkill -f mpirun
+

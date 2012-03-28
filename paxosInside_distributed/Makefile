@@ -5,12 +5,14 @@ toplevel:
 all: barrelfish_mp_paxosInside 		ulm_paxosInside 				kzimp_paxosInside \
 	 bfish_mprotect_paxosInside 	kbfish_paxosInside 				inet_tcp_paxosInside \
 	 inet_udp_paxosInside 			unix_paxosInside 				pipe_paxosInside \
-	 ipc_msg_queue_paxosInside 		posix_msg_queue_paxosInside	openmpi_paxosInside
+	 ipc_msg_queue_paxosInside 		posix_msg_queue_paxosInside	openmpi_paxosInside \
+	 mpich2_paxosInside
 
 C:=g++
 OPENMPIC:=mpic++
+MPICH2C:=/home/bft/mpich2-install/bin/mpic++
 CFLAGS:=-Wall -Werror -g -ltcmalloc
-DEPS:=src/paxosInside.cc src/Message.cc src/Request.cc src/Accept_req.cc src/Learn.cc src/Response.cc src/PaxosNode.cc src/Client.cc
+DEPS:=src/time.h src/paxosInside.cc src/Message.cc src/Request.cc src/Accept_req.cc src/Learn.cc src/Response.cc src/PaxosNode.cc src/Client.cc
 
 
 inet_tcp_paxosInside: $(DEPS) src/comm_mech/tcp_net.c src/comm_mech/inet_tcp_socket.c
@@ -59,8 +61,12 @@ kbfish_paxosInside: $(DEPS) src/comm_mech/kbfish.c
 	$(C) $(CFLAGS) $(shell cat KBFISH_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^
 
 openmpi_paxosInside: $(DEPS) src/comm_mech/openmpi.c
-	$(shell if [ ! -e OPENMPI_PROPERTIES ]; then echo "-DUSE_MPI -DMESSAGE_MAX_SIZE=128" > OPENMPI_PROPERTIES; sleep 1; fi)
-	$(OPENMPIC) $(CFLAGS) $(shell cat OPENMPI_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
+	$(shell if [ ! -e MPI_PROPERTIES ]; then echo "-DUSE_MPI -DMESSAGE_MAX_SIZE=128" > MPI_PROPERTIES; sleep 1; fi)
+	$(OPENMPIC) $(CFLAGS) $(shell cat MPI_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
+
+mpich2_paxosInside: $(DEPS) src/comm_mech/openmpi.c
+	$(shell if [ ! -e MPI_PROPERTIES ]; then echo "-DUSE_MPI -DMESSAGE_MAX_SIZE=128" > MPI_PROPERTIES; sleep 1; fi)
+	$(MPICH2C) $(CFLAGS) $(shell cat MPI_PROPERTIES | tr '\n' ' ' 2>/dev/null) -o bin/$@ $^ -lrt
 	
 	
 clean:
@@ -77,7 +83,7 @@ clean:
 	-rm KZIMP_PROPERTIES
 	-rm BFISH_MPROTECT_PROPERTIES
 	-rm KBFISH_PROPERTIES
-	-rm OPENMPI_PROPERTIES
+	-rm MPI_PROPERTIES
 
 clobber:
 	-rm *.o
@@ -94,3 +100,4 @@ clobber:
 	-rm bin/bfish_mprotect_paxosInside
 	-rm bin/kbfish_paxosInside
 	-rm bin/openmpi_paxosInside
+	-rm bin/mpich2_paxosInside

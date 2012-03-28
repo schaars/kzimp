@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Launch a PaxosInside XP with openmpi
+# Launch a PaxosInside XP with mpich2
 # Args:
 #   $1: nb paxos nodes
 #   $2: nb iter per client
@@ -56,7 +56,7 @@ sudo rm -f /tmp/paxosInside_client_*_finished
 
 # compile
 echo "-DUSE_MPI -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE}" > MPI_PROPERTIES
-make openmpi_paxosInside
+make mpich2_paxosInside
 
 
 #####################################
@@ -76,13 +76,7 @@ if [ "$PROFILER" = "likwid" ]; then
 fi
 
 NB_NODES=$(($NB_PAXOS_NODES+2))
-if [ $KNEM_THRESH -eq 0 ]; then
-  mpirun --mca btl_sm_use_knem 0 --mca btl sm,self -np ${NB_NODES} ./bin/openmpi_paxosInside $CONFIG_FILE &
-else
-  sudo modprobe knem
-  sudo mpirun --mca btl_sm_eager_limit $KNEM_THRESH --mca btl sm,self -np ${NB_NODES} ./bin/openmpi_paxosInside $CONFIG_FILE &
-fi
-
+/home/bft/mpich2-install/bin/mpirun -np ${NB_NODES} ./bin/mpich2_paxosInside $CONFIG_FILE &
 
 
 #####################################
@@ -146,13 +140,6 @@ fi
 
 # save results
 ./stop_all.sh
-if [ $KNEM_THRESH -eq 0 ]; then
-  OUTFILE="openmpi_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}.txt"
-else
-  sudo modprobe -r knem
-  OUTFILE="openmpi_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}_knem.txt"
-fi
+OUTFILE="mpich2_${NB_PAXOS_NODES}nodes_2clients_${NB_ITER}iter_${MESSAGE_MAX_SIZE}B_${LEADER_ACCEPTOR}.txt"
 
-
-sudo chown bft:bft results.txt
 mv results.txt $OUTFILE

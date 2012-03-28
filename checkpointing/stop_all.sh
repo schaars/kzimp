@@ -14,4 +14,6 @@ pkill -f posix_msg_queue_checkpointing
 
 #sudo needed for knem
 sudo pkill -f openmpi_checkpointing
+sudo pkill -f mpich2_checkpointing
 sudo pkill -f mpirun
+

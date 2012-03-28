@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Launch a Checkpointing XP with openmpi
+# Launch a Checkpointing XP with mpich2
 # Args:
 #   $1: nb nodes
 #   $2: nb iter
@@ -31,15 +31,10 @@ sudo rm -f /tmp/checkpointing_node_0_finished
 
 # compile
 echo "-DUSE_MPI -DMESSAGE_MAX_SIZE=${MESSAGE_MAX_SIZE} -DMESSAGE_MAX_SIZE_CHKPT_REQ=${CHKPT_SIZE}" > MPI_PROPERTIES
-make openmpi_checkpointing
+make mpich2_checkpointing
 
 # launch
-if [ $KNEM_THRESH -eq 0 ]; then
-  mpirun --mca btl_sm_use_knem 0 --mca btl sm,self -np ${NB_NODES} ./bin/openmpi_checkpointing $CONFIG_FILE &
-else
-  sudo modprobe knem
-  sudo mpirun --mca btl_sm_eager_limit $KNEM_THRESH --mca btl sm,self -np ${NB_NODES} ./bin/openmpi_checkpointing $CONFIG_FILE &
-fi
+/home/bft/mpich2-install/bin/mpirun -np ${NB_NODES} ./bin/mpich2_checkpointing $CONFIG_FILE &
 
 # wait for the end
 F=/tmp/checkpointing_node_0_finished
@@ -57,11 +52,6 @@ done
 
 # save results
 ./stop_all.sh
-if [ $KNEM_THRESH -eq 0 ]; then
-  OUTFILE="openmpi_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B.txt"
-else
-  sudo modprobe -r knem
-  OUTFILE="openmpi_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B_knem.txt"
-fi
+OUTFILE="mpich2_${NB_NODES}nodes_${NB_ITER}iter_chkpt${CHKPT_SIZE}_msg${MESSAGE_MAX_SIZE}B.txt"
 
 mv results.txt ${OUTFILE}
